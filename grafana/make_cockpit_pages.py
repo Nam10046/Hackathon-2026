@@ -1,225 +1,248 @@
-"""Generate the multi-page Customer Value Cockpit (Grafana). Output: grafana/dashboards/cockpit_*.json"""
-import json, sys
+"""Generate the Customer Value Cockpit pages for Grafana (simple version).
+
+    python grafana/make_cockpit_pages.py            # writes grafana/dashboards/cockpit_*.json
+
+Design rules: one fixed menu (same order on every page, current page included), max ~5 panels per page,
+plain-language names instead of codes, every panel title says what you are looking at.
+"""
+import json
+import sys
 from pathlib import Path
-OUT = Path(sys.argv[1]) if len(sys.argv) > 1 and sys.argv[1] != "sql" else None
+
+OUT = Path(__file__).resolve().parent / "dashboards"
 DS = {"type": "grafana-postgresql-datasource", "uid": "compactor-pg"}
 TIME = {"from": "2025-10-01T00:00:00Z", "to": "2026-10-15T00:00:00Z"}
+
+PAGES = [  # (uid, menu label)
+    ("value-cockpit", "1 Overview"), ("cockpit-findings", "2 Problems found"), ("cockpit-cost", "3 Cost & weight"),
+    ("cockpit-operators", "4 Waste companies"), ("cockpit-actions", "5 Decisions"), ("smart-compactor", "6 Live sensors"),
+]
+
+# plain-language names for the codes in the data
+PROBLEM = {
+    "COST_PER_T_HIGH": "Very high cost per tonne", "PREMATURE_UNJUSTIFIED": "Emptied too early",
+    "DELAYED_COLLECTION": "Emptied too late (overflow risk)", "WEIGHT_DISCREPANCY": "Our scale and truck scale disagree",
+    "CONTAMINATION_VALUE_LOSS": "Dirty load lost its value", "REJECTED_LOAD": "Load rejected",
+    "OUTDATED_TARIFF": "Old price on invoice", "DUPLICATE_LINE": "Charged twice", "WRONG_SURCHARGE": "Wrong extra fee",
+    "WEIGHT_BASIS_MISMATCH": "Invoice tonnes differ from truck scale", "UNMATCHED_LINE": "Charge without a lift",
+    "MISSING_LINE": "Charge or credit missing", "UNINVOICED_COLLECTION": "Lift never invoiced",
+}
+ACTION = {
+    "DISPUTE_INVOICE": "Ask the operator to correct the invoice", "REQUEST_WEIGHBRIDGE_DATA": "Ask for the weight tickets",
+    "RENEGOTIATE_CONTRACT": "Renegotiate the price", "TENDER_OR_SWITCH_OPERATOR": "Get offers from other waste companies",
+}
+MATERIAL = {"cardboard": "Cardboard", "mixed_waste": "Mixed waste", "plastic_film": "Plastic film", "biowaste": "Bio waste",
+            "paper": "Paper", "mixed_plastic": "Mixed plastic"}
+
+
+def case(col, mapping):
+    return "CASE " + col + " " + " ".join(f"WHEN '{k}' THEN '{v}'" for k, v in mapping.items()) + f" ELSE {col} END"
+
+
+PROB, ACT, MAT = case("label_family", PROBLEM), case("a.action", ACTION), case("material_stream", MATERIAL)
 LATEST = ("LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions "
           "GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id")
-STATUS = "COALESCE(CASE d.decision WHEN 'APPROVE' THEN 'approved' WHEN 'REJECT' THEN 'rejected' END, 'pending')"
-NICE = "replace(lower(label_family), '_', ' ')"
-ALL_SQL = []
+OPEN = "(d.decision IS NULL OR d.decision = 'REVERT')"
+SQL = []
+
+
+def menu(current_uid):
+    links = [{"title": ("● " if uid == current_uid else "") + label, "type": "link", "url": f"/d/{uid}?${{__url_time_range}}",
+              "targetBlank": False, "keepTime": False, "icon": "dashboard"} for uid, label in PAGES]
+    links.append({"title": "Approve decisions ↗", "type": "link", "url": "http://localhost:8000/cockpit", "targetBlank": True,
+                  "icon": "external link"})
+    return links
+
 
 def var(name, label, sql):
-    ALL_SQL.append(sql)
+    SQL.append(sql)
     return {"name": name, "label": label, "type": "query", "datasource": DS, "query": sql, "definition": sql,
             "multi": True, "includeAll": True, "current": {"selected": True, "text": ["All"], "value": ["$__all"]},
             "refresh": 1, "sort": 1}
 
+
 def page(uid, title, intro, panels, variables=()):
-    pid = 0
-    out = []
-    # how-to-read box on top of every page
-    out.append({"id": 100, "type": "text", "title": "How to read this page", "gridPos": {"x": 0, "y": 0, "w": 24, "h": 4},
-                "options": {"mode": "markdown", "content": intro}})
-    for p in panels:
-        pid += 1
-        p["id"] = pid
-        p.setdefault("datasource", DS)
-        for t in p.get("targets", []):
-            ALL_SQL.append(t["rawSql"])
+    out = [{"id": 100, "type": "text", "title": "", "transparent": True, "gridPos": {"x": 0, "y": 0, "w": 24, "h": 3},
+            "options": {"mode": "markdown", "content": intro}}]
+    for i, p in enumerate(panels, 1):
+        p["id"] = i
+        for t in p["targets"]:
+            SQL.append(t["rawSql"])
         out.append(p)
-    return {"uid": uid, "title": title, "tags": ["europress-cockpit"], "timezone": "browser", "schemaVersion": 39, "version": 1,
-            "refresh": "1m", "time": TIME, "graphTooltip": 1, "editable": True,
-            "description": "SYNTHETIC DATA (Europress SMART Material Value Engine v1.0.1). Proposals need human approval.",
-            "links": [{"title": "Cockpit pages", "type": "dashboards", "tags": ["europress-cockpit"], "asDropdown": False,
-                       "includeVars": False, "keepTime": True},
-                      {"title": "Approve actions", "type": "link", "url": "http://localhost:8000/cockpit", "targetBlank": True, "icon": "external link"}],
+    return {"uid": uid, "title": title, "tags": ["europress-cockpit"], "timezone": "browser", "schemaVersion": 39, "version": 3,
+            "refresh": "1m", "time": TIME, "graphTooltip": 1, "editable": True, "links": menu(uid),
+            "description": "SYNTHETIC DATA (Europress dataset v1.0.1). Proposals need human approval.",
             "panels": out, "templating": {"list": list(variables)}}
 
+
 def P(title, typ, sql, x, y, w, h, fmt="table", field=None, options=None, desc=""):
-    return {"title": title, "description": desc, "type": typ, "gridPos": {"x": x, "y": y, "w": w, "h": h},
+    field = field or {"defaults": {}, "overrides": []}
+    if typ == "bargauge":
+        field["defaults"]["color"] = {"mode": "fixed", "fixedColor": "#5794F2"}
+    return {"title": title, "description": desc, "type": typ, "datasource": DS, "gridPos": {"x": x, "y": y, "w": w, "h": h},
             "targets": [{"refId": "A", "datasource": DS, "editorMode": "code", "format": fmt, "rawQuery": True, "rawSql": sql}],
-            "fieldConfig": field or {"defaults": {}, "overrides": []}, "options": options or {}}
+            "fieldConfig": field, "options": options or {}}
+
 
 STAT = {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False}, "colorMode": "none", "graphMode": "none",
-        "textMode": "value", "justifyMode": "center"}
-EUR0 = {"defaults": {"unit": "currencyEUR", "decimals": 0}, "overrides": []}
-def unit_over(name, unit): return {"matcher": {"id": "byName", "options": name}, "properties": [{"id": "unit", "value": unit}]}
-def width_over(name, w): return {"matcher": {"id": "byName", "options": name}, "properties": [{"id": "custom.width", "value": w}]}
-def color_bg(name, steps): return {"matcher": {"id": "byName", "options": name}, "properties": [
-    {"id": "custom.cellOptions", "value": {"type": "color-background", "mode": "basic"}},
-    {"id": "thresholds", "value": {"mode": "absolute", "steps": steps}}]}
-GREEN_RED = lambda a, b: [{"color": "transparent", "value": None}, {"color": "orange", "value": a}, {"color": "red", "value": b}]
-BARH = lambda fields: {"orientation": "horizontal", "displayMode": "gradient", "valueMode": "color", "showUnfilled": True,
-                       "namePlacement": "left", "reduceOptions": {"calcs": ["lastNotNull"], "fields": fields, "values": True}}
+        "textMode": "value", "justifyMode": "center", "wideLayout": True}
+EUR = {"defaults": {"unit": "currencyEUR", "decimals": 0}, "overrides": []}
+BAR = lambda f: {"orientation": "horizontal", "displayMode": "basic", "valueMode": "text", "showUnfilled": True,  # noqa: E731
+                 "namePlacement": "left", "sizing": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": f, "values": True}}
 TABLE = {"showHeader": True, "cellHeight": "sm", "footer": {"show": False}}
 
-V_CUST = var("customer", "Customer", "SELECT DISTINCT customer_name FROM cp_collections WHERE customer_name IS NOT NULL ORDER BY 1")
-V_OP = var("operator", "Operator", "SELECT DISTINCT operator_name FROM cp_collections WHERE operator_name IS NOT NULL ORDER BY 1")
-V_FAM = var("finding", "Finding type", f"SELECT DISTINCT label_family FROM cp_flags ORDER BY 1")
-V_MAT = var("material", "Material", "SELECT DISTINCT material_stream FROM cp_collections WHERE material_stream IS NOT NULL ORDER BY 1")
 
-# ---------------------------------------------------------------- 1 OVERVIEW
-overview = page("value-cockpit", "1 · Overview — Customer Value Cockpit",
-"""**The whole year in one screen** (synthetic data). Top row = the four numbers to remember.
-**Net material contribution** is negative = customers pay much more for collection and treatment than they get back as material credit.
-**€ at stake** = estimated money behind all findings — things to *check*, not proven savings. Click the page names above to go deeper:
-**2 · Findings** (what went wrong) · **3 · Cost & weight** (€ per tonne, scale vs weighbridge) · **4 · Operators** (neutral scorecard) · **5 · Actions** (what a person should approve).""",
+def o_unit(n, u): return {"matcher": {"id": "byName", "options": n}, "properties": [{"id": "unit", "value": u}]}
+def o_width(n, w): return {"matcher": {"id": "byName", "options": n}, "properties": [{"id": "custom.width", "value": w}]}
+def o_colour(n, steps):
+    return {"matcher": {"id": "byName", "options": n}, "properties": [
+        {"id": "custom.cellOptions", "value": {"type": "color-text"}},
+        {"id": "thresholds", "value": {"mode": "absolute", "steps": steps}}]}
+
+
+V_CUST = var("customer", "Customer", "SELECT DISTINCT customer_name FROM cp_collections WHERE customer_name IS NOT NULL ORDER BY 1")
+V_OP = var("operator", "Waste company", "SELECT DISTINCT operator_name FROM cp_collections WHERE operator_name IS NOT NULL ORDER BY 1")
+V_PROB = var("problem", "Problem", f"SELECT DISTINCT {PROB} AS __text, label_family AS __value FROM cp_flags ORDER BY 1")
+V_MAT = var("material", "Material", f"SELECT DISTINCT {MAT} AS __text, material_stream AS __value FROM cp_collections WHERE material_stream IS NOT NULL ORDER BY 1")
+
+# ------------------------------------------------------------------ 1 OVERVIEW
+overview = page("value-cockpit", "1 Overview",
+"""### One year of waste service for 52 customers (synthetic data)
+Customers **paid** the waste companies the amount on the left and **got money back** for recyclables. Our system checked every lift and invoice line and found **money worth checking**. A person decides what to do — see *5 Decisions*.""",
 [
- P("Lifts in 12 months", "stat", "SELECT count(*) AS \"Lifts\" FROM cp_collections WHERE status = 'COMPLETED'", 0, 4, 6, 4, options=STAT,
-   desc="Completed collections (the truck emptied the container)."),
- P("Net material contribution", "stat", "SELECT round(sum(net_material_contribution_eur)::numeric) AS v FROM cp_collections", 6, 4, 6, 4, field=EUR0, options=STAT,
-   desc="Material credits minus collection, processing and penalties, under the (hypothetical) customer–operator contracts."),
- P("€ at stake in findings", "stat", "SELECT round(sum(eur_at_stake)::numeric) AS v FROM cp_flags", 12, 4, 6, 4, field=EUR0, options=STAT,
-   desc="Estimated: euro impact of all findings. To be checked by a person."),
- P("Actions waiting for a person", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE d.decision IS NULL OR d.decision = 'REVERT'",
-   18, 4, 6, 4, options=STAT, desc="Proposals not yet approved or rejected. Approve them on page 5 / the approval page."),
- P("Where the money is — € at stake by finding type", "bargauge",
-   f"SELECT {NICE} AS \"Finding\", round(sum(eur_at_stake)::numeric) AS \"EUR\" FROM cp_flags GROUP BY 1 HAVING sum(eur_at_stake) > 0 ORDER BY 2 DESC",
-   0, 8, 12, 10, field=EUR0, options=BARH("/EUR/"), desc="Longest bar = biggest money pool to look at first."),
- P("Who is affected — top 10 customers by € at stake", "bargauge",
-   "SELECT customer_name AS \"Customer\", round(sum(eur_at_stake)::numeric) AS \"EUR\" FROM cp_flags WHERE customer_name IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 10",
-   12, 8, 12, 10, field=EUR0, options=BARH("/EUR/")),
- P("Findings per month", "timeseries",
-   "SELECT date_trunc('month', found_at) AS \"time\", CASE entity_type WHEN 'collection' THEN 'lift findings' ELSE 'invoice findings' END AS metric, count(*) AS n "
-   "FROM cp_flags WHERE $__timeFilter(found_at) GROUP BY 1, 2 ORDER BY 1", 0, 18, 24, 8, fmt="time_series",
-   field={"defaults": {"min": 0, "custom": {"drawStyle": "bars", "fillOpacity": 70, "stacking": {"mode": "normal"}, "barAlignment": 0}}, "overrides": []},
-   options={"legend": {"displayMode": "list", "placement": "bottom"}, "tooltip": {"mode": "multi"}}),
+    P("Paid for waste service", "stat", "SELECT round(sum(collection_cost_eur + processing_cost_eur + penalties_eur)::numeric) AS v FROM cp_collections",
+      0, 3, 6, 4, field=EUR, options=STAT, desc="Collection, treatment and penalty charges under the customer–operator contracts (hypothetical prices)."),
+    P("Money back for recyclables", "stat", "SELECT round(sum(material_credit_eur)::numeric) AS v FROM cp_collections",
+      6, 3, 6, 4, field=EUR, options=STAT, desc="Material credits for cardboard and plastic."),
+    P("Money worth checking", "stat", "SELECT round(sum(eur_at_stake)::numeric) AS v FROM cp_flags",
+      12, 3, 6, 4, field=EUR, options=STAT, desc="Estimated euros behind all problems found. To check — not a proven saving."),
+    P("Decisions waiting", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE {OPEN}",
+      18, 3, 6, 4, options=STAT, desc="Proposals no person has approved or rejected yet."),
+    P("Which problems cost the most?", "bargauge",
+      f"SELECT {PROB} AS \"Problem\", round(sum(eur_at_stake)::numeric) AS \"EUR\" FROM cp_flags GROUP BY 1 HAVING sum(eur_at_stake) > 0 ORDER BY 2 DESC",
+      0, 7, 12, 11, field=EUR, options=BAR("/EUR/")),
+    P("Which customers have the most to check?", "bargauge",
+      "SELECT customer_name AS \"Customer\", round(sum(eur_at_stake)::numeric) AS \"EUR\" FROM cp_flags WHERE customer_name IS NOT NULL "
+      "GROUP BY 1 ORDER BY 2 DESC LIMIT 10", 12, 7, 12, 11, field=EUR, options=BAR("/EUR/")),
 ])
 
-# ---------------------------------------------------------------- 2 FINDINGS
-fwhere = "customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($finding)"
-findings = page("cockpit-findings", "2 · Findings — what looks wrong",
-"""**Every irregularity the system found**, with a plain-language explanation and the evidence. Use the filters at the top (customer, operator, finding type).
-**Source record** = the exact lift or invoice line in the data (row-level audit trail). A finding is a **discrepancy to check, not an accusation** — causes can be the sensor, data gaps or combined truck loads.
-Tip: sort the table by **€ at stake** (click the column header).""",
+# ------------------------------------------------------------------ 2 PROBLEMS FOUND
+fw = "customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($problem)"
+findings = page("cockpit-findings", "2 Problems found",
+"""### Every problem found, with the reason
+Pick a **customer**, **waste company** or **problem** at the top. Each row is one lift or invoice line that looks wrong, *why* we think so, and the euros involved.
+It is a **difference to check, not an accusation** — the cause can also be a sensor or missing data.""",
 [
- P("Findings by type", "bargauge", f"SELECT {NICE} AS \"Finding\", count(*) AS \"Count\" FROM cp_flags WHERE {fwhere} GROUP BY 1 ORDER BY 2 DESC",
-   0, 4, 8, 11, options=BARH("/Count/")),
- P("Lift findings vs invoice findings", "piechart",
-   f"SELECT CASE entity_type WHEN 'collection' THEN 'lift' ELSE 'invoice line' END AS \"Type\", count(*) AS \"Count\" FROM cp_flags WHERE {fwhere} GROUP BY 1",
-   8, 4, 6, 11, options={"reduceOptions": {"calcs": ["lastNotNull"], "fields": "/Count/", "values": True}, "pieType": "donut",
-                         "legend": {"displayMode": "list", "placement": "bottom", "values": ["value"]}}),
- P("Findings over time", "timeseries",
-   f"SELECT date_trunc('week', found_at) AS \"time\", count(*) AS findings FROM cp_flags WHERE {fwhere} AND $__timeFilter(found_at) GROUP BY 1 ORDER BY 1",
-   14, 4, 10, 11, fmt="time_series", field={"defaults": {"min": 0, "custom": {"drawStyle": "bars", "fillOpacity": 70}}, "overrides": []}),
- P("All findings (newest first) — click a column to sort", "table",
-   f"SELECT found_at AS \"Date\", {NICE} AS \"Finding\", customer_name AS \"Customer\", site_name AS \"Site\", operator_name AS \"Operator\", "
-   f"explanation AS \"What it means\", evidence AS \"Evidence\", eur_at_stake AS \"€ at stake\", entity_id AS \"Source record\" "
-   f"FROM cp_flags WHERE {fwhere} AND $__timeFilter(found_at) ORDER BY found_at DESC LIMIT 1000",
-   0, 15, 24, 16, field={"defaults": {"custom": {"filterable": True}}, "overrides": [unit_over("€ at stake", "currencyEUR"),
-       width_over("Date", 110), width_over("Finding", 170), width_over("€ at stake", 95), width_over("Source record", 190)]}, options=TABLE),
-], [V_CUST, V_OP, V_FAM])
+    P("How many of each problem?", "bargauge",
+      f"SELECT {PROB} AS \"Problem\", count(*) AS \"Count\" FROM cp_flags WHERE {fw} GROUP BY 1 ORDER BY 2 DESC",
+      0, 3, 9, 13, options=BAR("/Count/")),
+    P("Problems, biggest euros first (click a column header to sort)", "table",
+      f"SELECT found_at::date AS \"Date\", customer_name AS \"Customer\", {PROB} AS \"Problem\", evidence AS \"What the data shows\", "
+      f"eur_at_stake AS \"Euros\", entity_id AS \"Record\" FROM cp_flags WHERE {fw} AND $__timeFilter(found_at) "
+      "ORDER BY eur_at_stake DESC NULLS LAST, found_at DESC LIMIT 1000",
+      9, 3, 15, 26, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Euros", "currencyEUR"),
+          o_width("Date", 100), o_width("Problem", 210), o_width("Euros", 90), o_width("Record", 180)]}, options=TABLE),
+    P("Problems per month", "timeseries",
+      f"SELECT date_trunc('month', found_at) AS \"time\", count(*) AS \"problems\" FROM cp_flags WHERE {fw} AND $__timeFilter(found_at) GROUP BY 1 ORDER BY 1",
+      0, 16, 9, 13, fmt="time_series",
+      field={"defaults": {"min": 0, "color": {"mode": "fixed", "fixedColor": "#5794F2"},
+                          "custom": {"drawStyle": "bars", "fillOpacity": 80}}, "overrides": []},
+      options={"legend": {"showLegend": False}}),
+], [V_CUST, V_OP, V_PROB])
 
-# ---------------------------------------------------------------- 3 COST & WEIGHT
-cwhere = "customer_name IN ($customer) AND material_stream IN ($material)"
-cost = page("cockpit-cost", "3 · Cost & weight — € per tonne and the scale",
-"""**€ per tonne (€/t) is the key cost number** — it needs a known weight. *% of benchmark* above 100 = more expensive than similar contracts (orange > 130 %, red > 200 %).
-*% measured weight* = share of lifts where the weight came from a weighbridge ticket or the invoice (**observed**) instead of the device (**estimated**). No weight → no €/t (we never invent it).
-Bottom: lifts where **our scale and the operator's weighbridge disagree by > 10 %** — the reason independent weighing matters. Causes can be either side.""",
+# ------------------------------------------------------------------ 3 COST & WEIGHT
+cw = "customer_name IN ($customer) AND material_stream IN ($material)"
+cost = page("cockpit-cost", "3 Cost & weight",
+"""### Who pays too much per tonne — and does our scale agree with the truck's?
+**€ per tonne** = total collection euros ÷ total tonnes collected. *Times normal* compares it with similar contracts: **1.5** means paying 50 % more.
+Bottom table: lifts where **our scale** and the **waste company's truck scale** disagree by more than 10 % — the reason independent weighing matters.""",
 [
- P("Average €/t by material", "bargauge",
-   f"SELECT material_stream AS \"Material\", round(avg(collection_cost_eur_per_t)::numeric) AS \"EUR per t\" FROM cp_collections "
-   f"WHERE collection_cost_eur_per_t IS NOT NULL AND {cwhere} GROUP BY 1 ORDER BY 2 DESC", 0, 4, 8, 9,
-   field={"defaults": {"unit": "currencyEUR", "decimals": 0}, "overrides": []}, options=BARH("/EUR per t/")),
- P("Where the weight comes from", "piechart",
-   f"SELECT CASE mass_evidence WHEN 'OBSERVED' THEN 'measured (ticket / invoice)' WHEN 'ESTIMATED' THEN 'device estimate' ELSE 'unknown' END AS \"Source\", "
-   f"count(*) AS \"Lifts\" FROM cp_collections WHERE status = 'COMPLETED' AND {cwhere} GROUP BY 1", 8, 4, 6, 9,
-   options={"reduceOptions": {"calcs": ["lastNotNull"], "fields": "/Lifts/", "values": True}, "pieType": "donut",
-            "legend": {"displayMode": "list", "placement": "bottom", "values": ["percent"]}}),
- P("Scale vs weighbridge: share of lifts with > 10 % difference, by operator", "bargauge",
-   "SELECT operator_name AS \"Operator\", round((100.0 * avg(CASE WHEN abs(weighbridge_net_kg - device_estimated_collected_kg) > 0.1 * device_estimated_collected_kg "
-   "THEN 1 ELSE 0 END))::numeric, 1) AS \"% of lifts\" FROM cp_collections WHERE weighbridge_net_kg IS NOT NULL AND device_estimated_collected_kg > 200 "
-   f"AND {cwhere} GROUP BY 1 ORDER BY 2 DESC", 14, 4, 10, 9,
-   field={"defaults": {"unit": "percent", "decimals": 1, "min": 0}, "overrides": []}, options=BARH("/% of lifts/")),
- P("Cost per tonne by site (most expensive first)", "table",
-   "SELECT customer_name AS \"Customer\", site_name AS \"Site\", material_stream AS \"Material\", count(*) AS \"Lifts\", "
-   "round(avg(collection_cost_eur_per_t)::numeric) AS \"€/t\", round(avg(benchmark_eur_per_t)::numeric) AS \"Benchmark €/t\", "
-   "round((avg(collection_cost_eur_per_t) / NULLIF(avg(benchmark_eur_per_t), 0) * 100)::numeric) AS \"% of benchmark\", "
-   "round((100.0 * avg(CASE WHEN mass_evidence = 'OBSERVED' THEN 1 ELSE 0 END))::numeric) AS \"% measured weight\" "
-   f"FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND {cwhere} GROUP BY 1, 2, 3 ORDER BY 7 DESC NULLS LAST LIMIT 200",
-   0, 13, 24, 10, field={"defaults": {"custom": {"filterable": True}}, "overrides": [color_bg("% of benchmark", GREEN_RED(130, 200)),
-       unit_over("€/t", "currencyEUR"), unit_over("Benchmark €/t", "currencyEUR")]}, options=TABLE),
- P("Lifts where scale and weighbridge differ by > 10 %", "table",
-   "SELECT service_date AS \"Date\", customer_name AS \"Customer\", device_id AS \"Device\", operator_name AS \"Operator\", "
-   "device_estimated_collected_kg AS \"Our scale kg\", weighbridge_net_kg AS \"Weighbridge kg\", "
-   "round((100.0 * (weighbridge_net_kg - device_estimated_collected_kg) / NULLIF(device_estimated_collected_kg, 0))::numeric, 1) AS \"Difference %\", "
-   "operator_job_ref AS \"Job ref\" FROM cp_collections WHERE weighbridge_net_kg IS NOT NULL AND device_estimated_collected_kg > 200 "
-   f"AND abs(weighbridge_net_kg - device_estimated_collected_kg) > 0.1 * device_estimated_collected_kg AND {cwhere} "
-   "AND $__timeFilter(service_date) ORDER BY abs(weighbridge_net_kg - device_estimated_collected_kg) DESC LIMIT 500",
-   0, 23, 24, 10, field={"defaults": {"custom": {"filterable": True}}, "overrides": [color_bg("Difference %", [
-       {"color": "red", "value": None}, {"color": "transparent", "value": -10}, {"color": "red", "value": 10}])]}, options=TABLE),
+    P("€ per tonne vs normal, by material", "table",
+      f"SELECT {MAT} AS \"Material\", count(*) AS \"Lifts\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0))::numeric) AS \"Paid € / t\", "
+      "round(avg(benchmark_eur_per_t)::numeric) AS \"Normal € / t\", "
+      "round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0) / NULLIF(avg(benchmark_eur_per_t), 0))::numeric, 1) AS \"Times normal\" "
+      f"FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND {cw} GROUP BY 1 ORDER BY 5 DESC",
+      0, 3, 10, 9, field={"defaults": {}, "overrides": [o_colour("Times normal", [{"color": "text", "value": None},
+          {"color": "orange", "value": 1.3}, {"color": "red", "value": 2}])]}, options=TABLE),
+    P("Sites that pay the most per tonne", "table",
+      f"SELECT customer_name AS \"Customer\", site_name AS \"Site\", {MAT} AS \"Material\", count(*) AS \"Lifts\", "
+      "round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0))::numeric) AS \"Paid € / t\", "
+      "round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0) / NULLIF(avg(benchmark_eur_per_t), 0))::numeric, 1) AS \"Times normal\" "
+      f"FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND {cw} GROUP BY 1, 2, 3 HAVING count(*) >= 5 ORDER BY 6 DESC NULLS LAST LIMIT 100",
+      10, 3, 14, 9, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_colour("Times normal", [{"color": "text", "value": None},
+          {"color": "orange", "value": 1.3}, {"color": "red", "value": 2}])]}, options=TABLE),
+    P("Our scale vs truck scale: lifts that differ by more than 10 %", "table",
+      f"SELECT service_date::date AS \"Date\", customer_name AS \"Customer\", operator_name AS \"Waste company\", "
+      "round(device_estimated_collected_kg::numeric) AS \"Our scale (kg)\", round(weighbridge_net_kg::numeric) AS \"Truck scale (kg)\", "
+      "round((100.0 * (weighbridge_net_kg - device_estimated_collected_kg) / NULLIF(device_estimated_collected_kg, 0))::numeric) AS \"Difference %\" "
+      "FROM cp_collections WHERE weighbridge_net_kg IS NOT NULL AND device_estimated_collected_kg > 200 "
+      f"AND abs(weighbridge_net_kg - device_estimated_collected_kg) > 0.1 * device_estimated_collected_kg AND {cw} "
+      "AND $__timeFilter(service_date) ORDER BY abs(weighbridge_net_kg - device_estimated_collected_kg) DESC LIMIT 500",
+      0, 12, 24, 12, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Difference %", "percent")]}, options=TABLE),
 ], [V_CUST, V_MAT])
 
-# ---------------------------------------------------------------- 4 OPERATORS
-owhere = "operator_name IN ($operator)"
-ops = page("cockpit-operators", "4 · Operators — neutral performance scorecard",
-"""**How each (fictional) waste operator performs**, measured from the customer's own records. Higher is better for *on time* and *tickets shared*; lower is better for the rest.
-Use it as **facts for contract talks**, not blame: weight bias and billing differences can also come from device sensors, combined truck loads or missing data.""",
+# ------------------------------------------------------------------ 4 WASTE COMPANIES
+ow = "operator_name IN ($operator)"
+ops = page("cockpit-operators", "4 Waste companies",
+"""### How each waste company performs (fictional companies)
+**On time** and **tickets shared**: higher is better. **Invoice errors**: lower is better. Use these as facts for contract talks, not as blame —
+some differences come from sensors or missing data.""",
 [
- P("On-time lifts %", "bargauge", f"SELECT operator_name AS \"Operator\", round((100 * avg(on_time_rate))::numeric, 1) AS \"On time %\" FROM cp_scorecard WHERE {owhere} GROUP BY 1 ORDER BY 2 DESC",
-   0, 4, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "max": 100, "decimals": 1}, "overrides": []}, options=BARH("/On time/")),
- P("Weighbridge tickets shared within 7 days %", "bargauge",
-   f"SELECT operator_name AS \"Operator\", round((100 * avg(weighbridge_shared_7d_rate))::numeric, 1) AS \"Shared %\" FROM cp_scorecard WHERE {owhere} GROUP BY 1 ORDER BY 2 DESC",
-   8, 4, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "max": 100, "decimals": 1}, "overrides": []}, options=BARH("/Shared/")),
- P("Invoice lines that differ from the contract %", "bargauge",
-   f"SELECT operator_name AS \"Operator\", round((100 * avg(discrepant_line_rate))::numeric, 2) AS \"Discrepant %\" FROM cp_scorecard WHERE {owhere} GROUP BY 1 ORDER BY 2 DESC",
-   16, 4, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "decimals": 2}, "overrides": []}, options=BARH("/Discrepant/")),
- P("On-time rate per month", "timeseries",
-   f"SELECT to_date(month, 'YYYY-MM') AS \"time\", operator_name AS metric, round((100 * avg(on_time_rate))::numeric, 1) AS v FROM cp_scorecard WHERE {owhere} GROUP BY 1, 2 ORDER BY 1",
-   0, 12, 24, 8, fmt="time_series", field={"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []},
-   options={"legend": {"displayMode": "list", "placement": "right"}}),
- P("Scorecard by operator and region (averages over the year)", "table",
-   "SELECT operator_name AS \"Operator\", region_code AS \"Region\", round((100 * avg(on_time_rate))::numeric, 1) AS \"On time %\", "
-   "round((100 * avg(missed_visit_rate))::numeric, 2) AS \"Missed visits %\", round((100 * avg(weighbridge_shared_7d_rate))::numeric, 1) AS \"Tickets shared ≤ 7 d %\", "
-   "round(avg(median_share_lag_days)::numeric, 1) AS \"Sharing delay (days)\", round(avg(weight_bias_pct)::numeric, 2) AS \"Weight bias %\", "
-   "round(avg(billing_overcharge_pct)::numeric, 2) AS \"Overcharge %\", round(avg(billing_undercharge_pct)::numeric, 2) AS \"Undercharge %\", "
-   f"round((100 * avg(discrepant_line_rate))::numeric, 2) AS \"Discrepant lines %\" FROM cp_scorecard WHERE {owhere} GROUP BY 1, 2 ORDER BY 1, 2",
-   0, 20, 24, 10, field={"defaults": {}, "overrides": [color_bg("On time %", [{"color": "red", "value": None}, {"color": "orange", "value": 60}, {"color": "transparent", "value": 80}]),
-       color_bg("Tickets shared ≤ 7 d %", [{"color": "red", "value": None}, {"color": "orange", "value": 50}, {"color": "transparent", "value": 80}])]}, options=TABLE),
+    P("On time — share of lifts that came as planned", "bargauge",
+      f"SELECT operator_name AS \"Waste company\", round((100 * avg(on_time_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
+      0, 3, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []}, options=BAR("/%/")),
+    P("Tickets shared — truck weight sent to the customer within 7 days", "bargauge",
+      f"SELECT operator_name AS \"Waste company\", round((100 * avg(weighbridge_shared_7d_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
+      8, 3, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []}, options=BAR("/%/")),
+    P("Invoice errors — lines that differ from the contract", "bargauge",
+      f"SELECT operator_name AS \"Waste company\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
+      16, 3, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "decimals": 1}, "overrides": []}, options=BAR("/%/")),
+    P("Details per region", "table",
+      "SELECT operator_name AS \"Waste company\", region_code AS \"Region\", round((100 * avg(on_time_rate))::numeric) AS \"On time %\", "
+      "round((100 * avg(missed_visit_rate))::numeric, 1) AS \"Missed visits %\", round((100 * avg(weighbridge_shared_7d_rate))::numeric) AS \"Tickets shared %\", "
+      "round(avg(billing_overcharge_pct)::numeric, 1) AS \"Overcharged %\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"Invoice errors %\" "
+      f"FROM cp_scorecard WHERE {ow} GROUP BY 1, 2 ORDER BY 1, 2", 0, 11, 24, 10, options=TABLE),
 ], [V_OP])
 
-# ---------------------------------------------------------------- 5 ACTIONS
-awhere = "a.customer_name IN ($customer) AND a.operator_name IN ($operator)"
-acts = page("cockpit-actions", "5 · Actions — proposals for a person to approve",
-"""**The system only proposes; a person decides.** Each row = one proposed action for a contract: *dispute invoice*, *request weighbridge data*, *renegotiate contract*, *tender / switch operator*.
-**Flagged €** = invoice lines that differ from the contract for that device (estimated). To decide: open the **Approve actions** link (top right) → *Show evidence* → Approve / Reject (with your name and a note).
-Every decision is logged and can be reverted; this page updates within a minute.""",
+# ------------------------------------------------------------------ 5 DECISIONS
+aw = "a.customer_name IN ($customer) AND a.operator_name IN ($operator)"
+acts = page("cockpit-actions", "5 Decisions",
+"""### What the system proposes — a person decides
+Each row is one proposal for a customer's contract. **Euros** = invoice amounts that differ from the contract. To decide, click **Approve decisions ↗** (top right):
+open the evidence, then approve or reject with your name. Decisions are saved and can be undone.""",
 [
- P("Pending", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({awhere}) AND (d.decision IS NULL OR d.decision = 'REVERT')", 0, 4, 6, 4, options=STAT),
- P("Approved", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({awhere}) AND d.decision = 'APPROVE'", 6, 4, 6, 4, options=STAT),
- P("Rejected", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({awhere}) AND d.decision = 'REJECT'", 12, 4, 6, 4, options=STAT),
- P("Flagged € behind pending proposals", "stat",
-   f"SELECT round(sum(a.flagged_invoice_eur)::numeric) AS v FROM cp_actions a {LATEST} WHERE ({awhere}) AND (d.decision IS NULL OR d.decision = 'REVERT')",
-   18, 4, 6, 4, field=EUR0, options=STAT),
- P("Proposals by type", "bargauge",
-   f"SELECT replace(lower(a.action), '_', ' ') AS \"Action\", count(*) AS \"Count\" FROM cp_actions a WHERE {awhere} GROUP BY 1 ORDER BY 2 DESC",
-   0, 8, 10, 8, options=BARH("/Count/")),
- P("Proposals by operator", "bargauge",
-   f"SELECT a.operator_name AS \"Operator\", count(*) AS \"Count\" FROM cp_actions a WHERE {awhere} GROUP BY 1 ORDER BY 2 DESC",
-   10, 8, 14, 8, options=BARH("/Count/")),
- P("All proposals (biggest flagged € first)", "table",
-   f"SELECT {STATUS} AS \"Status\", replace(lower(a.action), '_', ' ') AS \"Proposed action\", a.customer_name AS \"Customer\", a.operator_name AS \"Operator\", "
-   f"a.contract_id AS \"Contract\", a.flagged_invoice_eur AS \"Flagged €\", a.notice_period_days AS \"Notice (days)\", d.decided_by AS \"Decided by\", "
-   f"a.rationale AS \"Why\" FROM cp_actions a {LATEST} WHERE {awhere} ORDER BY a.flagged_invoice_eur DESC",
-   0, 16, 24, 14, field={"defaults": {"custom": {"filterable": True}}, "overrides": [unit_over("Flagged €", "currencyEUR"), width_over("Status", 95),
-       {"matcher": {"id": "byName", "options": "Status"}, "properties": [{"id": "custom.cellOptions", "value": {"type": "color-text"}},
-        {"id": "mappings", "value": [{"type": "value", "options": {"pending": {"color": "orange", "text": "⏳ pending"},
-                                                                   "approved": {"color": "green", "text": "✔ approved"},
-                                                                   "rejected": {"color": "red", "text": "✖ rejected"}}}]}]}]}, options=TABLE),
+    P("Waiting", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND {OPEN}", 0, 3, 6, 4, options=STAT),
+    P("Approved", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND d.decision = 'APPROVE'", 6, 3, 6, 4, options=STAT),
+    P("Rejected", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND d.decision = 'REJECT'", 12, 3, 6, 4, options=STAT),
+    P("Euros behind waiting proposals", "stat", f"SELECT round(sum(a.flagged_invoice_eur)::numeric) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND {OPEN}",
+      18, 3, 6, 4, field=EUR, options=STAT),
+    P("All proposals (biggest euros first)", "table",
+      "SELECT COALESCE(CASE d.decision WHEN 'APPROVE' THEN 'approved' WHEN 'REJECT' THEN 'rejected' END, 'waiting') AS \"Status\", "
+      f"{ACT} AS \"Proposal\", a.customer_name AS \"Customer\", a.operator_name AS \"Waste company\", a.flagged_invoice_eur AS \"Euros\", "
+      f"d.decided_by AS \"Decided by\" FROM cp_actions a {LATEST} WHERE {aw} ORDER BY a.flagged_invoice_eur DESC",
+      0, 7, 24, 18, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Euros", "currencyEUR"), o_width("Status", 100),
+          {"matcher": {"id": "byName", "options": "Status"}, "properties": [{"id": "custom.cellOptions", "value": {"type": "color-text"}},
+           {"id": "mappings", "value": [{"type": "value", "options": {"waiting": {"color": "orange"}, "approved": {"color": "green"},
+                                                                      "rejected": {"color": "red"}}}]}]}]}, options=TABLE),
 ], [V_CUST, V_OP])
 
-if OUT:
-    for name, d in [("cockpit_1_overview", overview), ("cockpit_2_findings", findings), ("cockpit_3_cost_weight", cost),
-                    ("cockpit_4_operators", ops), ("cockpit_5_actions", acts)]:
-        (OUT / f"{name}.json").write_text(json.dumps(d, indent=2, ensure_ascii=False))
-    print("written")
-else:
-    for s in ALL_SQL:
-        s = (s.replace("$__timeFilter(found_at)", "found_at > now() - interval '3 years'")
-              .replace("$__timeFilter(service_date)", "service_date > now() - interval '3 years'"))
-        for v in ["$customer", "$operator", "$finding", "$material"]:
-            col = {"$customer": "customer_name", "$operator": "operator_name", "$finding": "label_family", "$material": "material_stream"}[v]
-            s = s.replace(f"IN ({v})", f"IS NOT NULL OR {col} IS NULL")
-        print(s + ";")
+
+if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "sql":   # print every query with filters set to "all", for testing
+        for s in SQL:
+            s = (s.replace("$__timeFilter(found_at)", "TRUE").replace("$__timeFilter(service_date)", "TRUE")
+                  .replace("${__url_time_range}", ""))
+            for v in ["$customer", "$operator", "$problem", "$material"]:
+                s = s.replace(f"IN ({v})", "IS NOT NULL OR TRUE")
+            print(s + ";")
+    else:
+        out = Path(sys.argv[1]) if len(sys.argv) > 1 else OUT
+        for name, d in [("cockpit_1_overview", overview), ("cockpit_2_findings", findings), ("cockpit_3_cost_weight", cost),
+                        ("cockpit_4_operators", ops), ("cockpit_5_actions", acts)]:
+            (out / f"{name}.json").write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
+        live = out / "compactor.json"            # page 6 gets the same menu
+        if live.exists():
+            d = json.loads(live.read_text(encoding="utf-8"))
+            d.update(title="6 Live sensors", links=menu("smart-compactor"), tags=["europress-cockpit", "live"])
+            live.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
+        print(f"written to {out}")

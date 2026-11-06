@@ -1,6 +1,6 @@
 {
   "uid": "smart-compactor",
-  "title": "6 · Live sensors",
+  "title": "6 Live sensors",
   "tags": [
     "europress-cockpit",
     "live"
@@ -518,14 +518,59 @@
   },
   "links": [
     {
-      "title": "Cockpit pages",
-      "type": "dashboards",
-      "tags": [
-        "europress-cockpit"
-      ],
-      "asDropdown": false,
-      "includeVars": false,
-      "keepTime": false
+      "title": "1 Overview",
+      "type": "link",
+      "url": "/d/value-cockpit?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "2 Problems found",
+      "type": "link",
+      "url": "/d/cockpit-findings?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "3 Cost & weight",
+      "type": "link",
+      "url": "/d/cockpit-cost?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "4 Waste companies",
+      "type": "link",
+      "url": "/d/cockpit-operators?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "5 Decisions",
+      "type": "link",
+      "url": "/d/cockpit-actions?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "● 6 Live sensors",
+      "type": "link",
+      "url": "/d/smart-compactor?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "Approve decisions ↗",
+      "type": "link",
+      "url": "http://localhost:8000/cockpit",
+      "targetBlank": true,
+      "icon": "external link"
     }
   ]
 }

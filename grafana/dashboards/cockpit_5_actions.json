@@ -1,12 +1,12 @@
 {
   "uid": "cockpit-actions",
-  "title": "5 · Actions — proposals for a person to approve",
+  "title": "5 Decisions",
   "tags": [
     "europress-cockpit"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 3,
   "refresh": "1m",
   "time": {
     "from": "2025-10-01T00:00:00Z",
@@ -14,49 +14,92 @@
   },
   "graphTooltip": 1,
   "editable": true,
-  "description": "SYNTHETIC DATA (Europress SMART Material Value Engine v1.0.1). Proposals need human approval.",
   "links": [
     {
-      "title": "Cockpit pages",
-      "type": "dashboards",
-      "tags": [
-        "europress-cockpit"
-      ],
-      "asDropdown": false,
-      "includeVars": false,
-      "keepTime": true
+      "title": "1 Overview",
+      "type": "link",
+      "url": "/d/value-cockpit?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
     },
     {
-      "title": "Approve actions",
+      "title": "2 Problems found",
+      "type": "link",
+      "url": "/d/cockpit-findings?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "3 Cost & weight",
+      "type": "link",
+      "url": "/d/cockpit-cost?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "4 Waste companies",
+      "type": "link",
+      "url": "/d/cockpit-operators?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "● 5 Decisions",
+      "type": "link",
+      "url": "/d/cockpit-actions?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "6 Live sensors",
+      "type": "link",
+      "url": "/d/smart-compactor?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "Approve decisions ↗",
       "type": "link",
       "url": "http://localhost:8000/cockpit",
       "targetBlank": true,
       "icon": "external link"
     }
   ],
+  "description": "SYNTHETIC DATA (Europress dataset v1.0.1). Proposals need human approval.",
   "panels": [
     {
       "id": 100,
       "type": "text",
-      "title": "How to read this page",
+      "title": "",
+      "transparent": true,
       "gridPos": {
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 4
+        "h": 3
       },
       "options": {
         "mode": "markdown",
-        "content": "**The system only proposes; a person decides.** Each row = one proposed action for a contract: *dispute invoice*, *request weighbridge data*, *renegotiate contract*, *tender / switch operator*.\n**Flagged €** = invoice lines that differ from the contract for that device (estimated). To decide: open the **Approve actions** link (top right) → *Show evidence* → Approve / Reject (with your name and a note).\nEvery decision is logged and can be reverted; this page updates within a minute."
+        "content": "### What the system proposes — a person decides\nEach row is one proposal for a customer's contract. **Euros** = invoice amounts that differ from the contract. To decide, click **Approve decisions ↗** (top right):\nopen the evidence, then approve or reject with your name. Decisions are saved and can be undone."
       }
     },
     {
-      "title": "Pending",
+      "title": "Waiting",
       "description": "",
       "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -88,21 +131,22 @@
         "colorMode": "none",
         "graphMode": "none",
         "textMode": "value",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "wideLayout": true
       },
-      "id": 1,
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      }
+      "id": 1
     },
     {
       "title": "Approved",
       "description": "",
       "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
       "gridPos": {
         "x": 6,
-        "y": 4,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -134,21 +178,22 @@
         "colorMode": "none",
         "graphMode": "none",
         "textMode": "value",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "wideLayout": true
       },
-      "id": 2,
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      }
+      "id": 2
     },
     {
       "title": "Rejected",
       "description": "",
       "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
       "gridPos": {
         "x": 12,
-        "y": 4,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -180,21 +225,22 @@
         "colorMode": "none",
         "graphMode": "none",
         "textMode": "value",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "wideLayout": true
       },
-      "id": 3,
+      "id": 3
+    },
+    {
+      "title": "Euros behind waiting proposals",
+      "description": "",
+      "type": "stat",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
-      }
-    },
-    {
-      "title": "Flagged € behind pending proposals",
-      "description": "",
-      "type": "stat",
+      },
       "gridPos": {
         "x": 18,
-        "y": 4,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -214,7 +260,11 @@
       "fieldConfig": {
         "defaults": {
           "unit": "currencyEUR",
-          "decimals": 0
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
         },
         "overrides": []
       },
@@ -229,117 +279,24 @@
         "colorMode": "none",
         "graphMode": "none",
         "textMode": "value",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "wideLayout": true
       },
-      "id": 4,
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      }
+      "id": 4
     },
     {
-      "title": "Proposals by type",
-      "description": "",
-      "type": "bargauge",
-      "gridPos": {
-        "x": 0,
-        "y": 8,
-        "w": 10,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT replace(lower(a.action), '_', ' ') AS \"Action\", count(*) AS \"Count\" FROM cp_actions a WHERE a.customer_name IN ($customer) AND a.operator_name IN ($operator) GROUP BY 1 ORDER BY 2 DESC"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "valueMode": "color",
-        "showUnfilled": true,
-        "namePlacement": "left",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/Count/",
-          "values": true
-        }
-      },
-      "id": 5,
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      }
-    },
-    {
-      "title": "Proposals by operator",
-      "description": "",
-      "type": "bargauge",
-      "gridPos": {
-        "x": 10,
-        "y": 8,
-        "w": 14,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT a.operator_name AS \"Operator\", count(*) AS \"Count\" FROM cp_actions a WHERE a.customer_name IN ($customer) AND a.operator_name IN ($operator) GROUP BY 1 ORDER BY 2 DESC"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "valueMode": "color",
-        "showUnfilled": true,
-        "namePlacement": "left",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/Count/",
-          "values": true
-        }
-      },
-      "id": 6,
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      }
-    },
-    {
-      "title": "All proposals (biggest flagged € first)",
+      "title": "All proposals (biggest euros first)",
       "description": "",
       "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 7,
         "w": 24,
-        "h": 14
+        "h": 18
       },
       "targets": [
         {
@@ -351,7 +308,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COALESCE(CASE d.decision WHEN 'APPROVE' THEN 'approved' WHEN 'REJECT' THEN 'rejected' END, 'pending') AS \"Status\", replace(lower(a.action), '_', ' ') AS \"Proposed action\", a.customer_name AS \"Customer\", a.operator_name AS \"Operator\", a.contract_id AS \"Contract\", a.flagged_invoice_eur AS \"Flagged €\", a.notice_period_days AS \"Notice (days)\", d.decided_by AS \"Decided by\", a.rationale AS \"Why\" FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE a.customer_name IN ($customer) AND a.operator_name IN ($operator) ORDER BY a.flagged_invoice_eur DESC"
+          "rawSql": "SELECT COALESCE(CASE d.decision WHEN 'APPROVE' THEN 'approved' WHEN 'REJECT' THEN 'rejected' END, 'waiting') AS \"Status\", CASE a.action WHEN 'DISPUTE_INVOICE' THEN 'Ask the operator to correct the invoice' WHEN 'REQUEST_WEIGHBRIDGE_DATA' THEN 'Ask for the weight tickets' WHEN 'RENEGOTIATE_CONTRACT' THEN 'Renegotiate the price' WHEN 'TENDER_OR_SWITCH_OPERATOR' THEN 'Get offers from other waste companies' ELSE a.action END AS \"Proposal\", a.customer_name AS \"Customer\", a.operator_name AS \"Waste company\", a.flagged_invoice_eur AS \"Euros\", d.decided_by AS \"Decided by\" FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE a.customer_name IN ($customer) AND a.operator_name IN ($operator) ORDER BY a.flagged_invoice_eur DESC"
         }
       ],
       "fieldConfig": {
@@ -364,7 +321,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Flagged €"
+              "options": "Euros"
             },
             "properties": [
               {
@@ -381,7 +338,7 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 95
+                "value": 100
               }
             ]
           },
@@ -403,17 +360,14 @@
                   {
                     "type": "value",
                     "options": {
-                      "pending": {
-                        "color": "orange",
-                        "text": "⏳ pending"
+                      "waiting": {
+                        "color": "orange"
                       },
                       "approved": {
-                        "color": "green",
-                        "text": "✔ approved"
+                        "color": "green"
                       },
                       "rejected": {
-                        "color": "red",
-                        "text": "✖ rejected"
+                        "color": "red"
                       }
                     }
                   }
@@ -430,11 +384,7 @@
           "show": false
         }
       },
-      "id": 7,
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      }
+      "id": 5
     }
   ],
   "templating": {
@@ -465,7 +415,7 @@
       },
       {
         "name": "operator",
-        "label": "Operator",
+        "label": "Waste company",
         "type": "query",
         "datasource": {
           "type": "grafana-postgresql-datasource",

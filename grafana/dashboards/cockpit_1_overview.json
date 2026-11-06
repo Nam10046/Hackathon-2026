@@ -1,12 +1,12 @@
 {
   "uid": "value-cockpit",
-  "title": "1 · Overview — Customer Value Cockpit",
+  "title": "1 Overview",
   "tags": [
     "europress-cockpit"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 3,
   "refresh": "1m",
   "time": {
     "from": "2025-10-01T00:00:00Z",
@@ -14,95 +14,92 @@
   },
   "graphTooltip": 1,
   "editable": true,
-  "description": "SYNTHETIC DATA (Europress SMART Material Value Engine v1.0.1). Proposals need human approval.",
   "links": [
     {
-      "title": "Cockpit pages",
-      "type": "dashboards",
-      "tags": [
-        "europress-cockpit"
-      ],
-      "asDropdown": false,
-      "includeVars": false,
-      "keepTime": true
+      "title": "● 1 Overview",
+      "type": "link",
+      "url": "/d/value-cockpit?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
     },
     {
-      "title": "Approve actions",
+      "title": "2 Problems found",
+      "type": "link",
+      "url": "/d/cockpit-findings?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "3 Cost & weight",
+      "type": "link",
+      "url": "/d/cockpit-cost?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "4 Waste companies",
+      "type": "link",
+      "url": "/d/cockpit-operators?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "5 Decisions",
+      "type": "link",
+      "url": "/d/cockpit-actions?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "6 Live sensors",
+      "type": "link",
+      "url": "/d/smart-compactor?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "Approve decisions ↗",
       "type": "link",
       "url": "http://localhost:8000/cockpit",
       "targetBlank": true,
       "icon": "external link"
     }
   ],
+  "description": "SYNTHETIC DATA (Europress dataset v1.0.1). Proposals need human approval.",
   "panels": [
     {
       "id": 100,
       "type": "text",
-      "title": "How to read this page",
+      "title": "",
+      "transparent": true,
       "gridPos": {
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 4
+        "h": 3
       },
       "options": {
         "mode": "markdown",
-        "content": "**The whole year in one screen** (synthetic data). Top row = the four numbers to remember.\n**Net material contribution** is negative = customers pay much more for collection and treatment than they get back as material credit.\n**€ at stake** = estimated money behind all findings — things to *check*, not proven savings. Click the page names above to go deeper:\n**2 · Findings** (what went wrong) · **3 · Cost & weight** (€ per tonne, scale vs weighbridge) · **4 · Operators** (neutral scorecard) · **5 · Actions** (what a person should approve)."
+        "content": "### One year of waste service for 52 customers (synthetic data)\nCustomers **paid** the waste companies the amount on the left and **got money back** for recyclables. Our system checked every lift and invoice line and found **money worth checking**. A person decides what to do — see *5 Decisions*."
       }
     },
     {
-      "title": "Lifts in 12 months",
-      "description": "Completed collections (the truck emptied the container).",
+      "title": "Paid for waste service",
+      "description": "Collection, treatment and penalty charges under the customer–operator contracts (hypothetical prices).",
       "type": "stat",
-      "gridPos": {
-        "x": 0,
-        "y": 4,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT count(*) AS \"Lifts\" FROM cp_collections WHERE status = 'COMPLETED'"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "value",
-        "justifyMode": "center"
-      },
-      "id": 1,
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
-      }
-    },
-    {
-      "title": "Net material contribution",
-      "description": "Material credits minus collection, processing and penalties, under the (hypothetical) customer–operator contracts.",
-      "type": "stat",
+      },
       "gridPos": {
-        "x": 6,
-        "y": 4,
+        "x": 0,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -116,13 +113,17 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT round(sum(net_material_contribution_eur)::numeric) AS v FROM cp_collections"
+          "rawSql": "SELECT round(sum(collection_cost_eur + processing_cost_eur + penalties_eur)::numeric) AS v FROM cp_collections"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "currencyEUR",
-          "decimals": 0
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
         },
         "overrides": []
       },
@@ -137,21 +138,76 @@
         "colorMode": "none",
         "graphMode": "none",
         "textMode": "value",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "wideLayout": true
       },
-      "id": 2,
+      "id": 1
+    },
+    {
+      "title": "Money back for recyclables",
+      "description": "Material credits for cardboard and plastic.",
+      "type": "stat",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
-      }
+      },
+      "gridPos": {
+        "x": 6,
+        "y": 3,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum(material_credit_eur)::numeric) AS v FROM cp_collections"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 2
     },
     {
-      "title": "€ at stake in findings",
-      "description": "Estimated: euro impact of all findings. To be checked by a person.",
+      "title": "Money worth checking",
+      "description": "Estimated euros behind all problems found. To check — not a proven saving.",
       "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
       "gridPos": {
         "x": 12,
-        "y": 4,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -171,7 +227,11 @@
       "fieldConfig": {
         "defaults": {
           "unit": "currencyEUR",
-          "decimals": 0
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
         },
         "overrides": []
       },
@@ -186,21 +246,22 @@
         "colorMode": "none",
         "graphMode": "none",
         "textMode": "value",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "wideLayout": true
       },
-      "id": 3,
+      "id": 3
+    },
+    {
+      "title": "Decisions waiting",
+      "description": "Proposals no person has approved or rejected yet.",
+      "type": "stat",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
-      }
-    },
-    {
-      "title": "Actions waiting for a person",
-      "description": "Proposals not yet approved or rejected. Approve them on page 5 / the approval page.",
-      "type": "stat",
+      },
       "gridPos": {
         "x": 18,
-        "y": 4,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -214,7 +275,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT count(*) AS v FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE d.decision IS NULL OR d.decision = 'REVERT'"
+          "rawSql": "SELECT count(*) AS v FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE (d.decision IS NULL OR d.decision = 'REVERT')"
         }
       ],
       "fieldConfig": {
@@ -232,23 +293,24 @@
         "colorMode": "none",
         "graphMode": "none",
         "textMode": "value",
-        "justifyMode": "center"
+        "justifyMode": "center",
+        "wideLayout": true
       },
-      "id": 4,
+      "id": 4
+    },
+    {
+      "title": "Which problems cost the most?",
+      "description": "",
+      "type": "bargauge",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
-      }
-    },
-    {
-      "title": "Where the money is — € at stake by finding type",
-      "description": "Longest bar = biggest money pool to look at first.",
-      "type": "bargauge",
+      },
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 7,
         "w": 12,
-        "h": 10
+        "h": 11
       },
       "targets": [
         {
@@ -260,22 +322,27 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT replace(lower(label_family), '_', ' ') AS \"Finding\", round(sum(eur_at_stake)::numeric) AS \"EUR\" FROM cp_flags GROUP BY 1 HAVING sum(eur_at_stake) > 0 ORDER BY 2 DESC"
+          "rawSql": "SELECT CASE label_family WHEN 'COST_PER_T_HIGH' THEN 'Very high cost per tonne' WHEN 'PREMATURE_UNJUSTIFIED' THEN 'Emptied too early' WHEN 'DELAYED_COLLECTION' THEN 'Emptied too late (overflow risk)' WHEN 'WEIGHT_DISCREPANCY' THEN 'Our scale and truck scale disagree' WHEN 'CONTAMINATION_VALUE_LOSS' THEN 'Dirty load lost its value' WHEN 'REJECTED_LOAD' THEN 'Load rejected' WHEN 'OUTDATED_TARIFF' THEN 'Old price on invoice' WHEN 'DUPLICATE_LINE' THEN 'Charged twice' WHEN 'WRONG_SURCHARGE' THEN 'Wrong extra fee' WHEN 'WEIGHT_BASIS_MISMATCH' THEN 'Invoice tonnes differ from truck scale' WHEN 'UNMATCHED_LINE' THEN 'Charge without a lift' WHEN 'MISSING_LINE' THEN 'Charge or credit missing' WHEN 'UNINVOICED_COLLECTION' THEN 'Lift never invoiced' ELSE label_family END AS \"Problem\", round(sum(eur_at_stake)::numeric) AS \"EUR\" FROM cp_flags GROUP BY 1 HAVING sum(eur_at_stake) > 0 ORDER BY 2 DESC"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "currencyEUR",
-          "decimals": 0
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
         },
         "overrides": []
       },
       "options": {
         "orientation": "horizontal",
-        "displayMode": "gradient",
-        "valueMode": "color",
+        "displayMode": "basic",
+        "valueMode": "text",
         "showUnfilled": true,
         "namePlacement": "left",
+        "sizing": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -284,21 +351,21 @@
           "values": true
         }
       },
-      "id": 5,
+      "id": 5
+    },
+    {
+      "title": "Which customers have the most to check?",
+      "description": "",
+      "type": "bargauge",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
-      }
-    },
-    {
-      "title": "Who is affected — top 10 customers by € at stake",
-      "description": "",
-      "type": "bargauge",
+      },
       "gridPos": {
         "x": 12,
-        "y": 8,
+        "y": 7,
         "w": 12,
-        "h": 10
+        "h": 11
       },
       "targets": [
         {
@@ -316,16 +383,21 @@
       "fieldConfig": {
         "defaults": {
           "unit": "currencyEUR",
-          "decimals": 0
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
         },
         "overrides": []
       },
       "options": {
         "orientation": "horizontal",
-        "displayMode": "gradient",
-        "valueMode": "color",
+        "displayMode": "basic",
+        "valueMode": "text",
         "showUnfilled": true,
         "namePlacement": "left",
+        "sizing": "auto",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
@@ -334,63 +406,7 @@
           "values": true
         }
       },
-      "id": 6,
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      }
-    },
-    {
-      "title": "Findings per month",
-      "description": "",
-      "type": "timeseries",
-      "gridPos": {
-        "x": 0,
-        "y": 18,
-        "w": 24,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT date_trunc('month', found_at) AS \"time\", CASE entity_type WHEN 'collection' THEN 'lift findings' ELSE 'invoice findings' END AS metric, count(*) AS n FROM cp_flags WHERE $__timeFilter(found_at) GROUP BY 1, 2 ORDER BY 1"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "min": 0,
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 70,
-            "stacking": {
-              "mode": "normal"
-            },
-            "barAlignment": 0
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom"
-        },
-        "tooltip": {
-          "mode": "multi"
-        }
-      },
-      "id": 7,
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      }
+      "id": 6
     }
   ],
   "templating": {

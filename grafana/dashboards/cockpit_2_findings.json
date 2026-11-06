@@ -1,12 +1,12 @@
 {
   "uid": "cockpit-findings",
-  "title": "2 · Findings — what looks wrong",
+  "title": "2 Problems found",
   "tags": [
     "europress-cockpit"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 3,
   "refresh": "1m",
   "time": {
     "from": "2025-10-01T00:00:00Z",
@@ -14,51 +14,94 @@
   },
   "graphTooltip": 1,
   "editable": true,
-  "description": "SYNTHETIC DATA (Europress SMART Material Value Engine v1.0.1). Proposals need human approval.",
   "links": [
     {
-      "title": "Cockpit pages",
-      "type": "dashboards",
-      "tags": [
-        "europress-cockpit"
-      ],
-      "asDropdown": false,
-      "includeVars": false,
-      "keepTime": true
+      "title": "1 Overview",
+      "type": "link",
+      "url": "/d/value-cockpit?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
     },
     {
-      "title": "Approve actions",
+      "title": "● 2 Problems found",
+      "type": "link",
+      "url": "/d/cockpit-findings?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "3 Cost & weight",
+      "type": "link",
+      "url": "/d/cockpit-cost?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "4 Waste companies",
+      "type": "link",
+      "url": "/d/cockpit-operators?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "5 Decisions",
+      "type": "link",
+      "url": "/d/cockpit-actions?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "6 Live sensors",
+      "type": "link",
+      "url": "/d/smart-compactor?${__url_time_range}",
+      "targetBlank": false,
+      "keepTime": false,
+      "icon": "dashboard"
+    },
+    {
+      "title": "Approve decisions ↗",
       "type": "link",
       "url": "http://localhost:8000/cockpit",
       "targetBlank": true,
       "icon": "external link"
     }
   ],
+  "description": "SYNTHETIC DATA (Europress dataset v1.0.1). Proposals need human approval.",
   "panels": [
     {
       "id": 100,
       "type": "text",
-      "title": "How to read this page",
+      "title": "",
+      "transparent": true,
       "gridPos": {
         "x": 0,
         "y": 0,
         "w": 24,
-        "h": 4
+        "h": 3
       },
       "options": {
         "mode": "markdown",
-        "content": "**Every irregularity the system found**, with a plain-language explanation and the evidence. Use the filters at the top (customer, operator, finding type).\n**Source record** = the exact lift or invoice line in the data (row-level audit trail). A finding is a **discrepancy to check, not an accusation** — causes can be the sensor, data gaps or combined truck loads.\nTip: sort the table by **€ at stake** (click the column header)."
+        "content": "### Every problem found, with the reason\nPick a **customer**, **waste company** or **problem** at the top. Each row is one lift or invoice line that looks wrong, *why* we think so, and the euros involved.\nIt is a **difference to check, not an accusation** — the cause can also be a sensor or missing data."
       }
     },
     {
-      "title": "Findings by type",
+      "title": "How many of each problem?",
       "description": "",
       "type": "bargauge",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
       "gridPos": {
         "x": 0,
-        "y": 4,
-        "w": 8,
-        "h": 11
+        "y": 3,
+        "w": 9,
+        "h": 13
       },
       "targets": [
         {
@@ -70,132 +113,48 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT replace(lower(label_family), '_', ' ') AS \"Finding\", count(*) AS \"Count\" FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($finding) GROUP BY 1 ORDER BY 2 DESC"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "orientation": "horizontal",
-        "displayMode": "gradient",
-        "valueMode": "color",
-        "showUnfilled": true,
-        "namePlacement": "left",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/Count/",
-          "values": true
-        }
-      },
-      "id": 1,
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      }
-    },
-    {
-      "title": "Lift findings vs invoice findings",
-      "description": "",
-      "type": "piechart",
-      "gridPos": {
-        "x": 8,
-        "y": 4,
-        "w": 6,
-        "h": 11
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT CASE entity_type WHEN 'collection' THEN 'lift' ELSE 'invoice line' END AS \"Type\", count(*) AS \"Count\" FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($finding) GROUP BY 1"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "/Count/",
-          "values": true
-        },
-        "pieType": "donut",
-        "legend": {
-          "displayMode": "list",
-          "placement": "bottom",
-          "values": [
-            "value"
-          ]
-        }
-      },
-      "id": 2,
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      }
-    },
-    {
-      "title": "Findings over time",
-      "description": "",
-      "type": "timeseries",
-      "gridPos": {
-        "x": 14,
-        "y": 4,
-        "w": 10,
-        "h": 11
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT date_trunc('week', found_at) AS \"time\", count(*) AS findings FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($finding) AND $__timeFilter(found_at) GROUP BY 1 ORDER BY 1"
+          "rawSql": "SELECT CASE label_family WHEN 'COST_PER_T_HIGH' THEN 'Very high cost per tonne' WHEN 'PREMATURE_UNJUSTIFIED' THEN 'Emptied too early' WHEN 'DELAYED_COLLECTION' THEN 'Emptied too late (overflow risk)' WHEN 'WEIGHT_DISCREPANCY' THEN 'Our scale and truck scale disagree' WHEN 'CONTAMINATION_VALUE_LOSS' THEN 'Dirty load lost its value' WHEN 'REJECTED_LOAD' THEN 'Load rejected' WHEN 'OUTDATED_TARIFF' THEN 'Old price on invoice' WHEN 'DUPLICATE_LINE' THEN 'Charged twice' WHEN 'WRONG_SURCHARGE' THEN 'Wrong extra fee' WHEN 'WEIGHT_BASIS_MISMATCH' THEN 'Invoice tonnes differ from truck scale' WHEN 'UNMATCHED_LINE' THEN 'Charge without a lift' WHEN 'MISSING_LINE' THEN 'Charge or credit missing' WHEN 'UNINVOICED_COLLECTION' THEN 'Lift never invoiced' ELSE label_family END AS \"Problem\", count(*) AS \"Count\" FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($problem) GROUP BY 1 ORDER BY 2 DESC"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "min": 0,
-          "custom": {
-            "drawStyle": "bars",
-            "fillOpacity": 70
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
           }
         },
         "overrides": []
       },
-      "options": {},
-      "id": 3,
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "text",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "sizing": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/Count/",
+          "values": true
+        }
+      },
+      "id": 1
+    },
+    {
+      "title": "Problems, biggest euros first (click a column header to sort)",
+      "description": "",
+      "type": "table",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
-      }
-    },
-    {
-      "title": "All findings (newest first) — click a column to sort",
-      "description": "",
-      "type": "table",
+      },
       "gridPos": {
-        "x": 0,
-        "y": 15,
-        "w": 24,
-        "h": 16
+        "x": 9,
+        "y": 3,
+        "w": 15,
+        "h": 26
       },
       "targets": [
         {
@@ -207,7 +166,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT found_at AS \"Date\", replace(lower(label_family), '_', ' ') AS \"Finding\", customer_name AS \"Customer\", site_name AS \"Site\", operator_name AS \"Operator\", explanation AS \"What it means\", evidence AS \"Evidence\", eur_at_stake AS \"€ at stake\", entity_id AS \"Source record\" FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($finding) AND $__timeFilter(found_at) ORDER BY found_at DESC LIMIT 1000"
+          "rawSql": "SELECT found_at::date AS \"Date\", customer_name AS \"Customer\", CASE label_family WHEN 'COST_PER_T_HIGH' THEN 'Very high cost per tonne' WHEN 'PREMATURE_UNJUSTIFIED' THEN 'Emptied too early' WHEN 'DELAYED_COLLECTION' THEN 'Emptied too late (overflow risk)' WHEN 'WEIGHT_DISCREPANCY' THEN 'Our scale and truck scale disagree' WHEN 'CONTAMINATION_VALUE_LOSS' THEN 'Dirty load lost its value' WHEN 'REJECTED_LOAD' THEN 'Load rejected' WHEN 'OUTDATED_TARIFF' THEN 'Old price on invoice' WHEN 'DUPLICATE_LINE' THEN 'Charged twice' WHEN 'WRONG_SURCHARGE' THEN 'Wrong extra fee' WHEN 'WEIGHT_BASIS_MISMATCH' THEN 'Invoice tonnes differ from truck scale' WHEN 'UNMATCHED_LINE' THEN 'Charge without a lift' WHEN 'MISSING_LINE' THEN 'Charge or credit missing' WHEN 'UNINVOICED_COLLECTION' THEN 'Lift never invoiced' ELSE label_family END AS \"Problem\", evidence AS \"What the data shows\", eur_at_stake AS \"Euros\", entity_id AS \"Record\" FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($problem) AND $__timeFilter(found_at) ORDER BY eur_at_stake DESC NULLS LAST, found_at DESC LIMIT 1000"
         }
       ],
       "fieldConfig": {
@@ -220,7 +179,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "€ at stake"
+              "options": "Euros"
             },
             "properties": [
               {
@@ -237,43 +196,43 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 110
+                "value": 100
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Finding"
+              "options": "Problem"
             },
             "properties": [
               {
                 "id": "custom.width",
-                "value": 170
+                "value": 210
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "€ at stake"
+              "options": "Euros"
             },
             "properties": [
               {
                 "id": "custom.width",
-                "value": 95
+                "value": 90
               }
             ]
           },
           {
             "matcher": {
               "id": "byName",
-              "options": "Source record"
+              "options": "Record"
             },
             "properties": [
               {
                 "id": "custom.width",
-                "value": 190
+                "value": 180
               }
             ]
           }
@@ -286,11 +245,55 @@
           "show": false
         }
       },
-      "id": 4,
+      "id": 2
+    },
+    {
+      "title": "Problems per month",
+      "description": "",
+      "type": "timeseries",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
-      }
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 9,
+        "h": 13
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('month', found_at) AS \"time\", count(*) AS \"problems\" FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($problem) AND $__timeFilter(found_at) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          },
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 80
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "showLegend": false
+        }
+      },
+      "id": 3
     }
   ],
   "templating": {
@@ -321,7 +324,7 @@
       },
       {
         "name": "operator",
-        "label": "Operator",
+        "label": "Waste company",
         "type": "query",
         "datasource": {
           "type": "grafana-postgresql-datasource",
@@ -344,15 +347,15 @@
         "sort": 1
       },
       {
-        "name": "finding",
-        "label": "Finding type",
+        "name": "problem",
+        "label": "Problem",
         "type": "query",
         "datasource": {
           "type": "grafana-postgresql-datasource",
           "uid": "compactor-pg"
         },
-        "query": "SELECT DISTINCT label_family FROM cp_flags ORDER BY 1",
-        "definition": "SELECT DISTINCT label_family FROM cp_flags ORDER BY 1",
+        "query": "SELECT DISTINCT CASE label_family WHEN 'COST_PER_T_HIGH' THEN 'Very high cost per tonne' WHEN 'PREMATURE_UNJUSTIFIED' THEN 'Emptied too early' WHEN 'DELAYED_COLLECTION' THEN 'Emptied too late (overflow risk)' WHEN 'WEIGHT_DISCREPANCY' THEN 'Our scale and truck scale disagree' WHEN 'CONTAMINATION_VALUE_LOSS' THEN 'Dirty load lost its value' WHEN 'REJECTED_LOAD' THEN 'Load rejected' WHEN 'OUTDATED_TARIFF' THEN 'Old price on invoice' WHEN 'DUPLICATE_LINE' THEN 'Charged twice' WHEN 'WRONG_SURCHARGE' THEN 'Wrong extra fee' WHEN 'WEIGHT_BASIS_MISMATCH' THEN 'Invoice tonnes differ from truck scale' WHEN 'UNMATCHED_LINE' THEN 'Charge without a lift' WHEN 'MISSING_LINE' THEN 'Charge or credit missing' WHEN 'UNINVOICED_COLLECTION' THEN 'Lift never invoiced' ELSE label_family END AS __text, label_family AS __value FROM cp_flags ORDER BY 1",
+        "definition": "SELECT DISTINCT CASE label_family WHEN 'COST_PER_T_HIGH' THEN 'Very high cost per tonne' WHEN 'PREMATURE_UNJUSTIFIED' THEN 'Emptied too early' WHEN 'DELAYED_COLLECTION' THEN 'Emptied too late (overflow risk)' WHEN 'WEIGHT_DISCREPANCY' THEN 'Our scale and truck scale disagree' WHEN 'CONTAMINATION_VALUE_LOSS' THEN 'Dirty load lost its value' WHEN 'REJECTED_LOAD' THEN 'Load rejected' WHEN 'OUTDATED_TARIFF' THEN 'Old price on invoice' WHEN 'DUPLICATE_LINE' THEN 'Charged twice' WHEN 'WRONG_SURCHARGE' THEN 'Wrong extra fee' WHEN 'WEIGHT_BASIS_MISMATCH' THEN 'Invoice tonnes differ from truck scale' WHEN 'UNMATCHED_LINE' THEN 'Charge without a lift' WHEN 'MISSING_LINE' THEN 'Charge or credit missing' WHEN 'UNINVOICED_COLLECTION' THEN 'Lift never invoiced' ELSE label_family END AS __text, label_family AS __value FROM cp_flags ORDER BY 1",
         "multi": true,
         "includeAll": true,
         "current": {
