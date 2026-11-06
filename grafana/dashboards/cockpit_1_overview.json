@@ -1,0 +1,399 @@
+{
+  "uid": "value-cockpit",
+  "title": "1 · Overview — Customer Value Cockpit",
+  "tags": [
+    "europress-cockpit"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "2025-10-01T00:00:00Z",
+    "to": "2026-10-15T00:00:00Z"
+  },
+  "graphTooltip": 1,
+  "editable": true,
+  "description": "SYNTHETIC DATA (Europress SMART Material Value Engine v1.0.1). Proposals need human approval.",
+  "links": [
+    {
+      "title": "Cockpit pages",
+      "type": "dashboards",
+      "tags": [
+        "europress-cockpit"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true
+    },
+    {
+      "title": "Approve actions",
+      "type": "link",
+      "url": "http://localhost:8000/cockpit",
+      "targetBlank": true,
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "id": 100,
+      "type": "text",
+      "title": "How to read this page",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**The whole year in one screen** (synthetic data). Top row = the four numbers to remember.\n**Net material contribution** is negative = customers pay much more for collection and treatment than they get back as material credit.\n**€ at stake** = estimated money behind all findings — things to *check*, not proven savings. Click the page names above to go deeper:\n**2 · Findings** (what went wrong) · **3 · Cost & weight** (€ per tonne, scale vs weighbridge) · **4 · Operators** (neutral scorecard) · **5 · Actions** (what a person should approve)."
+      }
+    },
+    {
+      "title": "Lifts in 12 months",
+      "description": "Completed collections (the truck emptied the container).",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS \"Lifts\" FROM cp_collections WHERE status = 'COMPLETED'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 1,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Net material contribution",
+      "description": "Material credits minus collection, processing and penalties, under the (hypothetical) customer–operator contracts.",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum(net_material_contribution_eur)::numeric) AS v FROM cp_collections"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 2,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "€ at stake in findings",
+      "description": "Estimated: euro impact of all findings. To be checked by a person.",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum(eur_at_stake)::numeric) AS v FROM cp_flags"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 3,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Actions waiting for a person",
+      "description": "Proposals not yet approved or rejected. Approve them on page 5 / the approval page.",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE d.decision IS NULL OR d.decision = 'REVERT'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 4,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Where the money is — € at stake by finding type",
+      "description": "Longest bar = biggest money pool to look at first.",
+      "type": "bargauge",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT replace(lower(label_family), '_', ' ') AS \"Finding\", round(sum(eur_at_stake)::numeric) AS \"EUR\" FROM cp_flags GROUP BY 1 HAVING sum(eur_at_stake) > 0 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/EUR/",
+          "values": true
+        }
+      },
+      "id": 5,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Who is affected — top 10 customers by € at stake",
+      "description": "",
+      "type": "bargauge",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT customer_name AS \"Customer\", round(sum(eur_at_stake)::numeric) AS \"EUR\" FROM cp_flags WHERE customer_name IS NOT NULL GROUP BY 1 ORDER BY 2 DESC LIMIT 10"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/EUR/",
+          "values": true
+        }
+      },
+      "id": 6,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Findings per month",
+      "description": "",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 0,
+        "y": 18,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('month', found_at) AS \"time\", CASE entity_type WHEN 'collection' THEN 'lift findings' ELSE 'invoice findings' END AS metric, count(*) AS n FROM cp_flags WHERE $__timeFilter(found_at) GROUP BY 1, 2 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70,
+            "stacking": {
+              "mode": "normal"
+            },
+            "barAlignment": 0
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "id": 7,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    }
+  ],
+  "templating": {
+    "list": []
+  }
+}

@@ -1,0 +1,372 @@
+{
+  "uid": "cockpit-findings",
+  "title": "2 · Findings — what looks wrong",
+  "tags": [
+    "europress-cockpit"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "2025-10-01T00:00:00Z",
+    "to": "2026-10-15T00:00:00Z"
+  },
+  "graphTooltip": 1,
+  "editable": true,
+  "description": "SYNTHETIC DATA (Europress SMART Material Value Engine v1.0.1). Proposals need human approval.",
+  "links": [
+    {
+      "title": "Cockpit pages",
+      "type": "dashboards",
+      "tags": [
+        "europress-cockpit"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true
+    },
+    {
+      "title": "Approve actions",
+      "type": "link",
+      "url": "http://localhost:8000/cockpit",
+      "targetBlank": true,
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "id": 100,
+      "type": "text",
+      "title": "How to read this page",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Every irregularity the system found**, with a plain-language explanation and the evidence. Use the filters at the top (customer, operator, finding type).\n**Source record** = the exact lift or invoice line in the data (row-level audit trail). A finding is a **discrepancy to check, not an accusation** — causes can be the sensor, data gaps or combined truck loads.\nTip: sort the table by **€ at stake** (click the column header)."
+      }
+    },
+    {
+      "title": "Findings by type",
+      "description": "",
+      "type": "bargauge",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 8,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT replace(lower(label_family), '_', ' ') AS \"Finding\", count(*) AS \"Count\" FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($finding) GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/Count/",
+          "values": true
+        }
+      },
+      "id": 1,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Lift findings vs invoice findings",
+      "description": "",
+      "type": "piechart",
+      "gridPos": {
+        "x": 8,
+        "y": 4,
+        "w": 6,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CASE entity_type WHEN 'collection' THEN 'lift' ELSE 'invoice line' END AS \"Type\", count(*) AS \"Count\" FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($finding) GROUP BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/Count/",
+          "values": true
+        },
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "values": [
+            "value"
+          ]
+        }
+      },
+      "id": 2,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Findings over time",
+      "description": "",
+      "type": "timeseries",
+      "gridPos": {
+        "x": 14,
+        "y": 4,
+        "w": 10,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "time_series",
+          "rawQuery": true,
+          "rawSql": "SELECT date_trunc('week', found_at) AS \"time\", count(*) AS findings FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($finding) AND $__timeFilter(found_at) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 70
+          }
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 3,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "All findings (newest first) — click a column to sort",
+      "description": "",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 16
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT found_at AS \"Date\", replace(lower(label_family), '_', ' ') AS \"Finding\", customer_name AS \"Customer\", site_name AS \"Site\", operator_name AS \"Operator\", explanation AS \"What it means\", evidence AS \"Evidence\", eur_at_stake AS \"€ at stake\", entity_id AS \"Source record\" FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($finding) AND $__timeFilter(found_at) ORDER BY found_at DESC LIMIT 1000"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "€ at stake"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Date"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Finding"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "€ at stake"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 95
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Source record"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 190
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 4,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "customer",
+        "label": "Customer",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT customer_name FROM cp_collections WHERE customer_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT customer_name FROM cp_collections WHERE customer_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      },
+      {
+        "name": "operator",
+        "label": "Operator",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT operator_name FROM cp_collections WHERE operator_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT operator_name FROM cp_collections WHERE operator_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      },
+      {
+        "name": "finding",
+        "label": "Finding type",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT label_family FROM cp_flags ORDER BY 1",
+        "definition": "SELECT DISTINCT label_family FROM cp_flags ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      }
+    ]
+  }
+}

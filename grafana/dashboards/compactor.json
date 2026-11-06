@@ -1,18 +1,34 @@
 {
   "uid": "smart-compactor",
-  "title": "Smart compactor",
+  "title": "6 · Live sensors",
   "tags": [
-    "hackathon"
+    "europress-cockpit",
+    "live"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 2,
+  "version": 3,
   "refresh": "10s",
   "time": {
     "from": "now-7d",
     "to": "now"
   },
   "panels": [
+    {
+      "id": 100,
+      "type": "text",
+      "title": "How to read this page",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Live data from real sensors** (ESP32 / Node-RED test buttons), not the Europress year. Each reading is checked by the rules and the **live lift model** — alerts appear in the table at the bottom. *Last seen* turns red when a sensor stops sending."
+      }
+    },
     {
       "id": 1,
       "title": "Net value now (EUR)",
@@ -23,7 +39,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -70,7 +86,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 0,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -116,7 +132,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 0,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -178,7 +194,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 0,
+        "y": 3,
         "w": 6,
         "h": 4
       },
@@ -225,7 +241,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 7,
         "w": 8,
         "h": 8
       },
@@ -289,7 +305,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 4,
+        "y": 7,
         "w": 16,
         "h": 8
       },
@@ -328,7 +344,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 15,
         "w": 24,
         "h": 6
       },
@@ -402,7 +418,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 18,
+        "y": 21,
         "w": 12,
         "h": 8
       },
@@ -439,7 +455,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 18,
+        "y": 21,
         "w": 12,
         "h": 8
       },
@@ -499,5 +515,17 @@
   ],
   "templating": {
     "list": []
-  }
+  },
+  "links": [
+    {
+      "title": "Cockpit pages",
+      "type": "dashboards",
+      "tags": [
+        "europress-cockpit"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": false
+    }
+  ]
 }

@@ -1,0 +1,492 @@
+{
+  "uid": "cockpit-actions",
+  "title": "5 · Actions — proposals for a person to approve",
+  "tags": [
+    "europress-cockpit"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "2025-10-01T00:00:00Z",
+    "to": "2026-10-15T00:00:00Z"
+  },
+  "graphTooltip": 1,
+  "editable": true,
+  "description": "SYNTHETIC DATA (Europress SMART Material Value Engine v1.0.1). Proposals need human approval.",
+  "links": [
+    {
+      "title": "Cockpit pages",
+      "type": "dashboards",
+      "tags": [
+        "europress-cockpit"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true
+    },
+    {
+      "title": "Approve actions",
+      "type": "link",
+      "url": "http://localhost:8000/cockpit",
+      "targetBlank": true,
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "id": 100,
+      "type": "text",
+      "title": "How to read this page",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**The system only proposes; a person decides.** Each row = one proposed action for a contract: *dispute invoice*, *request weighbridge data*, *renegotiate contract*, *tender / switch operator*.\n**Flagged €** = invoice lines that differ from the contract for that device (estimated). To decide: open the **Approve actions** link (top right) → *Show evidence* → Approve / Reject (with your name and a note).\nEvery decision is logged and can be reverted; this page updates within a minute."
+      }
+    },
+    {
+      "title": "Pending",
+      "description": "",
+      "type": "stat",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE (a.customer_name IN ($customer) AND a.operator_name IN ($operator)) AND (d.decision IS NULL OR d.decision = 'REVERT')"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 1,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Approved",
+      "description": "",
+      "type": "stat",
+      "gridPos": {
+        "x": 6,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE (a.customer_name IN ($customer) AND a.operator_name IN ($operator)) AND d.decision = 'APPROVE'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 2,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Rejected",
+      "description": "",
+      "type": "stat",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE (a.customer_name IN ($customer) AND a.operator_name IN ($operator)) AND d.decision = 'REJECT'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 3,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Flagged € behind pending proposals",
+      "description": "",
+      "type": "stat",
+      "gridPos": {
+        "x": 18,
+        "y": 4,
+        "w": 6,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum(a.flagged_invoice_eur)::numeric) AS v FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE (a.customer_name IN ($customer) AND a.operator_name IN ($operator)) AND (d.decision IS NULL OR d.decision = 'REVERT')"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 4,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Proposals by type",
+      "description": "",
+      "type": "bargauge",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 10,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT replace(lower(a.action), '_', ' ') AS \"Action\", count(*) AS \"Count\" FROM cp_actions a WHERE a.customer_name IN ($customer) AND a.operator_name IN ($operator) GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/Count/",
+          "values": true
+        }
+      },
+      "id": 5,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Proposals by operator",
+      "description": "",
+      "type": "bargauge",
+      "gridPos": {
+        "x": 10,
+        "y": 8,
+        "w": 14,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT a.operator_name AS \"Operator\", count(*) AS \"Count\" FROM cp_actions a WHERE a.customer_name IN ($customer) AND a.operator_name IN ($operator) GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/Count/",
+          "values": true
+        }
+      },
+      "id": 6,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "All proposals (biggest flagged € first)",
+      "description": "",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 24,
+        "h": 14
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(CASE d.decision WHEN 'APPROVE' THEN 'approved' WHEN 'REJECT' THEN 'rejected' END, 'pending') AS \"Status\", replace(lower(a.action), '_', ' ') AS \"Proposed action\", a.customer_name AS \"Customer\", a.operator_name AS \"Operator\", a.contract_id AS \"Contract\", a.flagged_invoice_eur AS \"Flagged €\", a.notice_period_days AS \"Notice (days)\", d.decided_by AS \"Decided by\", a.rationale AS \"Why\" FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE a.customer_name IN ($customer) AND a.operator_name IN ($operator) ORDER BY a.flagged_invoice_eur DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Flagged €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 95
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "pending": {
+                        "color": "orange",
+                        "text": "⏳ pending"
+                      },
+                      "approved": {
+                        "color": "green",
+                        "text": "✔ approved"
+                      },
+                      "rejected": {
+                        "color": "red",
+                        "text": "✖ rejected"
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 7,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "customer",
+        "label": "Customer",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT customer_name FROM cp_collections WHERE customer_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT customer_name FROM cp_collections WHERE customer_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      },
+      {
+        "name": "operator",
+        "label": "Operator",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT operator_name FROM cp_collections WHERE operator_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT operator_name FROM cp_collections WHERE operator_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      }
+    ]
+  }
+}

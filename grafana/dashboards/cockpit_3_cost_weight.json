@@ -1,0 +1,441 @@
+{
+  "uid": "cockpit-cost",
+  "title": "3 · Cost & weight — € per tonne and the scale",
+  "tags": [
+    "europress-cockpit"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "1m",
+  "time": {
+    "from": "2025-10-01T00:00:00Z",
+    "to": "2026-10-15T00:00:00Z"
+  },
+  "graphTooltip": 1,
+  "editable": true,
+  "description": "SYNTHETIC DATA (Europress SMART Material Value Engine v1.0.1). Proposals need human approval.",
+  "links": [
+    {
+      "title": "Cockpit pages",
+      "type": "dashboards",
+      "tags": [
+        "europress-cockpit"
+      ],
+      "asDropdown": false,
+      "includeVars": false,
+      "keepTime": true
+    },
+    {
+      "title": "Approve actions",
+      "type": "link",
+      "url": "http://localhost:8000/cockpit",
+      "targetBlank": true,
+      "icon": "external link"
+    }
+  ],
+  "panels": [
+    {
+      "id": 100,
+      "type": "text",
+      "title": "How to read this page",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 4
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**€ per tonne (€/t) is the key cost number** — it needs a known weight. *% of benchmark* above 100 = more expensive than similar contracts (orange > 130 %, red > 200 %).\n*% measured weight* = share of lifts where the weight came from a weighbridge ticket or the invoice (**observed**) instead of the device (**estimated**). No weight → no €/t (we never invent it).\nBottom: lifts where **our scale and the operator's weighbridge disagree by > 10 %** — the reason independent weighing matters. Causes can be either side."
+      }
+    },
+    {
+      "title": "Average €/t by material",
+      "description": "",
+      "type": "bargauge",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT material_stream AS \"Material\", round(avg(collection_cost_eur_per_t)::numeric) AS \"EUR per t\" FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND customer_name IN ($customer) AND material_stream IN ($material) GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/EUR per t/",
+          "values": true
+        }
+      },
+      "id": 1,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Where the weight comes from",
+      "description": "",
+      "type": "piechart",
+      "gridPos": {
+        "x": 8,
+        "y": 4,
+        "w": 6,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT CASE mass_evidence WHEN 'OBSERVED' THEN 'measured (ticket / invoice)' WHEN 'ESTIMATED' THEN 'device estimate' ELSE 'unknown' END AS \"Source\", count(*) AS \"Lifts\" FROM cp_collections WHERE status = 'COMPLETED' AND customer_name IN ($customer) AND material_stream IN ($material) GROUP BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/Lifts/",
+          "values": true
+        },
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "values": [
+            "percent"
+          ]
+        }
+      },
+      "id": 2,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Scale vs weighbridge: share of lifts with > 10 % difference, by operator",
+      "description": "",
+      "type": "bargauge",
+      "gridPos": {
+        "x": 14,
+        "y": 4,
+        "w": 10,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT operator_name AS \"Operator\", round((100.0 * avg(CASE WHEN abs(weighbridge_net_kg - device_estimated_collected_kg) > 0.1 * device_estimated_collected_kg THEN 1 ELSE 0 END))::numeric, 1) AS \"% of lifts\" FROM cp_collections WHERE weighbridge_net_kg IS NOT NULL AND device_estimated_collected_kg > 200 AND customer_name IN ($customer) AND material_stream IN ($material) GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 1,
+          "min": 0
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "gradient",
+        "valueMode": "color",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/% of lifts/",
+          "values": true
+        }
+      },
+      "id": 3,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Cost per tonne by site (most expensive first)",
+      "description": "",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 13,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT customer_name AS \"Customer\", site_name AS \"Site\", material_stream AS \"Material\", count(*) AS \"Lifts\", round(avg(collection_cost_eur_per_t)::numeric) AS \"€/t\", round(avg(benchmark_eur_per_t)::numeric) AS \"Benchmark €/t\", round((avg(collection_cost_eur_per_t) / NULLIF(avg(benchmark_eur_per_t), 0) * 100)::numeric) AS \"% of benchmark\", round((100.0 * avg(CASE WHEN mass_evidence = 'OBSERVED' THEN 1 ELSE 0 END))::numeric) AS \"% measured weight\" FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND customer_name IN ($customer) AND material_stream IN ($material) GROUP BY 1, 2, 3 ORDER BY 7 DESC NULLS LAST LIMIT 200"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "% of benchmark"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "transparent",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 130
+                    },
+                    {
+                      "color": "red",
+                      "value": 200
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "€/t"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Benchmark €/t"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 4,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    },
+    {
+      "title": "Lifts where scale and weighbridge differ by > 10 %",
+      "description": "",
+      "type": "table",
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT service_date AS \"Date\", customer_name AS \"Customer\", device_id AS \"Device\", operator_name AS \"Operator\", device_estimated_collected_kg AS \"Our scale kg\", weighbridge_net_kg AS \"Weighbridge kg\", round((100.0 * (weighbridge_net_kg - device_estimated_collected_kg) / NULLIF(device_estimated_collected_kg, 0))::numeric, 1) AS \"Difference %\", operator_job_ref AS \"Job ref\" FROM cp_collections WHERE weighbridge_net_kg IS NOT NULL AND device_estimated_collected_kg > 200 AND abs(weighbridge_net_kg - device_estimated_collected_kg) > 0.1 * device_estimated_collected_kg AND customer_name IN ($customer) AND material_stream IN ($material) AND $__timeFilter(service_date) ORDER BY abs(weighbridge_net_kg - device_estimated_collected_kg) DESC LIMIT 500"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Difference %"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": null
+                    },
+                    {
+                      "color": "transparent",
+                      "value": -10
+                    },
+                    {
+                      "color": "red",
+                      "value": 10
+                    }
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 5,
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "customer",
+        "label": "Customer",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT customer_name FROM cp_collections WHERE customer_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT customer_name FROM cp_collections WHERE customer_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      },
+      {
+        "name": "material",
+        "label": "Material",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT material_stream FROM cp_collections WHERE material_stream IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT material_stream FROM cp_collections WHERE material_stream IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      }
+    ]
+  }
+}

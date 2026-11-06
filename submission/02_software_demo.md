@@ -40,7 +40,7 @@ docker compose run --rm analytics          # ≈ 1 min: builds the cockpit from 
 ```
 | Open | What |
 |---|---|
-| http://localhost:3000/d/value-cockpit | Grafana — Customer Value Cockpit |
+| http://localhost:3000/d/value-cockpit | Grafana — Customer Value Cockpit (6 linked pages: Overview, Findings, Cost & weight, Operators, Actions, Live sensors) |
 | http://localhost:8000/cockpit | Approve / reject / revert proposed actions |
 | http://localhost:8000/docs | API (OpenAPI) |
 | http://localhost:1880 | Node-RED: live sensor path + test buttons |
