@@ -6,7 +6,7 @@ Changing it = a PR that edits this file + a message to the whole team.
 ## The big picture
 
 ```
-ESP32 / simulator ──MQTT──► Mosquitto ──► Node-RED ──HTTP──► FastAPI backend ──► PostgreSQL ◄── Grafana
+ESP32 sensor ─────MQTT──► Mosquitto ──► Node-RED ──HTTP──► FastAPI backend ──► PostgreSQL ◄── Grafana
                                                              (AI: anomaly, forecast, value)
 ```
 
@@ -14,7 +14,7 @@ ESP32 / simulator ──MQTT──► Mosquitto ──► Node-RED ──HTTP─
 
 ## 1. Sensor reading (the most important format)
 
-Sent by the ESP32 (or the simulator) as **MQTT** message:
+Sent by the ESP32 (or a Node-RED test button) as **MQTT** message:
 
 - **Topic:** `compactor/<compactor_id>/reading` — e.g. `compactor/C1/reading`
 - **Payload (JSON):**
@@ -43,7 +43,7 @@ Node-RED forwards the same JSON to the backend.
 |---|---|---|
 | GET | `/health` | `{"status":"ok","version":"..."}` |
 | POST | `/readings` | Store one reading (body = format above), run AI checks. Returns `{"reading_id", "alerts":[...], "status":{...}}` |
-| POST | `/readings/bulk` | `{"readings":[...]}` — many at once, in time order (simulator backfill) |
+| POST | `/readings/bulk` | `{"readings":[...]}` — many at once, in time order (import old data) |
 | GET | `/compactors` | List of compactor status objects (below) |
 | GET | `/compactors/{id}` | One status object |
 | GET | `/compactors/{id}/readings?limit=500` | Latest readings, oldest first |

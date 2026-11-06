@@ -21,7 +21,7 @@ Judges want **engineering feasibility AND commercial usefulness** — "go beyond
 ## Timeline
 | When | Goal |
 |---|---|
-| Kick-off (first 2 h) | Roles filled in README, everyone runs `docker compose --profile sim up` |
+| Kick-off (first 2 h) | Roles filled in README, everyone runs `docker compose up -d` |
 | By hour ~4 | First PR merged by each person |
 | Middle | Real sensor sending data; improve one AI part; dashboard polish |
 | Feature freeze (−6 h) | No new features. Fix bugs, rehearse demo |

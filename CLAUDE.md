@@ -8,7 +8,7 @@ useful information — material value, anomaly detection, pickup planning, new s
 Team are beginners: prefer simple, readable code with short comments over clever code.
 
 ## Architecture
-ESP32 / simulator → MQTT (Mosquitto) → Node-RED → FastAPI backend → PostgreSQL ← Grafana
+ESP32 sensor → MQTT (Mosquitto) → Node-RED → FastAPI backend → PostgreSQL ← Grafana
 
 ## Stack & files
 - **Firmware:** Arduino C++ for ESP32, `firmware/compactor_node/`. Libraries HX711 (bogde), PubSubClient. Secrets in `config.h` (git-ignored).
@@ -17,9 +17,9 @@ ESP32 / simulator → MQTT (Mosquitto) → Node-RED → FastAPI backend → Post
   - `app/main.py` endpoints · `app/service.py` ingest logic · `app/db.py` tables + seed data · `app/schemas.py` shapes
   - Works with PostgreSQL (Docker) and SQLite (local/tests) — keep queries portable (use SQLAlchemy, not raw Postgres-only SQL).
 - **AI:** `app/ai/anomaly.py` `check(new, history, compactor, material) -> list[alert]`, `forecast.py` `hours_to_full(points, load_pct)`, `value.py` `material_value(weight, material)`. Keep these signatures.
-- **Simulator:** `simulator/simulate.py`, stdlib + paho-mqtt.
+- **Testing without sensor:** test buttons (inject nodes) in the Node-RED flow publish sample readings.
 - **Dashboard:** Grafana, `grafana/dashboards/compactor.json`, reads PostgreSQL directly (read-only).
-- **Run all:** `docker compose --profile sim up --build`. Ports: Grafana 3000, Node-RED 1880, API 8000, Postgres 5432, MQTT 1883.
+- **Run all:** `docker compose up -d --build`. Ports: Grafana 3000, Node-RED 1880, API 8000, Postgres 5432, MQTT 1883.
 
 ## Rules for generated code
 1. Follow `CONTRACT.md` exactly — JSON fields, MQTT topic, endpoints, table columns.

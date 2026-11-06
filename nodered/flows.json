@@ -34,7 +34,11 @@
     "inputs": 0,
     "x": 160,
     "y": 120,
-    "wires": [["http_post_reading"]]
+    "wires": [
+      [
+        "http_post_reading"
+      ]
+    ]
   },
   {
     "id": "http_post_reading",
@@ -54,7 +58,12 @@
     "headers": [],
     "x": 410,
     "y": 120,
-    "wires": [["fn_alerts_only", "debug_response"]]
+    "wires": [
+      [
+        "fn_alerts_only",
+        "debug_response"
+      ]
+    ]
   },
   {
     "id": "fn_alerts_only",
@@ -70,7 +79,11 @@
     "libs": [],
     "x": 650,
     "y": 100,
-    "wires": [["debug_alerts"]]
+    "wires": [
+      [
+        "debug_alerts"
+      ]
+    ]
   },
   {
     "id": "debug_alerts",
@@ -98,6 +111,179 @@
     "targetType": "msg",
     "x": 660,
     "y": 160,
+    "wires": []
+  },
+  {
+    "id": "test_inject_0",
+    "type": "inject",
+    "z": "tab_ingest",
+    "name": "Normal: C1 800 kg, 50% full",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "compactor/C1/reading",
+    "payload": "{\"compactor_id\": \"C1\", \"weight_kg\": 800, \"fill_pct\": 50}",
+    "payloadType": "json",
+    "x": 200,
+    "y": 260,
+    "wires": [
+      [
+        "mqtt_out_test"
+      ]
+    ]
+  },
+  {
+    "id": "test_inject_1",
+    "type": "inject",
+    "z": "tab_ingest",
+    "name": "Fuller: C1 1200 kg, 70% full",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "compactor/C1/reading",
+    "payload": "{\"compactor_id\": \"C1\", \"weight_kg\": 1200, \"fill_pct\": 70}",
+    "payloadType": "json",
+    "x": 200,
+    "y": 300,
+    "wires": [
+      [
+        "mqtt_out_test"
+      ]
+    ]
+  },
+  {
+    "id": "test_inject_2",
+    "type": "inject",
+    "z": "tab_ingest",
+    "name": "Contamination: C1 1800 kg, 40% full",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "compactor/C1/reading",
+    "payload": "{\"compactor_id\": \"C1\", \"weight_kg\": 1800, \"fill_pct\": 40}",
+    "payloadType": "json",
+    "x": 200,
+    "y": 340,
+    "wires": [
+      [
+        "mqtt_out_test"
+      ]
+    ]
+  },
+  {
+    "id": "test_inject_3",
+    "type": "inject",
+    "z": "tab_ingest",
+    "name": "Emptied: C1 10 kg",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "compactor/C1/reading",
+    "payload": "{\"compactor_id\": \"C1\", \"weight_kg\": 10, \"fill_pct\": 0}",
+    "payloadType": "json",
+    "x": 200,
+    "y": 380,
+    "wires": [
+      [
+        "mqtt_out_test"
+      ]
+    ]
+  },
+  {
+    "id": "test_inject_4",
+    "type": "inject",
+    "z": "tab_ingest",
+    "name": "Sensor fault: C1 99999 kg",
+    "props": [
+      {
+        "p": "payload"
+      },
+      {
+        "p": "topic",
+        "vt": "str"
+      }
+    ],
+    "repeat": "",
+    "crontab": "",
+    "once": false,
+    "onceDelay": 0.1,
+    "topic": "compactor/C1/reading",
+    "payload": "{\"compactor_id\": \"C1\", \"weight_kg\": 99999}",
+    "payloadType": "json",
+    "x": 200,
+    "y": 420,
+    "wires": [
+      [
+        "mqtt_out_test"
+      ]
+    ]
+  },
+  {
+    "id": "mqtt_out_test",
+    "type": "mqtt out",
+    "z": "tab_ingest",
+    "name": "publish test reading",
+    "topic": "",
+    "qos": "1",
+    "retain": "false",
+    "respTopic": "",
+    "contentType": "",
+    "userProps": "",
+    "correl": "",
+    "expiry": "",
+    "broker": "broker_local",
+    "x": 520,
+    "y": 340,
+    "wires": []
+  },
+  {
+    "id": "comment_tests",
+    "type": "comment",
+    "z": "tab_ingest",
+    "name": "TEST BUTTONS: click the square on the left of a node to send a sample reading (no sensor needed)",
+    "info": "",
+    "x": 380,
+    "y": 220,
     "wires": []
   }
 ]

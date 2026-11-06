@@ -1,5 +1,5 @@
-# Start everything:            docker compose up --build
-# Start with fake sensor data: docker compose --profile sim up --build
+# Start everything: docker compose up -d --build
+# Stop:             docker compose down
 services:
   postgres:
     image: postgres:16-alpine
@@ -62,15 +62,6 @@ services:
       postgres:
         condition: service_healthy
 
-  simulator:
-    build: ./simulator
-    profiles: ["sim"]          # only runs with --profile sim
-    environment:
-      API_URL: http://backend:8000/api
-      MQTT_HOST: mosquitto
-    depends_on:
-      - backend
-      - mosquitto
 
 volumes:
   pgdata:

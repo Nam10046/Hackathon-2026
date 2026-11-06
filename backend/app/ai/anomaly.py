@@ -1,7 +1,7 @@
 """Anomaly detection. Owner: AI person.
 
 check() gets the new reading + recent history and returns a list of alerts.
-Start: simple rules + statistics. Later: train a model (e.g. IsolationForest) on simulator data.
+Start: simple rules + statistics. Later: train a model (e.g. IsolationForest) on collected data.
 """
 from statistics import mean, pstdev
 
