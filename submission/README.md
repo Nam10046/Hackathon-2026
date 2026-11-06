@@ -6,6 +6,7 @@
 | 2 | Working software demo on synthetic data: setup notes, traceable economics, SMART integration | [`02_software_demo.md`](02_software_demo.md) + the repo + demo video |
 | 3 | Customer value and business case: use case, measurable benefit, commercial model, productisation | [`03_business_case.md`](03_business_case.md) |
 | — | Every third-party library/service/dataset with licence; assumptions; what remains untested | [`04_licences_and_assumptions.md`](04_licences_and_assumptions.md) |
+| (team) | Questions the judges may ask, with honest answers — **read before the pitch** | [`05_judge_QA.md`](05_judge_QA.md) |
 
 Reproduce the business-case numbers (inside the unzipped Europress engine folder):
 ```bash
