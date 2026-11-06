@@ -127,6 +127,9 @@ services:
     volumes:
       - ./europress:/work/europress:ro      # unzipped Europress dataset (git-ignored)
       - ./analytics:/work/analytics:ro
+      - ./training:/work/training:ro        # lift features (shared with training)
+      - ./backend:/work/backend:ro          # lift_features.py
+      - ./models:/work/models:ro            # trained live lift model
     depends_on:
       backend:
         condition: service_healthy        # backend creates action_decisions first

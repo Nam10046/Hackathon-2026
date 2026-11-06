@@ -46,7 +46,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### One year of waste service for 52 customers (synthetic data)\nCustomers **paid** the waste companies the amount on the left and **got money back** for recyclables. Our system checked every lift and invoice line and found **money worth checking**. A person decides what to do — see *5 Decisions*."
+        "content": "### One year of waste service for 52 customers (synthetic data)\nCustomers **paid** the waste companies the amount on the left and **got money back** for recyclables. Our system checked every lift and invoice line and found **issues** (the same problem on the same compactor counted once) with **money worth checking**. A person decides what to do — see *5 Decisions*."
       }
     },
     {
@@ -60,7 +60,7 @@
       "gridPos": {
         "x": 0,
         "y": 5,
-        "w": 6,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -108,9 +108,9 @@
         "uid": "compactor-pg"
       },
       "gridPos": {
-        "x": 6,
+        "x": 5,
         "y": 5,
-        "w": 6,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -150,6 +150,53 @@
       "id": 2
     },
     {
+      "title": "Issues found",
+      "description": "Same problem on the same compactor = one issue (it may repeat on many lifts).",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 5,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM cp_issues"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 3
+    },
+    {
       "title": "Money worth checking",
       "description": "Estimated euros behind all problems found. To check — not a proven saving.",
       "type": "stat",
@@ -158,9 +205,9 @@
         "uid": "compactor-pg"
       },
       "gridPos": {
-        "x": 12,
+        "x": 15,
         "y": 5,
-        "w": 6,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -201,7 +248,7 @@
         "justifyMode": "center",
         "wideLayout": true
       },
-      "id": 3
+      "id": 4
     },
     {
       "title": "Decisions waiting",
@@ -212,9 +259,9 @@
         "uid": "compactor-pg"
       },
       "gridPos": {
-        "x": 18,
+        "x": 20,
         "y": 5,
-        "w": 6,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -248,7 +295,7 @@
         "justifyMode": "center",
         "wideLayout": true
       },
-      "id": 4
+      "id": 5
     },
     {
       "title": "Which problems cost the most?",
@@ -303,7 +350,7 @@
           "values": true
         }
       },
-      "id": 5
+      "id": 6
     },
     {
       "title": "Which customers have the most to check?",
@@ -358,7 +405,7 @@
           "values": true
         }
       },
-      "id": 6
+      "id": 7
     }
   ],
   "templating": {

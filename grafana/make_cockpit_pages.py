@@ -115,16 +115,18 @@ V_MAT = var("material", "Material", f"SELECT DISTINCT {MAT} AS __text, material_
 # ------------------------------------------------------------------ 1 OVERVIEW
 overview = page("value-cockpit", "1 Overview",
 """### One year of waste service for 52 customers (synthetic data)
-Customers **paid** the waste companies the amount on the left and **got money back** for recyclables. Our system checked every lift and invoice line and found **money worth checking**. A person decides what to do — see *5 Decisions*.""",
+Customers **paid** the waste companies the amount on the left and **got money back** for recyclables. Our system checked every lift and invoice line and found **issues** (the same problem on the same compactor counted once) with **money worth checking**. A person decides what to do — see *5 Decisions*.""",
 [
     P("Paid for waste service", "stat", "SELECT round(sum(collection_cost_eur + processing_cost_eur + penalties_eur)::numeric) AS v FROM cp_collections",
-      0, 3, 6, 4, field=EUR1, options=STAT, desc="Collection, treatment and penalty charges under the customer–operator contracts (hypothetical prices)."),
+      0, 3, 5, 4, field=EUR1, options=STAT, desc="Collection, treatment and penalty charges under the customer–operator contracts (hypothetical prices)."),
     P("Money back for recyclables", "stat", "SELECT round(sum(material_credit_eur)::numeric) AS v FROM cp_collections",
-      6, 3, 6, 4, field=EUR1, options=STAT, desc="Material credits for cardboard and plastic."),
+      5, 3, 5, 4, field=EUR1, options=STAT, desc="Material credits for cardboard and plastic."),
+    P("Issues found", "stat", "SELECT count(*) AS v FROM cp_issues",
+      10, 3, 5, 4, options=STAT, desc="Same problem on the same compactor = one issue (it may repeat on many lifts)."),
     P("Money worth checking", "stat", "SELECT round(sum(eur_at_stake)::numeric) AS v FROM cp_flags",
-      12, 3, 6, 4, field=EUR, options=STAT, desc="Estimated euros behind all problems found. To check — not a proven saving."),
+      15, 3, 5, 4, field=EUR, options=STAT, desc="Estimated euros behind all problems found. To check — not a proven saving."),
     P("Decisions waiting", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE {OPEN}",
-      18, 3, 6, 4, options=STAT, desc="Proposals no person has approved or rejected yet."),
+      20, 3, 4, 4, options=STAT, desc="Proposals no person has approved or rejected yet."),
     P("Which problems cost the most?", "bargauge",
       f"SELECT {PROB} AS \"Problem\", round(sum(eur_at_stake)::numeric) AS \"EUR\" FROM cp_flags GROUP BY 1 HAVING sum(eur_at_stake) > 0 ORDER BY 2 DESC",
       0, 7, 12, 11, field=EUR, options=BAR("/EUR/")),
@@ -136,25 +138,26 @@ Customers **paid** the waste companies the amount on the left and **got money ba
 # ------------------------------------------------------------------ 2 PROBLEMS FOUND
 fw = "customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($problem)"
 findings = page("cockpit-findings", "2 Problems found",
-"""### Every problem found, with the reason
-Pick a **customer**, **waste company** or **problem** at the top. Each row is one lift or invoice line that looks wrong, *why* we think so, and the euros involved.
-It is a **difference to check, not an accusation** — the cause can also be a sensor or missing data.""",
+"""### Issues: the same problem on the same compactor, counted once
+Pick a **customer**, **waste company** or **problem** at the top. **Times seen** = on how many lifts or invoice lines it happened. **Found by**: *AI model* (our live lift model) or *rules*.
+The lower table lists every single record. It is a **difference to check, not an accusation** — the cause can also be a sensor or missing data.""",
 [
-    P("How many of each problem?", "bargauge",
-      f"SELECT {PROB} AS \"Problem\", count(*) AS \"Count\" FROM cp_flags WHERE {fw} GROUP BY 1 ORDER BY 2 DESC",
-      0, 3, 9, 13, options=BAR("/Count/")),
-    P("Problems, biggest euros first (click a column header to sort)", "table",
+    P("How many issues of each problem?", "bargauge",
+      f"SELECT {PROB} AS \"Problem\", count(*) AS \"Issues\" FROM cp_issues WHERE {fw} GROUP BY 1 ORDER BY 2 DESC",
+      0, 3, 8, 13, options=BAR("/Issues/")),
+    P("Issues — biggest euros first", "table",
+      f"SELECT customer_name AS \"Customer\", site_name AS \"Site\", {PROB} AS \"Problem\", times_seen AS \"Times seen\", "
+      f"to_char(last_seen, 'YYYY-MM-DD') AS \"Last seen\", eur_at_stake AS \"Euros\", "
+      f"CASE detected_by WHEN 'live lift model' THEN 'AI model' ELSE 'rules' END AS \"Found by\" "
+      f"FROM cp_issues WHERE {fw} ORDER BY eur_at_stake DESC, times_seen DESC LIMIT 1000",
+      8, 3, 16, 13, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Euros", "currencyEUR"),
+          o_width("Times seen", 95), o_width("Last seen", 100), o_width("Euros", 90), o_width("Found by", 90)]}, options=TABLE),
+    P("Every single record (one row per lift or invoice line)", "table",
       f"SELECT to_char(found_at, 'YYYY-MM-DD') AS \"Date\", customer_name AS \"Customer\", {PROB} AS \"Problem\", evidence AS \"What the data shows\", "
       f"eur_at_stake AS \"Euros\", entity_id AS \"Record\" FROM cp_flags WHERE {fw} AND $__timeFilter(found_at) "
       "ORDER BY eur_at_stake DESC NULLS LAST, found_at DESC LIMIT 1000",
-      9, 3, 15, 26, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Euros", "currencyEUR"),
-          o_width("Date", 100), o_width("Problem", 210), o_width("Euros", 90), o_width("Record", 180)]}, options=TABLE),
-    P("Problems per month", "timeseries",
-      f"SELECT date_trunc('month', found_at) AS \"time\", count(*) AS \"problems\" FROM cp_flags WHERE {fw} AND $__timeFilter(found_at) GROUP BY 1 ORDER BY 1",
-      0, 16, 9, 13, fmt="time_series",
-      field={"defaults": {"min": 0, "color": {"mode": "fixed", "fixedColor": "#5794F2"},
-                          "custom": {"drawStyle": "bars", "fillOpacity": 80}}, "overrides": []},
-      options={"legend": {"showLegend": False}}),
+      0, 16, 24, 12, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Euros", "currencyEUR"),
+          o_width("Date", 100), o_width("Problem", 230), o_width("Euros", 90), o_width("Record", 190)]}, options=TABLE),
 ], [V_CUST, V_OP, V_PROB])
 
 # ------------------------------------------------------------------ 3 COST & WEIGHT

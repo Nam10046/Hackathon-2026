@@ -55,16 +55,50 @@ def load_engine(engine_dir: Path):
     from b2_rules_anomaly import collection_features, detect_collections, detect_invoices
     from b5_operator_scorecard import scorecard
     from b6_operator_actions import decide as decide_c2
-    return compute, collection_features, detect_collections, detect_invoices, scorecard, decide_c2
+    from europress_data.sdk import open_dataset
+    return compute, collection_features, detect_collections, detect_invoices, scorecard, decide_c2, open_dataset
+
+
+LIFT_MODELS = {"lift_premature": "PREMATURE_UNJUSTIFIED", "lift_delayed": "DELAYED_COLLECTION"}
+
+
+def model_flags(pub, b1, compute, collection_features, open_dataset) -> pd.DataFrame | None:
+    """Our live lift model (models/lift_*) instead of the simple rules for early / late lifts. None if not available."""
+    try:
+        import json
+        import onnxruntime as ort
+        sys.path.insert(0, str(ROOT / "training"))
+        from lift_dataset import build_raw, to_matrix
+    except ImportError as e:
+        print(f"lift model not used ({e}); using the organisers' rules for early/late lifts")
+        return None
+    folders = [ROOT / "models" / m for m in LIFT_MODELS if (ROOT / "models" / m / "model.onnx").exists()]
+    if not folders:
+        return None
+    f = build_raw(pub, compute, collection_features, open_dataset, b1=b1)
+    X = to_matrix(f)
+    out = []
+    for folder in folders:
+        meta = json.loads((folder / "model.json").read_text())
+        sess = ort.InferenceSession(str(folder / "model.onnx"))
+        prob = sess.run(None, {sess.get_inputs()[0].name: X})[1][:, 1]
+        hit = f.collection_id.to_numpy()[prob >= meta["threshold"]]
+        out.append(pd.DataFrame({"entity_type": "collection", "entity_id": hit, "label_family": meta["family"]}))
+        print(f"{folder.name}: {len(hit)} lifts flagged by the model")
+    return pd.concat(out, ignore_index=True)
 
 
 def build(pub: Path, engine_dir: Path) -> dict[str, pd.DataFrame]:
-    compute, collection_features, detect_collections, detect_invoices, scorecard, decide_c2 = load_engine(engine_dir)
+    compute, collection_features, detect_collections, detect_invoices, scorecard, decide_c2, open_dataset = load_engine(engine_dir)
     t0 = time.time()
     b1, b1l = compute(pub)
     feats = collection_features(pub, b1)
-    coll_flags = detect_collections(feats)
-    inv_flags = detect_invoices(pub, b1, b1l)
+    coll_flags = detect_collections(feats).assign(detected_by="rules")
+    mf = model_flags(pub, b1, compute, collection_features, open_dataset)
+    if mf is not None:                       # model replaces the rules for the families it covers
+        coll_flags = pd.concat([coll_flags[~coll_flags.label_family.isin(mf.label_family.unique())],
+                                mf.assign(detected_by="live lift model")], ignore_index=True)
+    inv_flags = detect_invoices(pub, b1, b1l).assign(detected_by="rules")
     sc = scorecard(pub, b1, b1l)
     c2 = decide_c2(pub, b1, b1l, inv_flags)
     print(f"engine calculators done in {time.time() - t0:.0f}s", flush=True)
@@ -102,7 +136,7 @@ def build(pub: Path, engine_dir: Path) -> dict[str, pd.DataFrame]:
         axis=1)
     cf = cf.assign(entity_type="collection", found_at=cf.service_date)[
         ["entity_type", "entity_id", "label_family", "found_at", "device_id", "customer_name", "site_name",
-         "operator_name", "material_stream", "eur_at_stake", "evidence"]]
+         "operator_name", "material_stream", "eur_at_stake", "evidence", "detected_by"]]
 
     ilf = inv_flags.merge(il[["invoice_line_id", "invoice_id", "line_type", "service_date", "operator_job_ref", "amount_eur"]],
                           left_on="entity_id", right_on="invoice_line_id", how="left")
@@ -112,12 +146,22 @@ def build(pub: Path, engine_dir: Path) -> dict[str, pd.DataFrame]:
     ilf["evidence"] = ilf.apply(lambda r: f"invoice {r.invoice_id}, line {r.line_type}, {r.amount_eur:.2f} EUR", axis=1)
     ilf = ilf.assign(entity_type="invoice_line", found_at=pd.to_datetime(ilf.service_date, utc=True))[
         ["entity_type", "entity_id", "label_family", "found_at", "device_id", "customer_name", "site_name",
-         "operator_name", "material_stream", "eur_at_stake", "evidence"]]
+         "operator_name", "material_stream", "eur_at_stake", "evidence", "detected_by"]]
 
     flags = pd.concat([cf, ilf], ignore_index=True)
     flags["explanation"] = flags.label_family.map(FAMILY_TEXT)
     flags["evidence_tag"] = "ESTIMATED"  # our rule on observed records -> a finding to check, not a fact
     flags["eur_at_stake"] = flags.eur_at_stake.round(2)
+
+    # ---------- issues: the same problem on the same compactor counted once ----------
+    key = flags.device_id.fillna("customer:" + flags.customer_name.fillna("unknown"))
+    issues = (flags.assign(issue_key=key).groupby(["issue_key", "label_family"], as_index=False)
+              .agg(device_id=("device_id", "first"), customer_name=("customer_name", "first"), site_name=("site_name", "first"),
+                   operator_name=("operator_name", "first"), material_stream=("material_stream", "first"),
+                   times_seen=("entity_id", "count"), first_seen=("found_at", "min"), last_seen=("found_at", "max"),
+                   eur_at_stake=("eur_at_stake", "sum"), example_record=("entity_id", "first"), detected_by=("detected_by", "first")))
+    issues["eur_at_stake"] = issues.eur_at_stake.round(2)
+    issues["explanation"] = issues.label_family.map(FAMILY_TEXT)
 
     # ---------- operator scorecard ----------
     sc = sc.merge(ops[["operator_id", "operator_name"]], on="operator_id", how="left")
@@ -141,7 +185,7 @@ def build(pub: Path, engine_dir: Path) -> dict[str, pd.DataFrame]:
             "trigger_type", "device_fill_pct_before", "device_estimated_collected_kg", "weighbridge_net_kg", "mass_kg",
             "mass_basis", "mass_evidence", "collection_cost_eur", "processing_cost_eur", "penalties_eur",
             "material_credit_eur", "net_material_contribution_eur", "collection_cost_eur_per_t", "benchmark_eur_per_t"]
-    return {"cp_collections": col[keep], "cp_flags": flags, "cp_scorecard": sc, "cp_actions": acts}
+    return {"cp_collections": col[keep], "cp_flags": flags, "cp_issues": issues, "cp_scorecard": sc, "cp_actions": acts}
 
 
 def main():

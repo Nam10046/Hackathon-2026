@@ -49,10 +49,12 @@ Online (team + judges): CSC Rahti + TigerData, see `deploy/rahti/README.md`.
 
 ## 4. Demo walkthrough (recorded video script, ~4 min)
 
-1. **Cockpit header** — 18,297 completed lifts; net material contribution −€4.97 M (customers pay more for service than
-   they get back in credits); **€971 k at stake** across 11,612 findings; **202 actions waiting for a human**.
-2. **Findings by type** — biggest € pools: cost per tonne > 2× benchmark (€347 k), low-fill lifts without a reason
-   (€331 k), invoice prices differing from the contract version in force (€120 k), contamination credit loss (€98 k).
+1. **1 Overview** — customers paid **€6.1 M** for waste service and got **€1.2 M** back for recyclables (18,297 lifts,
+   synthetic). The system found **1,896 issues** (the same problem on the same compactor counted once; 12,313 single
+   records) worth **€1.14 M to check**, and **202 decisions wait for a person**.
+2. **2 Problems found** — biggest pools: lifts emptied too early (€499 k, found by **our AI model**), cost per tonne far
+   above normal (€347 k), old price on the invoice (€120 k), dirty loads losing their credit (€98 k). Example issue:
+   *Mall Customer 0055, Jyväskylä site 4 — emptied too early 130 times, €39.9 k* → open the records below it.
 3. **Cost per tonne by site** — colour-coded % of benchmark; every row shows the share of lifts with **observed** mass
    (weighbridge/invoice) vs **estimated** (device). Rows without any mass source show no €/t (we never invent it).
 4. **Device vs weighbridge** — lifts where the two disagree by > 10 %. Shown neutrally: the cause can be the device,

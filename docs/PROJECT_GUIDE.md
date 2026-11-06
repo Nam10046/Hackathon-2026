@@ -138,7 +138,7 @@ Every page starts with a short explanation. All names are plain words (e.g. "Cha
 
 | Page | Read it like this |
 |---|---|
-| **1 Overview** | "Customers paid €6.1 M for waste service and got €1.2 M back for recyclables. We found €971 k worth checking. The biggest problems are…" |
+| **1 Overview** | "Customers paid €6.1 M for waste service and got €1.2 M back for recyclables. We found 1,896 issues worth €1.14 M to check. The biggest problems are…" |
 | **2 Problems found** | pick a customer at the top → each row: the problem, what the data shows, the euros, the record it comes from |
 | **3 Cost & weight** | *Times normal* 1.5 = paying 50 % more per tonne than similar contracts (total € ÷ total tonnes). Bottom: lifts where our scale and the truck scale disagree > 10 % |
 | **4 Waste companies** | three questions: on time? sends weight tickets? invoice errors? — facts for contract talks, not blame |
