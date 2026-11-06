@@ -1,6 +1,6 @@
 # Smart compactor on CSC Rahti (OpenShift). Apply with:  oc apply -f deploy/rahti/rahti.yaml
 # Needs first (see deploy/rahti/README.md):
-#   - PostgreSQL from the Rahti template, service + secret named "postgres"
+#   - secret "tigerdata" with host, port, user, password, dbname (database = TigerData cloud)
 #   - secret "compactor-secrets" with ingest-api-key and grafana-admin-password
 #
 # No seccompProfile is set on purpose: Rahti applies its own (see CSC email, Nov 2026).
@@ -80,14 +80,20 @@ spec:
           ports:
             - containerPort: 8000
           env:
+            - name: DB_HOST
+              valueFrom: {secretKeyRef: {name: tigerdata, key: host}}
+            - name: DB_PORT
+              valueFrom: {secretKeyRef: {name: tigerdata, key: port}}
             - name: DB_USER
-              valueFrom: {secretKeyRef: {name: postgres, key: database-user}}
+              valueFrom: {secretKeyRef: {name: tigerdata, key: user}}
             - name: DB_PASS
-              valueFrom: {secretKeyRef: {name: postgres, key: database-password}}
+              valueFrom: {secretKeyRef: {name: tigerdata, key: password}}
             - name: DB_NAME
-              valueFrom: {secretKeyRef: {name: postgres, key: database-name}}
+              valueFrom: {secretKeyRef: {name: tigerdata, key: dbname}}
+            - name: DB_SSLMODE
+              value: require             # TigerData only accepts encrypted connections
             - name: DATABASE_URL
-              value: postgresql+psycopg://$(DB_USER):$(DB_PASS)@postgres:5432/$(DB_NAME)
+              value: postgresql+psycopg://$(DB_USER):$(DB_PASS)@$(DB_HOST):$(DB_PORT)/$(DB_NAME)?sslmode=$(DB_SSLMODE)
             - name: INGEST_API_KEY
               valueFrom: {secretKeyRef: {name: compactor-secrets, key: ingest-api-key}}
             - name: TZ
@@ -147,12 +153,18 @@ spec:
           ports:
             - containerPort: 3000
           env:
+            - name: DB_HOST
+              valueFrom: {secretKeyRef: {name: tigerdata, key: host}}
+            - name: DB_PORT
+              valueFrom: {secretKeyRef: {name: tigerdata, key: port}}
             - name: DB_USER
-              valueFrom: {secretKeyRef: {name: postgres, key: database-user}}
+              valueFrom: {secretKeyRef: {name: tigerdata, key: user}}
             - name: DB_PASS
-              valueFrom: {secretKeyRef: {name: postgres, key: database-password}}
+              valueFrom: {secretKeyRef: {name: tigerdata, key: password}}
             - name: DB_NAME
-              valueFrom: {secretKeyRef: {name: postgres, key: database-name}}
+              valueFrom: {secretKeyRef: {name: tigerdata, key: dbname}}
+            - name: DB_SSLMODE
+              value: require             # TigerData only accepts encrypted connections
             - name: GF_SECURITY_ADMIN_PASSWORD
               valueFrom: {secretKeyRef: {name: compactor-secrets, key: grafana-admin-password}}
             - name: GF_AUTH_ANONYMOUS_ENABLED

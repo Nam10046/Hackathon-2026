@@ -77,12 +77,20 @@ SEED_COMPACTORS = [
 _engine = None
 
 
+def normalize_url(url: str) -> str:
+    """Accept the URL exactly as TigerData/Rahti give it ("postgres://..." or "postgresql://...")."""
+    for prefix in ("postgres://", "postgresql://"):
+        if url.startswith(prefix):
+            return "postgresql+psycopg://" + url[len(prefix):]
+    return url
+
+
 def get_engine():
     """Create the engine once. Reads DATABASE_URL at first use (so tests can override it)."""
     global _engine
     if _engine is None:
-        url = os.getenv("DATABASE_URL", "sqlite:///./local.db")
-        _engine = create_engine(url, future=True)
+        url = normalize_url(os.getenv("DATABASE_URL", "sqlite:///./local.db"))
+        _engine = create_engine(url, future=True, pool_pre_ping=True)  # pre_ping: survive cloud DB idle disconnects
     return _engine
 
 

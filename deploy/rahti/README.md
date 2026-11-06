@@ -6,7 +6,7 @@
 |---|---|---|
 | Backend (API + AI) | ✅ | ✅ `https://compactor-api-<project>.2.rahtiapp.fi/docs` |
 | Grafana dashboard | ✅ | ✅ `https://compactor-grafana-<project>.2.rahtiapp.fi` |
-| PostgreSQL | ✅ | ✅ (Rahti template, internal only) |
+| Database | local postgres container (or TigerData) | **TigerData** (cloud PostgreSQL — the team's shared database) |
 | Mosquitto + Node-RED | ✅ | ❌ — Rahti only lets **HTTP/HTTPS** in from outside, so no MQTT |
 | Adminer | ✅ | ❌ — would put the database on the internet |
 
@@ -32,15 +32,19 @@ oc login https://api.2.rahti.csc.fi:6443 --token=<your-token>
 oc new-project compactor-hackathon --description="csc_project: <your CSC project number>"
 ```
 
-**3. Database** (Rahti's ready-made PostgreSQL, with a 1 GB disk). Pick your own password:
+**3. Database = TigerData.** In Tiger Console → your service → **Connect**, copy host, port, user,
+password and database name, then save them in Rahti (they never go into git):
 ```powershell
-oc new-app --template=postgresql-persistent `
-  -p DATABASE_SERVICE_NAME=postgres `
-  -p POSTGRESQL_USER=compactor `
-  -p POSTGRESQL_PASSWORD=<db-password> `
-  -p POSTGRESQL_DATABASE=compactor `
-  -p VOLUME_CAPACITY=1Gi
+oc create secret generic tigerdata `
+  --from-literal=host=<xxxx>.tsdb.cloud.timescale.com `
+  --from-literal=port=<port> `
+  --from-literal=user=tsdbadmin `
+  --from-literal=password=<password> `
+  --from-literal=dbname=tsdb
 ```
+The backend creates its tables in TigerData on first start.
+If you turned on an **IP allow list** in TigerData, add Rahti's outgoing IP (see docs.csc.fi → Rahti → Networking)
+and your teammates' IPs — otherwise the connection times out.
 
 **4. Secrets** — the API key for the sensor + the Grafana admin password:
 ```powershell
@@ -90,11 +94,12 @@ oc policy add-role-to-user edit <their-csc-username>
 oc get pods                      # what is running
 oc logs -f deployment/backend    # backend messages
 oc rollout restart deployment/backend
-oc port-forward svc/postgres 5433:5432   # look in the database from your laptop (DBeaver: localhost:5433)
+# look in the database: TigerData's web console (SQL editor), or DBeaver with the TigerData details + SSL on
 ```
 
 ## Troubleshooting
-- **Pod "CrashLoopBackOff":** `oc logs deployment/backend` — often a wrong DB password/secret name.
+- **Pod "CrashLoopBackOff":** `oc logs deployment/backend` — often a wrong TigerData detail in the `tigerdata` secret.
+  Fix: `oc delete secret tigerdata`, create it again, then `oc rollout restart deployment/backend deployment/grafana`.
+- **Password with special characters** (`@ : / #`) breaks the connection URL — reset it in TigerData to letters+numbers.
 - **Build fails:** `oc logs -f bc/backend`. Did you commit?
-- **`postgresql-persistent` not found:** add PostgreSQL in the web console → *+Add* → *Developer Catalog* → *PostgreSQL*, service name `postgres`.
 - **Security note:** no `seccompProfile` is set in our files — that's what Rahti wants since its 10 Nov 2026 change.

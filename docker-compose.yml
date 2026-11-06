@@ -51,7 +51,7 @@ services:
       dockerfile: backend/Dockerfile
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
     environment:
-      - DATABASE_URL=postgresql+psycopg://${DB_USER:-compactor}:${DB_PASS:-compactor}@postgres:5432/${DB_NAME:-compactor}
+      - DATABASE_URL=postgresql+psycopg://${DB_USER:-compactor}:${DB_PASS:-compactor}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-compactor}?sslmode=${DB_SSLMODE:-disable}
       - MODELS_DIR=/models
       - INGEST_API_KEY=${INGEST_API_KEY:-}
       - TZ=${TIMEZONE:-Europe/Helsinki}
@@ -94,6 +94,9 @@ services:
       - GF_AUTH_ANONYMOUS_ENABLED=true        # judges can view without login
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/compactor.json
+      - DB_HOST=${DB_HOST:-postgres}
+      - DB_PORT=${DB_PORT:-5432}
+      - DB_SSLMODE=${DB_SSLMODE:-disable}
       - DB_USER=${DB_USER:-compactor}
       - DB_PASS=${DB_PASS:-compactor}
       - DB_NAME=${DB_NAME:-compactor}

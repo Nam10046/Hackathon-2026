@@ -3,13 +3,13 @@ datasources:
   - name: Compactor Postgres
     uid: compactor-pg
     type: grafana-postgresql-datasource
-    url: postgres:5432
+    url: ${DB_HOST}:${DB_PORT}
     user: ${DB_USER}
     isDefault: true
     secureJsonData:
       password: ${DB_PASS}
     jsonData:
       database: ${DB_NAME}
-      sslmode: disable
+      sslmode: ${DB_SSLMODE}      # "disable" for local postgres, "require" for TigerData
       postgresVersion: 1600
       timescaledb: false

@@ -91,3 +91,9 @@ def test_api_key_required_when_set(client, monkeypatch):
     assert client.post("/api/readings", json=body, headers={"X-API-Key": "wrong"}).status_code == 401
     assert client.post("/api/readings", json=body, headers={"X-API-Key": "secret123"}).status_code == 200
     assert client.get("/api/compactors").status_code == 200  # reading stays open
+
+
+def test_tigerdata_url_is_accepted():
+    url = "postgres://tsdbadmin:pw@abc.tsdb.cloud.timescale.com:31234/tsdb?sslmode=require"
+    assert db.normalize_url(url) == "postgresql+psycopg://tsdbadmin:pw@abc.tsdb.cloud.timescale.com:31234/tsdb?sslmode=require"
+    assert db.normalize_url("sqlite:///x.db") == "sqlite:///x.db"

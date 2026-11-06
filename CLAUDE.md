@@ -15,7 +15,7 @@ ESP32 sensor → MQTT (Mosquitto) → Node-RED → FastAPI backend → PostgreSQ
 - **Node-RED:** `nodered/flows.json`. MQTT topic `compactor/+/reading` → POST `http://backend:8000/api/readings`.
 - **Backend:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 Core (no ORM classes), pytest.
   - `app/main.py` endpoints · `app/service.py` ingest logic · `app/db.py` tables + seed data · `app/schemas.py` shapes
-  - Works with PostgreSQL (Docker) and SQLite (local/tests) — keep queries portable (use SQLAlchemy, not raw Postgres-only SQL).
+  - Works with PostgreSQL (local Docker or TigerData cloud, SSL required) and SQLite (tests) — keep queries portable (use SQLAlchemy, not raw Postgres-only SQL).
 - **AI:** `app/ai/anomaly.py` `check(new, history, compactor, material) -> list[alert]`, `forecast.py` `hours_to_full(points, load_pct)`, `value.py` `material_value(weight, material)`. Keep these signatures.
   - `app/ai/features.py` = features shared by live backend and training. `app/ai/ml.py` loads ONNX models from `models/`.
 - **Training:** `training/train_anomaly.py` (scikit-learn IsolationForest → ONNX via skl2onnx) → `models/<name>/`.

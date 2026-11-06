@@ -54,6 +54,11 @@ docker compose exec mosquitto mosquitto_pub -t compactor/C1/reading -m '{\"compa
 3. Load it: open http://localhost:8000/docs → `POST /api/models/reload` → Execute
 4. Unusual readings now also get an `ml_anomaly` alert. See `models/README.md`
 
+## Shared database for the team (TigerData)
+By default each laptop has its own local database. To make **everyone use the same data**, copy
+`.env.example` → `.env` and fill in the TigerData block (host, port, `DB_SSLMODE=require`, user, password, `tsdb`),
+then `docker compose up -d`. Never commit `.env`.
+
 ## Online server for the team (CSC Rahti)
 Backend + Grafana + database can run on Rahti, so everyone (and the judges) open the same links.
 Step by step: [`deploy/rahti/README.md`](deploy/rahti/README.md)
