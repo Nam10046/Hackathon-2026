@@ -67,8 +67,10 @@ def evidence(action_id: str, limit: int = 25):
             raise HTTPException(404, f"Unknown action '{action_id}'")
         flags = conn.execute(text(
             "SELECT entity_type, entity_id, label_family, found_at, explanation, evidence, eur_at_stake, evidence_tag "
-            "FROM cp_flags WHERE device_id = :d ORDER BY found_at DESC LIMIT :n"),
-            {"d": act["device_id"], "n": limit}).mappings().all()
+            "FROM cp_flags WHERE device_id = :d "
+            # invoice findings first for invoice actions, then the biggest euro impact
+            "ORDER BY CASE WHEN :inv AND entity_type = 'invoice_line' THEN 0 ELSE 1 END, eur_at_stake DESC, found_at DESC LIMIT :n"),
+            {"d": act["device_id"], "n": limit, "inv": act["action"] == "DISPUTE_INVOICE"}).mappings().all()
         history = conn.execute(
             action_decisions.select().where(action_decisions.c.action_id == action_id).order_by(action_decisions.c.id)
         ).mappings().all()

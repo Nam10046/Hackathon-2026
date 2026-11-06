@@ -50,7 +50,7 @@ Online (team + judges): CSC Rahti + TigerData, see `deploy/rahti/README.md`.
 ## 4. Demo walkthrough (recorded video script, ~4 min)
 
 1. **Cockpit header** — 18,297 completed lifts; net material contribution −€4.97 M (customers pay more for service than
-   they get back in credits); **€971 k at stake** across 11,612 findings; **200 actions waiting for a human**.
+   they get back in credits); **€971 k at stake** across 11,612 findings; **202 actions waiting for a human**.
 2. **Findings by type** — biggest € pools: cost per tonne > 2× benchmark (€347 k), low-fill lifts without a reason
    (€331 k), invoice prices differing from the contract version in force (€120 k), contamination credit loss (€98 k).
 3. **Cost per tonne by site** — colour-coded % of benchmark; every row shows the share of lifts with **observed** mass
