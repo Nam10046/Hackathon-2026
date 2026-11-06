@@ -82,3 +82,12 @@ def test_bulk_and_history(client):
     assert client.post("/api/readings/bulk", json=body).json()["stored"] == 5
     hist = client.get("/api/compactors/C2/readings").json()
     assert [h["weight_kg"] for h in hist] == [0, 50, 100, 150, 200]
+
+
+def test_api_key_required_when_set(client, monkeypatch):
+    monkeypatch.setenv("INGEST_API_KEY", "secret123")
+    body = {"compactor_id": "C1", "weight_kg": 100}
+    assert client.post("/api/readings", json=body).status_code == 401
+    assert client.post("/api/readings", json=body, headers={"X-API-Key": "wrong"}).status_code == 401
+    assert client.post("/api/readings", json=body, headers={"X-API-Key": "secret123"}).status_code == 200
+    assert client.get("/api/compactors").status_code == 200  # reading stays open

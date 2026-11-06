@@ -3,7 +3,7 @@ import os
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
@@ -31,6 +31,13 @@ async def lifespan(app: FastAPI):
     yield
 
 
+def require_key(x_api_key: str | None = Header(default=None)):
+    """Writes need the X-API-Key header when INGEST_API_KEY is set (always set it on Rahti)."""
+    expected = os.getenv("INGEST_API_KEY", "")
+    if expected and x_api_key != expected:
+        raise HTTPException(401, "Missing or wrong X-API-Key")
+
+
 app = FastAPI(title="Smart Compactor API", version=os.getenv("APP_VERSION", "0.2.0"), lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
@@ -40,7 +47,7 @@ def health():
     return {"status": "ok", "version": app.version}
 
 
-@app.post("/api/readings", response_model=ReadingResult)
+@app.post("/api/readings", response_model=ReadingResult, dependencies=[Depends(require_key)])
 def post_reading(r: ReadingIn):
     try:
         return service.ingest(r.model_dump())
@@ -48,7 +55,7 @@ def post_reading(r: ReadingIn):
         raise HTTPException(404, f"Unknown compactor '{r.compactor_id}'")
 
 
-@app.post("/api/readings/bulk")
+@app.post("/api/readings/bulk", dependencies=[Depends(require_key)])
 def post_bulk(body: BulkReadingsIn):
     total_alerts = 0
     for r in sorted(body.readings, key=lambda x: (x.ts is None, x.ts)):
@@ -101,7 +108,7 @@ def get_models():
     return ml.list_models()
 
 
-@app.post("/api/models/reload")
+@app.post("/api/models/reload", dependencies=[Depends(require_key)])
 def reload_models():
     """Call after copying a new model folder into models/ — no restart needed."""
     return {"loaded": ml.load_all()}

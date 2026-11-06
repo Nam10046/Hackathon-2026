@@ -8,6 +8,13 @@
 #define MQTT_HOST     "192.168.1.50"
 #define MQTT_PORT     1883
 
+// --- Option A: local server (laptop) via MQTT. Used when API_URL is NOT defined.
+// (MQTT_HOST / MQTT_PORT above)
+
+// --- Option B: Rahti server via HTTPS. Uncomment both lines to use it.
+// #define API_URL  "https://compactor-api-<your-rahti-project>.2.rahtiapp.fi/api/readings"
+// #define API_KEY  "<the INGEST_API_KEY you set on Rahti>"
+
 #define COMPACTOR_ID  "C1"
 
 // Pins

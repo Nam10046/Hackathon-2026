@@ -1,0 +1,197 @@
+# Smart compactor on CSC Rahti (OpenShift). Apply with:  oc apply -f deploy/rahti/rahti.yaml
+# Needs first (see deploy/rahti/README.md):
+#   - PostgreSQL from the Rahti template, service + secret named "postgres"
+#   - secret "compactor-secrets" with ingest-api-key and grafana-admin-password
+#
+# No seccompProfile is set on purpose: Rahti applies its own (see CSC email, Nov 2026).
+# Images run as a random user ID (Rahti rule) — our Dockerfiles need no root.
+
+# ---------- images (built from this repo with: oc start-build <name> --from-repo=. --follow) ----------
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: backend
+spec:
+  lookupPolicy:
+    local: true
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: grafana
+spec:
+  lookupPolicy:
+    local: true
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: backend
+spec:
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: backend/Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: backend:latest
+  resources:
+    limits:
+      memory: 2Gi
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: grafana
+spec:
+  source:
+    type: Binary
+  strategy:
+    type: Docker
+    dockerStrategy:
+      dockerfilePath: grafana/Dockerfile
+  output:
+    to:
+      kind: ImageStreamTag
+      name: grafana:latest
+
+# ---------- backend (API + AI) ----------
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  annotations:
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"backend:latest"},"fieldPath":"spec.template.spec.containers[?(@.name==\"backend\")].image"}]'
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: backend}
+  template:
+    metadata:
+      labels: {app: backend}
+    spec:
+      containers:
+        - name: backend
+          image: backend:latest
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DB_USER
+              valueFrom: {secretKeyRef: {name: postgres, key: database-user}}
+            - name: DB_PASS
+              valueFrom: {secretKeyRef: {name: postgres, key: database-password}}
+            - name: DB_NAME
+              valueFrom: {secretKeyRef: {name: postgres, key: database-name}}
+            - name: DATABASE_URL
+              value: postgresql+psycopg://$(DB_USER):$(DB_PASS)@postgres:5432/$(DB_NAME)
+            - name: INGEST_API_KEY
+              valueFrom: {secretKeyRef: {name: compactor-secrets, key: ingest-api-key}}
+            - name: TZ
+              value: Europe/Helsinki
+          readinessProbe:
+            httpGet: {path: /api/health, port: 8000}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: {path: /api/health, port: 8000}
+            initialDelaySeconds: 60
+            periodSeconds: 20
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 1Gi}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+spec:
+  selector: {app: backend}
+  ports:
+    - port: 8000
+      targetPort: 8000
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: compactor-api          # -> https://compactor-api-<project>.2.rahtiapp.fi
+spec:
+  to: {kind: Service, name: backend}
+  port: {targetPort: 8000}
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect
+
+# ---------- Grafana (dashboard) ----------
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: grafana
+  annotations:
+    image.openshift.io/triggers: '[{"from":{"kind":"ImageStreamTag","name":"grafana:latest"},"fieldPath":"spec.template.spec.containers[?(@.name==\"grafana\")].image"}]'
+spec:
+  replicas: 1
+  selector:
+    matchLabels: {app: grafana}
+  template:
+    metadata:
+      labels: {app: grafana}
+    spec:
+      containers:
+        - name: grafana
+          image: grafana:latest
+          ports:
+            - containerPort: 3000
+          env:
+            - name: DB_USER
+              valueFrom: {secretKeyRef: {name: postgres, key: database-user}}
+            - name: DB_PASS
+              valueFrom: {secretKeyRef: {name: postgres, key: database-password}}
+            - name: DB_NAME
+              valueFrom: {secretKeyRef: {name: postgres, key: database-name}}
+            - name: GF_SECURITY_ADMIN_PASSWORD
+              valueFrom: {secretKeyRef: {name: compactor-secrets, key: grafana-admin-password}}
+            - name: GF_AUTH_ANONYMOUS_ENABLED
+              value: "true"                # team & judges can view without login
+            - name: GF_AUTH_ANONYMOUS_ORG_ROLE
+              value: Viewer
+            - name: TZ
+              value: Europe/Helsinki
+          volumeMounts:
+            - name: grafana-data
+              mountPath: /var/lib/grafana
+          readinessProbe:
+            httpGet: {path: /api/health, port: 3000}
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          resources:
+            requests: {cpu: 100m, memory: 256Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+      volumes:
+        - name: grafana-data
+          emptyDir: {}             # dashboards come from the image, nothing to keep
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: grafana
+spec:
+  selector: {app: grafana}
+  ports:
+    - port: 3000
+      targetPort: 3000
+---
+apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: compactor-grafana      # -> https://compactor-grafana-<project>.2.rahtiapp.fi
+spec:
+  to: {kind: Service, name: grafana}
+  port: {targetPort: 3000}
+  tls:
+    termination: edge
+    insecureEdgeTerminationPolicy: Redirect

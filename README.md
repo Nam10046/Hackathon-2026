@@ -54,6 +54,10 @@ docker compose exec mosquitto mosquitto_pub -t compactor/C1/reading -m '{\"compa
 3. Load it: open http://localhost:8000/docs → `POST /api/models/reload` → Execute
 4. Unusual readings now also get an `ml_anomaly` alert. See `models/README.md`
 
+## Online server for the team (CSC Rahti)
+Backend + Grafana + database can run on Rahti, so everyone (and the judges) open the same links.
+Step by step: [`deploy/rahti/README.md`](deploy/rahti/README.md)
+
 ## Who owns what
 
 | Area | Folder | Owner |

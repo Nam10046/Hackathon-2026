@@ -1,0 +1,9 @@
+.git
+nodered
+**/__pycache__
+**/.pytest_cache
+**/.venv
+**/*.db
+firmware
+docs
+.env

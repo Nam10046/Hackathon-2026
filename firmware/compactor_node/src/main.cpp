@@ -1,18 +1,28 @@
 // Compactor sensor node — ESP32 + HX711 load cell (+ optional HC-SR04 fill sensor)
-// Owner: hardware person. Sends the reading format from CONTRACT.md via MQTT.
+// Owner: hardware person. Sends the reading format from CONTRACT.md.
+//
+// Two ways to send (choose in include/config.h):
+//   - MQTT  -> local server on your laptop (docker compose)        [default]
+//   - HTTPS -> server on Rahti (define API_URL + API_KEY)          [Rahti has no MQTT from outside]
 //
 // Build & upload with PlatformIO (VS Code extension): Upload button, or `pio run -t upload`.
 // Libraries are installed automatically from platformio.ini.
 
 #include <Arduino.h>
 #include <WiFi.h>
-#include <PubSubClient.h>
 #include "HX711.h"
-#include "config.h"   // copy config.h.example -> config.h first
+#include "config.h"   // copy include/config.h.example -> include/config.h first
+
+#ifdef API_URL
+  #include <HTTPClient.h>
+  #include <WiFiClientSecure.h>
+#else
+  #include <PubSubClient.h>
+  WiFiClient wifi;
+  PubSubClient mqtt(wifi);
+#endif
 
 HX711 scale;
-WiFiClient wifi;
-PubSubClient mqtt(wifi);
 
 const int AVG_N = 10;           // moving average size (the press vibrates a lot)
 float samples[AVG_N];
@@ -27,12 +37,33 @@ void connectWifi() {
   Serial.printf(" ok, IP %s\n", WiFi.localIP().toString().c_str());
 }
 
+#ifndef API_URL
 void connectMqtt() {
   while (!mqtt.connected()) {
     Serial.print("MQTT...");
     if (mqtt.connect(COMPACTOR_ID)) Serial.println(" ok");
     else { Serial.printf(" failed rc=%d, retry\n", mqtt.state()); delay(2000); }
   }
+}
+#endif
+
+void sendReading(const char* payload) {
+#ifdef API_URL
+  WiFiClientSecure tls;
+  tls.setInsecure();            // hackathon shortcut: no certificate check
+  HTTPClient http;
+  http.begin(tls, API_URL);
+  http.addHeader("Content-Type", "application/json");
+  http.addHeader("X-API-Key", API_KEY);
+  int code = http.POST((uint8_t*)payload, strlen(payload));
+  Serial.printf("POST %d  %s\n", code, payload);
+  http.end();
+#else
+  char topic[64];
+  snprintf(topic, sizeof(topic), "compactor/%s/reading", COMPACTOR_ID);
+  mqtt.publish(topic, payload);
+  Serial.println(payload);
+#endif
 }
 
 float readWeightKg() {
@@ -68,13 +99,17 @@ void setup() {
   scale.tare();                                   // empty compactor = 0 kg
 
   connectWifi();
+#ifndef API_URL
   mqtt.setServer(MQTT_HOST, MQTT_PORT);
+#endif
 }
 
 void loop() {
   if (WiFi.status() != WL_CONNECTED) connectWifi();
+#ifndef API_URL
   if (!mqtt.connected()) connectMqtt();
   mqtt.loop();
+#endif
 
   if (digitalRead(TARE_BUTTON) == LOW) {          // press BOOT = set zero
     scale.tare();
@@ -87,14 +122,12 @@ void loop() {
   if (millis() - lastSend >= SEND_INTERVAL_MS) {
     lastSend = millis();
     float fill = readFillPct();
-    char topic[64], payload[160];
-    snprintf(topic, sizeof(topic), "compactor/%s/reading", COMPACTOR_ID);
+    char payload[160];
     if (fill >= 0)
       snprintf(payload, sizeof(payload), "{\"compactor_id\":\"%s\",\"weight_kg\":%.1f,\"fill_pct\":%.1f}", COMPACTOR_ID, kg, fill);
-    else  // no fill sensor -> leave the field out (server uses its own time too)
+    else  // no fill sensor -> leave the field out
       snprintf(payload, sizeof(payload), "{\"compactor_id\":\"%s\",\"weight_kg\":%.1f}", COMPACTOR_ID, kg);
-    mqtt.publish(topic, payload);
-    Serial.println(payload);
+    sendReading(payload);
   }
   delay(100);
 }

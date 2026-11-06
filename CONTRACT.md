@@ -52,6 +52,9 @@ Node-RED forwards the same JSON to the backend.
 | GET | `/models` | Loaded ML models (from `models/`) |
 | POST | `/models/reload` | Load new/changed model folders without restart |
 
+**Writes need a key:** if the server has `INGEST_API_KEY` set (always on Rahti), `POST` requests must send
+header `X-API-Key: <key>`. Reading (GET) is open. On the laptop the key is empty = open.
+
 **Status object**
 ```json
 {
