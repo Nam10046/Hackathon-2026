@@ -1,5 +1,6 @@
 """Backend API. Owner: backend person. Endpoints must match CONTRACT.md."""
 import os
+import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
@@ -15,7 +16,16 @@ from app.schemas import (
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()  # create tables + starter data on startup
+    # create tables + starter data; wait for the database if it is still starting
+    for attempt in range(30):
+        try:
+            init_db()
+            break
+        except Exception as e:
+            print(f"database not ready ({type(e).__name__}), retry {attempt + 1}/30…", flush=True)
+            time.sleep(2)
+    else:
+        raise RuntimeError("could not connect to the database — is the postgres container running?")
     yield
 
 
