@@ -29,6 +29,10 @@ docker compose down              # stop (data is kept)
 docker compose down -v           # stop AND delete all data (fresh start)
 ```
 
+## 📦 Hackathon submission
+Everything the judges need is in [`submission/`](submission/README.md): weighing concept, software demo notes,
+business case, licences and assumptions.
+
 ## Customer Value Cockpit (the Europress dataset)
 1. Unzip the Europress participants package into `europress/` (git-ignored)
 2. `docker compose run --rm analytics` (≈1 min)

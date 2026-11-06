@@ -1,0 +1,36 @@
+# Team parameters for "SMART Weight Verified" — HYPOTHESES, justified in submission/03_business_case.md.
+# Synthetic data; not market research, not Europress prices. Run:
+#   python baselines/business_case.py competition --params <this file> --out business_case_out
+status: "TEAM HYPOTHESIS - synthetic-world estimate"
+pricing:
+  # three tiers to test willingness to pay; 25 EUR is the planned list price
+  price_per_device_month_eur: [15, 25, 39]
+  price_per_site_month_eur: null
+  share_of_verified_savings_pct: 20     # optional success fee, only on savings a human approved and the operator confirmed
+costs:
+  onboarding_per_customer_eur: 600      # contract + invoice upload, approval workflow setup (≈1 day)
+  onboarding_per_device_eur: 200        # weighing kit install + 2-point calibration (≈2 h on site)
+  operating_cost_per_device_month_eur: 9  # kit amortised over 60 months (~5 EUR) + data/cloud (~2) + calibration checks (~2)
+  customer_support_per_customer_month_eur: 40
+adoption:
+  adoption_share_of_eligible_pct: [10, 25, 40]
+  purchase_condition_value_multiple: 3  # a customer buys only if realisable value >= 3x the yearly fee
+value_realisation:                       # conservative: share of identified value a customer really captures
+  billing_review: 0.6          # evidence-based disputes of contract-vs-invoice discrepancies
+  over_servicing: 0.3          # Task C shows naive lift cutting is often harmful -> low share
+  contamination: 0.3           # needs sorting changes on site
+  contract_review: 0.4         # renegotiation depends on notice periods
+  operator_performance: 0.2    # indirect, hard to price
+  operator_tendering: 0.3      # only at contract renewal
+future_models:
+  transport_procurement:
+    enabled: true
+    discount_on_logistics_pct: 3
+    realisation: 0.3
+  tonne_based_full_service:
+    enabled: true
+    margin_on_customer_spend_pct: 2
+  materials_marketplace:
+    enabled: false
+    credit_uplift_eur_per_t: 0
+    realisation: 0
