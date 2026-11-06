@@ -46,12 +46,16 @@ OPEN = "(d.decision IS NULL OR d.decision = 'REVERT')"
 SQL = []
 
 
-def menu(current_uid):
-    links = [{"title": ("● " if uid == current_uid else "") + label, "type": "link", "url": f"/d/{uid}?${{__url_time_range}}",
-              "targetBlank": False, "keepTime": False, "icon": "dashboard"} for uid, label in PAGES]
-    links.append({"title": "Approve decisions ↗", "type": "link", "url": "http://localhost:8000/cockpit", "targetBlank": True,
-                  "icon": "external link"})
-    return links
+def menu_text(current_uid):
+    """The page menu as its own line (a text panel), so filters can never squeeze it."""
+    items = [f"**● {label}**" if uid == current_uid else f"[{label}](/d/{uid})" for uid, label in PAGES]
+    items.append("[Approve decisions ↗](http://localhost:8000/cockpit)")
+    return " &nbsp;&nbsp;·&nbsp;&nbsp; ".join(items)
+
+
+def menu_panel(current_uid):
+    return {"id": 99, "type": "text", "title": "", "transparent": True, "gridPos": {"x": 0, "y": 0, "w": 24, "h": 2},
+            "options": {"mode": "markdown", "content": menu_text(current_uid)}}
 
 
 def var(name, label, sql):
@@ -62,15 +66,17 @@ def var(name, label, sql):
 
 
 def page(uid, title, intro, panels, variables=()):
-    out = [{"id": 100, "type": "text", "title": "", "transparent": True, "gridPos": {"x": 0, "y": 0, "w": 24, "h": 3},
+    out = [menu_panel(uid),
+           {"id": 100, "type": "text", "title": "", "transparent": True, "gridPos": {"x": 0, "y": 2, "w": 24, "h": 3},
             "options": {"mode": "markdown", "content": intro}}]
     for i, p in enumerate(panels, 1):
         p["id"] = i
+        p["gridPos"]["y"] += 2          # make room for the menu line
         for t in p["targets"]:
             SQL.append(t["rawSql"])
         out.append(p)
     return {"uid": uid, "title": title, "tags": ["europress-cockpit"], "timezone": "browser", "schemaVersion": 39, "version": 3,
-            "refresh": "1m", "time": TIME, "graphTooltip": 1, "editable": True, "links": menu(uid),
+            "refresh": "1m", "time": TIME, "graphTooltip": 1, "editable": True, "links": [],
             "description": "SYNTHETIC DATA (Europress dataset v1.0.1). Proposals need human approval.",
             "panels": out, "templating": {"list": list(variables)}}
 
@@ -87,6 +93,7 @@ def P(title, typ, sql, x, y, w, h, fmt="table", field=None, options=None, desc="
 STAT = {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False}, "colorMode": "none", "graphMode": "none",
         "textMode": "value", "justifyMode": "center", "wideLayout": True}
 EUR = {"defaults": {"unit": "currencyEUR", "decimals": 0}, "overrides": []}
+EUR1 = {"defaults": {"unit": "currencyEUR", "decimals": 1}, "overrides": []}   # big totals: €6.1M, not €6M
 BAR = lambda f: {"orientation": "horizontal", "displayMode": "basic", "valueMode": "text", "showUnfilled": True,  # noqa: E731
                  "namePlacement": "left", "sizing": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": f, "values": True}}
 TABLE = {"showHeader": True, "cellHeight": "sm", "footer": {"show": False}}
@@ -111,9 +118,9 @@ overview = page("value-cockpit", "1 Overview",
 Customers **paid** the waste companies the amount on the left and **got money back** for recyclables. Our system checked every lift and invoice line and found **money worth checking**. A person decides what to do — see *5 Decisions*.""",
 [
     P("Paid for waste service", "stat", "SELECT round(sum(collection_cost_eur + processing_cost_eur + penalties_eur)::numeric) AS v FROM cp_collections",
-      0, 3, 6, 4, field=EUR, options=STAT, desc="Collection, treatment and penalty charges under the customer–operator contracts (hypothetical prices)."),
+      0, 3, 6, 4, field=EUR1, options=STAT, desc="Collection, treatment and penalty charges under the customer–operator contracts (hypothetical prices)."),
     P("Money back for recyclables", "stat", "SELECT round(sum(material_credit_eur)::numeric) AS v FROM cp_collections",
-      6, 3, 6, 4, field=EUR, options=STAT, desc="Material credits for cardboard and plastic."),
+      6, 3, 6, 4, field=EUR1, options=STAT, desc="Material credits for cardboard and plastic."),
     P("Money worth checking", "stat", "SELECT round(sum(eur_at_stake)::numeric) AS v FROM cp_flags",
       12, 3, 6, 4, field=EUR, options=STAT, desc="Estimated euros behind all problems found. To check — not a proven saving."),
     P("Decisions waiting", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE {OPEN}",
@@ -137,7 +144,7 @@ It is a **difference to check, not an accusation** — the cause can also be a s
       f"SELECT {PROB} AS \"Problem\", count(*) AS \"Count\" FROM cp_flags WHERE {fw} GROUP BY 1 ORDER BY 2 DESC",
       0, 3, 9, 13, options=BAR("/Count/")),
     P("Problems, biggest euros first (click a column header to sort)", "table",
-      f"SELECT found_at::date AS \"Date\", customer_name AS \"Customer\", {PROB} AS \"Problem\", evidence AS \"What the data shows\", "
+      f"SELECT to_char(found_at, 'YYYY-MM-DD') AS \"Date\", customer_name AS \"Customer\", {PROB} AS \"Problem\", evidence AS \"What the data shows\", "
       f"eur_at_stake AS \"Euros\", entity_id AS \"Record\" FROM cp_flags WHERE {fw} AND $__timeFilter(found_at) "
       "ORDER BY eur_at_stake DESC NULLS LAST, found_at DESC LIMIT 1000",
       9, 3, 15, 26, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Euros", "currencyEUR"),
@@ -158,21 +165,21 @@ cost = page("cockpit-cost", "3 Cost & weight",
 Bottom table: lifts where **our scale** and the **waste company's truck scale** disagree by more than 10 % — the reason independent weighing matters.""",
 [
     P("€ per tonne vs normal, by material", "table",
-      f"SELECT {MAT} AS \"Material\", count(*) AS \"Lifts\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0))::numeric) AS \"Paid € / t\", "
+      f"SELECT {MAT} AS \"Material\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0))::numeric) AS \"Paid € / t\", "
       "round(avg(benchmark_eur_per_t)::numeric) AS \"Normal € / t\", "
       "round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0) / NULLIF(avg(benchmark_eur_per_t), 0))::numeric, 1) AS \"Times normal\" "
-      f"FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND {cw} GROUP BY 1 ORDER BY 5 DESC",
+      f"FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND {cw} GROUP BY 1 ORDER BY 4 DESC",
       0, 3, 10, 9, field={"defaults": {}, "overrides": [o_colour("Times normal", [{"color": "text", "value": None},
           {"color": "orange", "value": 1.3}, {"color": "red", "value": 2}])]}, options=TABLE),
     P("Sites that pay the most per tonne", "table",
-      f"SELECT customer_name AS \"Customer\", site_name AS \"Site\", {MAT} AS \"Material\", count(*) AS \"Lifts\", "
+      f"SELECT customer_name AS \"Customer\", site_name AS \"Site\", {MAT} AS \"Material\", "
       "round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0))::numeric) AS \"Paid € / t\", "
       "round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0) / NULLIF(avg(benchmark_eur_per_t), 0))::numeric, 1) AS \"Times normal\" "
-      f"FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND {cw} GROUP BY 1, 2, 3 HAVING count(*) >= 5 ORDER BY 6 DESC NULLS LAST LIMIT 100",
+      f"FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND {cw} GROUP BY 1, 2, 3 HAVING count(*) >= 5 ORDER BY 5 DESC NULLS LAST LIMIT 100",
       10, 3, 14, 9, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_colour("Times normal", [{"color": "text", "value": None},
           {"color": "orange", "value": 1.3}, {"color": "red", "value": 2}])]}, options=TABLE),
     P("Our scale vs truck scale: lifts that differ by more than 10 %", "table",
-      f"SELECT service_date::date AS \"Date\", customer_name AS \"Customer\", operator_name AS \"Waste company\", "
+      f"SELECT to_char(service_date, 'YYYY-MM-DD') AS \"Date\", customer_name AS \"Customer\", operator_name AS \"Waste company\", "
       "round(device_estimated_collected_kg::numeric) AS \"Our scale (kg)\", round(weighbridge_net_kg::numeric) AS \"Truck scale (kg)\", "
       "round((100.0 * (weighbridge_net_kg - device_estimated_collected_kg) / NULLIF(device_estimated_collected_kg, 0))::numeric) AS \"Difference %\" "
       "FROM cp_collections WHERE weighbridge_net_kg IS NOT NULL AND device_estimated_collected_kg > 200 "
@@ -189,13 +196,13 @@ ops = page("cockpit-operators", "4 Waste companies",
 some differences come from sensors or missing data.""",
 [
     P("On time — share of lifts that came as planned", "bargauge",
-      f"SELECT operator_name AS \"Waste company\", round((100 * avg(on_time_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
+      f"SELECT replace(operator_name, ' (fictional)', '') AS \"Waste company\", round((100 * avg(on_time_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
       0, 3, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []}, options=BAR("/%/")),
     P("Tickets shared — truck weight sent to the customer within 7 days", "bargauge",
-      f"SELECT operator_name AS \"Waste company\", round((100 * avg(weighbridge_shared_7d_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
+      f"SELECT replace(operator_name, ' (fictional)', '') AS \"Waste company\", round((100 * avg(weighbridge_shared_7d_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
       8, 3, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []}, options=BAR("/%/")),
     P("Invoice errors — lines that differ from the contract", "bargauge",
-      f"SELECT operator_name AS \"Waste company\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
+      f"SELECT replace(operator_name, ' (fictional)', '') AS \"Waste company\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
       16, 3, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "decimals": 1}, "overrides": []}, options=BAR("/%/")),
     P("Details per region", "table",
       "SELECT operator_name AS \"Waste company\", region_code AS \"Region\", round((100 * avg(on_time_rate))::numeric) AS \"On time %\", "
@@ -208,7 +215,7 @@ some differences come from sensors or missing data.""",
 aw = "a.customer_name IN ($customer) AND a.operator_name IN ($operator)"
 acts = page("cockpit-actions", "5 Decisions",
 """### What the system proposes — a person decides
-Each row is one proposal for a customer's contract. **Euros** = invoice amounts that differ from the contract. To decide, click **Approve decisions ↗** (top right):
+Each row is one proposal for a customer's contract. **Euros** = invoice amounts that differ from the contract. To decide, click **Approve decisions ↗** in the menu:
 open the evidence, then approve or reject with your name. Decisions are saved and can be undone.""",
 [
     P("Waiting", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND {OPEN}", 0, 3, 6, 4, options=STAT),
@@ -243,6 +250,12 @@ if __name__ == "__main__":
         live = out / "compactor.json"            # page 6 gets the same menu
         if live.exists():
             d = json.loads(live.read_text(encoding="utf-8"))
-            d.update(title="6 Live sensors", links=menu("smart-compactor"), tags=["europress-cockpit", "live"])
+            d.update(title="6 Live sensors", links=[], tags=["europress-cockpit", "live"])
+            if not any(p.get("id") == 99 for p in d["panels"]):     # first time: make room for the menu line
+                for p in d["panels"]:
+                    p["gridPos"]["y"] += 2
+                d["panels"].insert(0, menu_panel("smart-compactor"))
+            else:
+                d["panels"] = [menu_panel("smart-compactor") if p.get("id") == 99 else p for p in d["panels"]]
             live.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"written to {out}")

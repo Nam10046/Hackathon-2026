@@ -14,65 +14,25 @@
   },
   "graphTooltip": 1,
   "editable": true,
-  "links": [
-    {
-      "title": "1 Overview",
-      "type": "link",
-      "url": "/d/value-cockpit?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "2 Problems found",
-      "type": "link",
-      "url": "/d/cockpit-findings?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "3 Cost & weight",
-      "type": "link",
-      "url": "/d/cockpit-cost?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "● 4 Waste companies",
-      "type": "link",
-      "url": "/d/cockpit-operators?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "5 Decisions",
-      "type": "link",
-      "url": "/d/cockpit-actions?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "6 Live sensors",
-      "type": "link",
-      "url": "/d/smart-compactor?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "Approve decisions ↗",
-      "type": "link",
-      "url": "http://localhost:8000/cockpit",
-      "targetBlank": true,
-      "icon": "external link"
-    }
-  ],
+  "links": [],
   "description": "SYNTHETIC DATA (Europress dataset v1.0.1). Proposals need human approval.",
   "panels": [
+    {
+      "id": 99,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "[1 Overview](/d/value-cockpit) &nbsp;&nbsp;·&nbsp;&nbsp; [2 Problems found](/d/cockpit-findings) &nbsp;&nbsp;·&nbsp;&nbsp; [3 Cost & weight](/d/cockpit-cost) &nbsp;&nbsp;·&nbsp;&nbsp; **● 4 Waste companies** &nbsp;&nbsp;·&nbsp;&nbsp; [5 Decisions](/d/cockpit-actions) &nbsp;&nbsp;·&nbsp;&nbsp; [6 Live sensors](/d/smart-compactor) &nbsp;&nbsp;·&nbsp;&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
+      }
+    },
     {
       "id": 100,
       "type": "text",
@@ -80,7 +40,7 @@
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 2,
         "w": 24,
         "h": 3
       },
@@ -99,7 +59,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 3,
+        "y": 5,
         "w": 8,
         "h": 8
       },
@@ -113,7 +73,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT operator_name AS \"Waste company\", round((100 * avg(on_time_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE operator_name IN ($operator) GROUP BY 1 ORDER BY 2 DESC"
+          "rawSql": "SELECT replace(operator_name, ' (fictional)', '') AS \"Waste company\", round((100 * avg(on_time_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE operator_name IN ($operator) GROUP BY 1 ORDER BY 2 DESC"
         }
       ],
       "fieldConfig": {
@@ -155,7 +115,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 3,
+        "y": 5,
         "w": 8,
         "h": 8
       },
@@ -169,7 +129,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT operator_name AS \"Waste company\", round((100 * avg(weighbridge_shared_7d_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE operator_name IN ($operator) GROUP BY 1 ORDER BY 2 DESC"
+          "rawSql": "SELECT replace(operator_name, ' (fictional)', '') AS \"Waste company\", round((100 * avg(weighbridge_shared_7d_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE operator_name IN ($operator) GROUP BY 1 ORDER BY 2 DESC"
         }
       ],
       "fieldConfig": {
@@ -211,7 +171,7 @@
       },
       "gridPos": {
         "x": 16,
-        "y": 3,
+        "y": 5,
         "w": 8,
         "h": 8
       },
@@ -225,7 +185,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT operator_name AS \"Waste company\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"%\" FROM cp_scorecard WHERE operator_name IN ($operator) GROUP BY 1 ORDER BY 2 DESC"
+          "rawSql": "SELECT replace(operator_name, ' (fictional)', '') AS \"Waste company\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"%\" FROM cp_scorecard WHERE operator_name IN ($operator) GROUP BY 1 ORDER BY 2 DESC"
         }
       ],
       "fieldConfig": {
@@ -267,7 +227,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 11,
+        "y": 13,
         "w": 24,
         "h": 10
       },

@@ -14,67 +14,11 @@
   },
   "graphTooltip": 1,
   "editable": true,
-  "links": [
-    {
-      "title": "1 Overview",
-      "type": "link",
-      "url": "/d/value-cockpit?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "2 Problems found",
-      "type": "link",
-      "url": "/d/cockpit-findings?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "3 Cost & weight",
-      "type": "link",
-      "url": "/d/cockpit-cost?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "4 Waste companies",
-      "type": "link",
-      "url": "/d/cockpit-operators?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "● 5 Decisions",
-      "type": "link",
-      "url": "/d/cockpit-actions?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "6 Live sensors",
-      "type": "link",
-      "url": "/d/smart-compactor?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "Approve decisions ↗",
-      "type": "link",
-      "url": "http://localhost:8000/cockpit",
-      "targetBlank": true,
-      "icon": "external link"
-    }
-  ],
+  "links": [],
   "description": "SYNTHETIC DATA (Europress dataset v1.0.1). Proposals need human approval.",
   "panels": [
     {
-      "id": 100,
+      "id": 99,
       "type": "text",
       "title": "",
       "transparent": true,
@@ -82,11 +26,27 @@
         "x": 0,
         "y": 0,
         "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "[1 Overview](/d/value-cockpit) &nbsp;&nbsp;·&nbsp;&nbsp; [2 Problems found](/d/cockpit-findings) &nbsp;&nbsp;·&nbsp;&nbsp; [3 Cost & weight](/d/cockpit-cost) &nbsp;&nbsp;·&nbsp;&nbsp; [4 Waste companies](/d/cockpit-operators) &nbsp;&nbsp;·&nbsp;&nbsp; **● 5 Decisions** &nbsp;&nbsp;·&nbsp;&nbsp; [6 Live sensors](/d/smart-compactor) &nbsp;&nbsp;·&nbsp;&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
+      }
+    },
+    {
+      "id": 100,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 24,
         "h": 3
       },
       "options": {
         "mode": "markdown",
-        "content": "### What the system proposes — a person decides\nEach row is one proposal for a customer's contract. **Euros** = invoice amounts that differ from the contract. To decide, click **Approve decisions ↗** (top right):\nopen the evidence, then approve or reject with your name. Decisions are saved and can be undone."
+        "content": "### What the system proposes — a person decides\nEach row is one proposal for a customer's contract. **Euros** = invoice amounts that differ from the contract. To decide, click **Approve decisions ↗** in the menu:\nopen the evidence, then approve or reject with your name. Decisions are saved and can be undone."
       }
     },
     {
@@ -99,7 +59,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 3,
+        "y": 5,
         "w": 6,
         "h": 4
       },
@@ -146,7 +106,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 3,
+        "y": 5,
         "w": 6,
         "h": 4
       },
@@ -193,7 +153,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 3,
+        "y": 5,
         "w": 6,
         "h": 4
       },
@@ -240,7 +200,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 3,
+        "y": 5,
         "w": 6,
         "h": 4
       },
@@ -294,7 +254,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 7,
+        "y": 9,
         "w": 24,
         "h": 18
       },

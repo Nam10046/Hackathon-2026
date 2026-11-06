@@ -14,65 +14,25 @@
   },
   "graphTooltip": 1,
   "editable": true,
-  "links": [
-    {
-      "title": "1 Overview",
-      "type": "link",
-      "url": "/d/value-cockpit?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "2 Problems found",
-      "type": "link",
-      "url": "/d/cockpit-findings?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "● 3 Cost & weight",
-      "type": "link",
-      "url": "/d/cockpit-cost?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "4 Waste companies",
-      "type": "link",
-      "url": "/d/cockpit-operators?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "5 Decisions",
-      "type": "link",
-      "url": "/d/cockpit-actions?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "6 Live sensors",
-      "type": "link",
-      "url": "/d/smart-compactor?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "Approve decisions ↗",
-      "type": "link",
-      "url": "http://localhost:8000/cockpit",
-      "targetBlank": true,
-      "icon": "external link"
-    }
-  ],
+  "links": [],
   "description": "SYNTHETIC DATA (Europress dataset v1.0.1). Proposals need human approval.",
   "panels": [
+    {
+      "id": 99,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "[1 Overview](/d/value-cockpit) &nbsp;&nbsp;·&nbsp;&nbsp; [2 Problems found](/d/cockpit-findings) &nbsp;&nbsp;·&nbsp;&nbsp; **● 3 Cost & weight** &nbsp;&nbsp;·&nbsp;&nbsp; [4 Waste companies](/d/cockpit-operators) &nbsp;&nbsp;·&nbsp;&nbsp; [5 Decisions](/d/cockpit-actions) &nbsp;&nbsp;·&nbsp;&nbsp; [6 Live sensors](/d/smart-compactor) &nbsp;&nbsp;·&nbsp;&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
+      }
+    },
     {
       "id": 100,
       "type": "text",
@@ -80,7 +40,7 @@
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 2,
         "w": 24,
         "h": 3
       },
@@ -99,7 +59,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 3,
+        "y": 5,
         "w": 10,
         "h": 9
       },
@@ -113,7 +73,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT CASE material_stream WHEN 'cardboard' THEN 'Cardboard' WHEN 'mixed_waste' THEN 'Mixed waste' WHEN 'plastic_film' THEN 'Plastic film' WHEN 'biowaste' THEN 'Bio waste' WHEN 'paper' THEN 'Paper' WHEN 'mixed_plastic' THEN 'Mixed plastic' ELSE material_stream END AS \"Material\", count(*) AS \"Lifts\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0))::numeric) AS \"Paid € / t\", round(avg(benchmark_eur_per_t)::numeric) AS \"Normal € / t\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0) / NULLIF(avg(benchmark_eur_per_t), 0))::numeric, 1) AS \"Times normal\" FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND customer_name IN ($customer) AND material_stream IN ($material) GROUP BY 1 ORDER BY 5 DESC"
+          "rawSql": "SELECT CASE material_stream WHEN 'cardboard' THEN 'Cardboard' WHEN 'mixed_waste' THEN 'Mixed waste' WHEN 'plastic_film' THEN 'Plastic film' WHEN 'biowaste' THEN 'Bio waste' WHEN 'paper' THEN 'Paper' WHEN 'mixed_plastic' THEN 'Mixed plastic' ELSE material_stream END AS \"Material\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0))::numeric) AS \"Paid € / t\", round(avg(benchmark_eur_per_t)::numeric) AS \"Normal € / t\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0) / NULLIF(avg(benchmark_eur_per_t), 0))::numeric, 1) AS \"Times normal\" FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND customer_name IN ($customer) AND material_stream IN ($material) GROUP BY 1 ORDER BY 4 DESC"
         }
       ],
       "fieldConfig": {
@@ -174,7 +134,7 @@
       },
       "gridPos": {
         "x": 10,
-        "y": 3,
+        "y": 5,
         "w": 14,
         "h": 9
       },
@@ -188,7 +148,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT customer_name AS \"Customer\", site_name AS \"Site\", CASE material_stream WHEN 'cardboard' THEN 'Cardboard' WHEN 'mixed_waste' THEN 'Mixed waste' WHEN 'plastic_film' THEN 'Plastic film' WHEN 'biowaste' THEN 'Bio waste' WHEN 'paper' THEN 'Paper' WHEN 'mixed_plastic' THEN 'Mixed plastic' ELSE material_stream END AS \"Material\", count(*) AS \"Lifts\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0))::numeric) AS \"Paid € / t\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0) / NULLIF(avg(benchmark_eur_per_t), 0))::numeric, 1) AS \"Times normal\" FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND customer_name IN ($customer) AND material_stream IN ($material) GROUP BY 1, 2, 3 HAVING count(*) >= 5 ORDER BY 6 DESC NULLS LAST LIMIT 100"
+          "rawSql": "SELECT customer_name AS \"Customer\", site_name AS \"Site\", CASE material_stream WHEN 'cardboard' THEN 'Cardboard' WHEN 'mixed_waste' THEN 'Mixed waste' WHEN 'plastic_film' THEN 'Plastic film' WHEN 'biowaste' THEN 'Bio waste' WHEN 'paper' THEN 'Paper' WHEN 'mixed_plastic' THEN 'Mixed plastic' ELSE material_stream END AS \"Material\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0))::numeric) AS \"Paid € / t\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0) / NULLIF(avg(benchmark_eur_per_t), 0))::numeric, 1) AS \"Times normal\" FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND customer_name IN ($customer) AND material_stream IN ($material) GROUP BY 1, 2, 3 HAVING count(*) >= 5 ORDER BY 5 DESC NULLS LAST LIMIT 100"
         }
       ],
       "fieldConfig": {
@@ -253,7 +213,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 14,
         "w": 24,
         "h": 12
       },
@@ -267,7 +227,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT service_date::date AS \"Date\", customer_name AS \"Customer\", operator_name AS \"Waste company\", round(device_estimated_collected_kg::numeric) AS \"Our scale (kg)\", round(weighbridge_net_kg::numeric) AS \"Truck scale (kg)\", round((100.0 * (weighbridge_net_kg - device_estimated_collected_kg) / NULLIF(device_estimated_collected_kg, 0))::numeric) AS \"Difference %\" FROM cp_collections WHERE weighbridge_net_kg IS NOT NULL AND device_estimated_collected_kg > 200 AND abs(weighbridge_net_kg - device_estimated_collected_kg) > 0.1 * device_estimated_collected_kg AND customer_name IN ($customer) AND material_stream IN ($material) AND $__timeFilter(service_date) ORDER BY abs(weighbridge_net_kg - device_estimated_collected_kg) DESC LIMIT 500"
+          "rawSql": "SELECT to_char(service_date, 'YYYY-MM-DD') AS \"Date\", customer_name AS \"Customer\", operator_name AS \"Waste company\", round(device_estimated_collected_kg::numeric) AS \"Our scale (kg)\", round(weighbridge_net_kg::numeric) AS \"Truck scale (kg)\", round((100.0 * (weighbridge_net_kg - device_estimated_collected_kg) / NULLIF(device_estimated_collected_kg, 0))::numeric) AS \"Difference %\" FROM cp_collections WHERE weighbridge_net_kg IS NOT NULL AND device_estimated_collected_kg > 200 AND abs(weighbridge_net_kg - device_estimated_collected_kg) > 0.1 * device_estimated_collected_kg AND customer_name IN ($customer) AND material_stream IN ($material) AND $__timeFilter(service_date) ORDER BY abs(weighbridge_net_kg - device_estimated_collected_kg) DESC LIMIT 500"
         }
       ],
       "fieldConfig": {

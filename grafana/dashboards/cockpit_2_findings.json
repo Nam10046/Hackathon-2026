@@ -14,65 +14,25 @@
   },
   "graphTooltip": 1,
   "editable": true,
-  "links": [
-    {
-      "title": "1 Overview",
-      "type": "link",
-      "url": "/d/value-cockpit?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "● 2 Problems found",
-      "type": "link",
-      "url": "/d/cockpit-findings?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "3 Cost & weight",
-      "type": "link",
-      "url": "/d/cockpit-cost?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "4 Waste companies",
-      "type": "link",
-      "url": "/d/cockpit-operators?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "5 Decisions",
-      "type": "link",
-      "url": "/d/cockpit-actions?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "6 Live sensors",
-      "type": "link",
-      "url": "/d/smart-compactor?${__url_time_range}",
-      "targetBlank": false,
-      "keepTime": false,
-      "icon": "dashboard"
-    },
-    {
-      "title": "Approve decisions ↗",
-      "type": "link",
-      "url": "http://localhost:8000/cockpit",
-      "targetBlank": true,
-      "icon": "external link"
-    }
-  ],
+  "links": [],
   "description": "SYNTHETIC DATA (Europress dataset v1.0.1). Proposals need human approval.",
   "panels": [
+    {
+      "id": 99,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "[1 Overview](/d/value-cockpit) &nbsp;&nbsp;·&nbsp;&nbsp; **● 2 Problems found** &nbsp;&nbsp;·&nbsp;&nbsp; [3 Cost & weight](/d/cockpit-cost) &nbsp;&nbsp;·&nbsp;&nbsp; [4 Waste companies](/d/cockpit-operators) &nbsp;&nbsp;·&nbsp;&nbsp; [5 Decisions](/d/cockpit-actions) &nbsp;&nbsp;·&nbsp;&nbsp; [6 Live sensors](/d/smart-compactor) &nbsp;&nbsp;·&nbsp;&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
+      }
+    },
     {
       "id": 100,
       "type": "text",
@@ -80,7 +40,7 @@
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 0,
+        "y": 2,
         "w": 24,
         "h": 3
       },
@@ -99,7 +59,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 3,
+        "y": 5,
         "w": 9,
         "h": 13
       },
@@ -152,7 +112,7 @@
       },
       "gridPos": {
         "x": 9,
-        "y": 3,
+        "y": 5,
         "w": 15,
         "h": 26
       },
@@ -166,7 +126,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT found_at::date AS \"Date\", customer_name AS \"Customer\", CASE label_family WHEN 'COST_PER_T_HIGH' THEN 'Very high cost per tonne' WHEN 'PREMATURE_UNJUSTIFIED' THEN 'Emptied too early' WHEN 'DELAYED_COLLECTION' THEN 'Emptied too late (overflow risk)' WHEN 'WEIGHT_DISCREPANCY' THEN 'Our scale and truck scale disagree' WHEN 'CONTAMINATION_VALUE_LOSS' THEN 'Dirty load lost its value' WHEN 'REJECTED_LOAD' THEN 'Load rejected' WHEN 'OUTDATED_TARIFF' THEN 'Old price on invoice' WHEN 'DUPLICATE_LINE' THEN 'Charged twice' WHEN 'WRONG_SURCHARGE' THEN 'Wrong extra fee' WHEN 'WEIGHT_BASIS_MISMATCH' THEN 'Invoice tonnes differ from truck scale' WHEN 'UNMATCHED_LINE' THEN 'Charge without a lift' WHEN 'MISSING_LINE' THEN 'Charge or credit missing' WHEN 'UNINVOICED_COLLECTION' THEN 'Lift never invoiced' ELSE label_family END AS \"Problem\", evidence AS \"What the data shows\", eur_at_stake AS \"Euros\", entity_id AS \"Record\" FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($problem) AND $__timeFilter(found_at) ORDER BY eur_at_stake DESC NULLS LAST, found_at DESC LIMIT 1000"
+          "rawSql": "SELECT to_char(found_at, 'YYYY-MM-DD') AS \"Date\", customer_name AS \"Customer\", CASE label_family WHEN 'COST_PER_T_HIGH' THEN 'Very high cost per tonne' WHEN 'PREMATURE_UNJUSTIFIED' THEN 'Emptied too early' WHEN 'DELAYED_COLLECTION' THEN 'Emptied too late (overflow risk)' WHEN 'WEIGHT_DISCREPANCY' THEN 'Our scale and truck scale disagree' WHEN 'CONTAMINATION_VALUE_LOSS' THEN 'Dirty load lost its value' WHEN 'REJECTED_LOAD' THEN 'Load rejected' WHEN 'OUTDATED_TARIFF' THEN 'Old price on invoice' WHEN 'DUPLICATE_LINE' THEN 'Charged twice' WHEN 'WRONG_SURCHARGE' THEN 'Wrong extra fee' WHEN 'WEIGHT_BASIS_MISMATCH' THEN 'Invoice tonnes differ from truck scale' WHEN 'UNMATCHED_LINE' THEN 'Charge without a lift' WHEN 'MISSING_LINE' THEN 'Charge or credit missing' WHEN 'UNINVOICED_COLLECTION' THEN 'Lift never invoiced' ELSE label_family END AS \"Problem\", evidence AS \"What the data shows\", eur_at_stake AS \"Euros\", entity_id AS \"Record\" FROM cp_flags WHERE customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($problem) AND $__timeFilter(found_at) ORDER BY eur_at_stake DESC NULLS LAST, found_at DESC LIMIT 1000"
         }
       ],
       "fieldConfig": {
@@ -257,7 +217,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 18,
         "w": 9,
         "h": 13
       },
