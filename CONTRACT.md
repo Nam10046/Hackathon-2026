@@ -1,53 +1,98 @@
-# API Contract
+# Data Contract
 
-The agreement between frontend, backend and AI. **Code against this file.**
+The agreement between **hardware, Node-RED, backend, AI and dashboard**. Code against this file.
 Changing it = a PR that edits this file + a message to the whole team.
 
-Base URL: `/api` (via nginx at http://localhost:8080) or `http://localhost:8000/api` directly.
+## The big picture
 
----
-
-## `GET /api/health`
-Check the server is alive.
-
-**Response 200**
-```json
-{ "status": "ok", "version": "0.1.0" }
+```
+ESP32 / simulator ──MQTT──► Mosquitto ──► Node-RED ──HTTP──► FastAPI backend ──► PostgreSQL ◄── Grafana
+                                                             (AI: anomaly, forecast, value)
 ```
 
 ---
 
-## `POST /api/predict`
-Send user input, get the AI result.
+## 1. Sensor reading (the most important format)
 
-**Request**
-```json
-{ "text": "string, 1–5000 chars" }
-```
+Sent by the ESP32 (or the simulator) as **MQTT** message:
 
-**Response 200**
+- **Topic:** `compactor/<compactor_id>/reading` — e.g. `compactor/C1/reading`
+- **Payload (JSON):**
 ```json
 {
-  "label": "string",
-  "score": 0.87,
-  "explanation": "string",
-  "model": "fake-v0"
+  "compactor_id": "C1",
+  "weight_kg": 812.4,
+  "fill_pct": 47.5,
+  "ts": "2026-11-06T15:30:00Z"
 }
 ```
-- `score` is between 0 and 1.
-- `model` tells which AI version answered (`fake-v0` = placeholder).
+| Field | Type | Required | Notes |
+|---|---|---|---|
+| `compactor_id` | string | yes | Must exist in `compactors` table (C1, C2, C3 seeded) |
+| `weight_kg` | number | yes | Net weight after tare. Can be slightly negative from noise |
+| `fill_pct` | number 0–100 | no | From distance sensor / press position. Needed for density check |
+| `ts` | ISO-8601 UTC | no | Server time is used if missing |
 
-**Response 422** — invalid input (empty text, too long). FastAPI returns details automatically.
+Node-RED forwards the same JSON to the backend.
 
 ---
 
-## Data ownership
-| Field | Produced by | Used by |
+## 2. Backend HTTP API (`http://localhost:8000/api`, docs at `/docs`)
+
+| Method | Path | What it does |
 |---|---|---|
-| `text` | frontend (user) | AI |
-| `label`, `score`, `explanation` | AI (`app/ai/service.py`) | frontend result card |
+| GET | `/health` | `{"status":"ok","version":"..."}` |
+| POST | `/readings` | Store one reading (body = format above), run AI checks. Returns `{"reading_id", "alerts":[...], "status":{...}}` |
+| POST | `/readings/bulk` | `{"readings":[...]}` — many at once, in time order (simulator backfill) |
+| GET | `/compactors` | List of compactor status objects (below) |
+| GET | `/compactors/{id}` | One status object |
+| GET | `/compactors/{id}/readings?limit=500` | Latest readings, oldest first |
+| GET | `/alerts?compactor_id=C1&limit=50` | Latest alerts, newest first |
+| GET | `/materials` | Price & density table |
+
+**Status object**
+```json
+{
+  "compactor_id": "C1",
+  "name": "Warehouse cardboard",
+  "material": "cardboard",
+  "weight_kg": 812.4,
+  "fill_pct": 47.5,
+  "load_pct": 47.5,
+  "density_kg_m3": 213.9,
+  "value_eur": 64.99,
+  "co2_saved_kg": 731.2,
+  "hours_to_full": 31.5,
+  "last_ts": "2026-11-06T15:30:00Z"
+}
+```
+- `load_pct` = the bigger of `fill_pct` and `weight_kg / capacity_kg × 100`.
+- `value_eur` positive = customer earns, negative = customer pays.
+- `hours_to_full` = `null` if not enough data or not filling.
+
+**Alert object**
+```json
+{ "id": 7, "compactor_id": "C1", "ts": "...", "type": "contamination",
+  "severity": "warning", "message": "Density 520 kg/m³ is above normal for cardboard (150–450)" }
+```
+Alert `type` values: `sensor_fault`, `spike`, `unexpected_drop`, `contamination`, `emptied`, `nearly_full`.
+`severity`: `info`, `warning`, `critical`.
+
+---
+
+## 3. Database tables (PostgreSQL — Grafana reads these directly)
+
+| Table | Columns |
+|---|---|
+| `materials` | `name` PK, `price_eur_per_kg`, `density_min`, `density_max`, `co2_factor` |
+| `compactors` | `id` PK, `name`, `material`, `capacity_kg`, `volume_m3` |
+| `readings` | `id`, `compactor_id`, `ts`, `weight_kg`, `fill_pct` |
+| `alerts` | `id`, `compactor_id`, `ts`, `type`, `severity`, `message` |
+| `compactor_status` | one row per compactor = the status object above |
+
+Only the backend **writes**. Grafana and others **read**.
 
 ## Change log
 | Date | Change | By |
 |---|---|---|
-| 2026-11-06 | Initial contract (health, predict) | — |
+| 2026-11-06 | Compactor contract v1 (MQTT reading, API, tables) | — |

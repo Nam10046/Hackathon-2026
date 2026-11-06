@@ -1,0 +1,15 @@
+apiVersion: 1
+datasources:
+  - name: Compactor Postgres
+    uid: compactor-pg
+    type: grafana-postgresql-datasource
+    url: postgres:5432
+    user: compactor
+    isDefault: true
+    secureJsonData:
+      password: compactor
+    jsonData:
+      database: compactor
+      sslmode: disable
+      postgresVersion: 1600
+      timescaledb: false

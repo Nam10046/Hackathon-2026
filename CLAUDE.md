@@ -1,20 +1,30 @@
 # Context for AI assistants (Claude, Copilot, ChatGPT…)
 
-Paste or attach this file when asking an AI for help, so its code fits the team's project.
+Give this file to the AI first, so its code fits the team's project.
 
 ## Project
-- Hackathon 2026 team project. Idea: _TODO one line_.
-- Team are beginners: prefer simple, readable code over clever code. Explain non-obvious lines with short comments.
+Hackathon 2026, Europress Group challenge: measure waste weight at industrial compactors and turn it into
+useful information — material value, anomaly detection, pickup planning, new services.
+Team are beginners: prefer simple, readable code with short comments over clever code.
 
-## Stack
-- **Backend:** Python 3.11+, FastAPI, Pydantic v2, pytest. Entry: `backend/app/main.py`.
-- **AI:** `backend/app/ai/service.py` — function `predict(text: str) -> dict`. Keep this signature.
-- **Frontend:** plain HTML + CSS + vanilla JS in `frontend/` (no build step). Calls the API with `fetch`.
-- **Run:** `docker compose up --build`. Ports: frontend 8080, backend 8000.
+## Architecture
+ESP32 / simulator → MQTT (Mosquitto) → Node-RED → FastAPI backend → PostgreSQL ← Grafana
+
+## Stack & files
+- **Firmware:** Arduino C++ for ESP32, `firmware/compactor_node/`. Libraries HX711 (bogde), PubSubClient. Secrets in `config.h` (git-ignored).
+- **Node-RED:** `nodered/flows.json`. MQTT topic `compactor/+/reading` → POST `http://backend:8000/api/readings`.
+- **Backend:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 Core (no ORM classes), pytest.
+  - `app/main.py` endpoints · `app/service.py` ingest logic · `app/db.py` tables + seed data · `app/schemas.py` shapes
+  - Works with PostgreSQL (Docker) and SQLite (local/tests) — keep queries portable (use SQLAlchemy, not raw Postgres-only SQL).
+- **AI:** `app/ai/anomaly.py` `check(new, history, compactor, material) -> list[alert]`, `forecast.py` `hours_to_full(points, load_pct)`, `value.py` `material_value(weight, material)`. Keep these signatures.
+- **Simulator:** `simulator/simulate.py`, stdlib + paho-mqtt.
+- **Dashboard:** Grafana, `grafana/dashboards/compactor.json`, reads PostgreSQL directly (read-only).
+- **Run all:** `docker compose --profile sim up --build`. Ports: Grafana 3000, Node-RED 1880, API 8000, Postgres 5432, MQTT 1883.
 
 ## Rules for generated code
-1. Follow `CONTRACT.md` exactly — field names, types, URLs. Do not invent new endpoints without saying so.
-2. Only touch the files for the current task. Don't reformat other people's files.
-3. Secrets come from environment variables (`os.getenv`), never hard-coded. Add new ones to `.env.example`.
-4. Add or update a test in `backend/tests/` for any backend change.
-5. New Python packages → add to `backend/requirements.txt` with a version.
+1. Follow `CONTRACT.md` exactly — JSON fields, MQTT topic, endpoints, table columns.
+2. Only touch files for the current task. Don't reformat other people's files.
+3. No secrets in code. Use environment variables or git-ignored config files.
+4. Any backend/AI change → add or update a test in `backend/tests/`, and `pytest` must pass.
+5. New Python packages → add to the right `requirements.txt` with a pinned version.
+6. Only the backend writes to the database. Grafana/Node-RED read or call the API.

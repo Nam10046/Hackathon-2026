@@ -1,54 +1,80 @@
-# Hackathon 2026 — Team Project
+# Smart Compactor — Hackathon 2026 (Europress Group challenge)
 
-> **One-line pitch:** _TODO — what problem we solve, for whom._
-
-A working skeleton: **frontend → backend → AI → back to the screen**, already connected.
-Everyone replaces their own *fake* part with the real one. Nobody has to "combine everything at the end".
+> **Pitch:** We tell companies what their waste weighs and is worth **before the truck leaves** — and warn them when something is wrong.
 
 ```
-frontend/  (HTML/JS, served by nginx)  ──/api──►  backend/ (FastAPI, Python)
-                                                     └── app/ai/service.py  ◄── AI person works here
+ Load cell + ESP32 ─┐
+                    ├─MQTT─► Mosquitto ─► Node-RED ─HTTP─► FastAPI backend ─► PostgreSQL ◄─ Grafana
+ Simulator ─────────┘                    (alerts)        (anomaly, forecast,              (dashboard)
+                                                           value)
 ```
 
-## Quick start (run the whole app)
+## Quick start (everything in one command)
 
-**Option A — Docker (recommended, same for everyone):**
+Install **Docker Desktop**, then:
 ```bash
-cp .env.example .env
-docker compose up --build
+docker compose --profile sim up --build
 ```
-Open http://localhost:8080 · API docs: http://localhost:8000/docs
+This starts all services **plus the simulator** (7 days of fake history + live data every 5 s).
 
-**Option B — without Docker:**
-```bash
-cd backend
-python -m venv .venv && source .venv/bin/activate   # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-```
-Then open `frontend/index.html` directly in the browser (it falls back to `http://localhost:8000`).
+| Open | What | Login |
+|---|---|---|
+| http://localhost:3000 | **Grafana dashboard** | none needed (admin/admin to edit) |
+| http://localhost:1880 | Node-RED flows | — |
+| http://localhost:8000/docs | Backend API (try it in the browser) | — |
+| `localhost:5432` | PostgreSQL | compactor / compactor |
+| `localhost:1883` | MQTT broker | — |
 
-**Run tests:**
-```bash
-cd backend && pytest
-```
+Without fake data (real sensor only): `docker compose up --build`
+Reset all data: `docker compose down -v`
 
 ## Who owns what
 
 | Area | Folder | Owner |
 |---|---|---|
-| Frontend / UI | `frontend/` | _name_ |
-| Backend / API | `backend/app/main.py`, `schemas.py` | _name_ |
-| AI / model | `backend/app/ai/` | _name_ |
-| Pitch, slides, demo script | `docs/` | _name_ |
-| **`main` branch keeper** (reviews & merges PRs) | — | _name_ |
+| Hardware (load cell, ESP32) | `firmware/` | _name_ |
+| Data flow & alerts (Node-RED, MQTT) | `nodered/`, `mosquitto/` | _name_ |
+| Backend & database | `backend/app/main.py`, `service.py`, `db.py` | _name_ |
+| AI: anomaly, forecast, value | `backend/app/ai/`, `simulator/` | _name_ |
+| Dashboard | `grafana/` | _name_ |
+| Pitch & business model | `docs/` | _name_ |
+| **`main` keeper** (merges PRs) | — | _name_ |
+
+## What each part does now (and what to improve)
+
+| Part | Works now | Next ideas |
+|---|---|---|
+| `firmware/` | Reads load cell + ultrasonic, sends MQTT | Calibrate, build the demo box |
+| `nodered/` | MQTT → backend, filters alerts | Send alerts to email / Telegram |
+| `ai/anomaly.py` | Rules: sensor fault, spike, drop, contamination, emptied | Train IsolationForest on simulator data |
+| `ai/forecast.py` | Straight-line "hours to full" | Day-of-week pattern, ML model |
+| `ai/value.py` | Weight × price, CO₂ | Quality penalty when contaminated |
+| `grafana/` | 9-panel dashboard | Per-customer view, nicer layout |
+
+## Run parts without Docker
+```bash
+cd backend
+python -m venv .venv && .venv\Scripts\activate        # Mac/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn app.main:app --reload                          # uses local SQLite file
+pytest                                                 # run tests
+python ../simulator/simulate.py --no-live              # fill it with history
+```
+
+## Editing Grafana / Node-RED
+- **Grafana:** edit in the browser → Dashboard settings → JSON Model → copy into `grafana/dashboards/compactor.json` → commit.
+- **Node-RED:** click Deploy — it saves straight into `nodered/flows.json` → commit.
 
 ## The 5 team rules
-
-1. **`CONTRACT.md` is law.** Change the API only by PR to `CONTRACT.md` first, and tell the team.
+1. **`CONTRACT.md` is law.** Change the data format only by PR to `CONTRACT.md` first.
 2. **Never push to `main`.** Branch → Pull Request → keeper merges.
-3. **Merge small and often** — at least twice a day. Small PRs never break things badly.
-4. **`main` must always run.** If you break it, fixing it is everyone's #1 task.
-5. **Ask after 30 minutes stuck.** Post in the team chat.
+3. **Merge small and often** — at least twice a day.
+4. **`main` must always run.** Broken main = everyone's #1 task.
+5. **Ask after 30 minutes stuck.**
 
-More: [`CONTRIBUTING.md`](CONTRIBUTING.md) (git step by step) · [`CONTRACT.md`](CONTRACT.md) (API) · [`CLAUDE.md`](CLAUDE.md) (context for AI assistants) · [`docs/PLAN.md`](docs/PLAN.md) (timeline & judging).
+More: [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`CONTRACT.md`](CONTRACT.md) · [`CLAUDE.md`](CLAUDE.md) · [`docs/PLAN.md`](docs/PLAN.md)
+
+## Troubleshooting
+- **Grafana empty?** Run with `--profile sim`, wait ~30 s, refresh. Time range top-right = Last 7 days.
+- **Node-RED permission error (Linux/Mac):** `sudo chown -R 1000:1000 nodered`
+- **ESP32 can't connect:** laptop and ESP32 on the same Wi-Fi; `MQTT_HOST` = laptop IP (`ipconfig`); allow port 1883 in Windows firewall.

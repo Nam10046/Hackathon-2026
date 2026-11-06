@@ -6,7 +6,7 @@ labels: task
 
 **Goal:** <!-- what should exist when done -->
 
-**Part:** frontend / backend / ai / pitch
+**Part:** firmware / nodered / backend / ai / grafana / pitch
 
 **Done when:**
 - [ ] 

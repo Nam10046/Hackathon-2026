@@ -1,20 +1,76 @@
+# Start everything:            docker compose up --build
+# Start with fake sensor data: docker compose --profile sim up --build
 services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: compactor
+      POSTGRES_PASSWORD: compactor
+      POSTGRES_DB: compactor
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U compactor"]
+      interval: 3s
+      retries: 20
+
+  mosquitto:
+    image: eclipse-mosquitto:2
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+
   backend:
     build: ./backend
-    env_file:
-      - path: .env
-        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://compactor:compactor@postgres:5432/compactor
     ports:
       - "8000:8000"
     volumes:
       - ./backend/app:/code/app   # live reload while coding
+    depends_on:
+      postgres:
+        condition: service_healthy
 
-  frontend:
-    image: nginx:1.27-alpine
+  nodered:
+    image: nodered/node-red:4.0
     ports:
-      - "8080:80"
+      - "1880:1880"
     volumes:
-      - ./frontend:/usr/share/nginx/html:ro
-      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nodered:/data
+    depends_on:
+      - mosquitto
+      - backend
+
+  grafana:
+    image: grafana/grafana:11.3.0
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"      # judges can view without login
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/compactor.json
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  simulator:
+    build: ./simulator
+    profiles: ["sim"]          # only runs with --profile sim
+    environment:
+      API_URL: http://backend:8000/api
+      MQTT_HOST: mosquitto
     depends_on:
       - backend
+      - mosquitto
+
+volumes:
+  pgdata:

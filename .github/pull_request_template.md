@@ -2,12 +2,12 @@
 <!-- One or two sentences -->
 
 ## Part
-- [ ] Frontend  - [ ] Backend  - [ ] AI  - [ ] Docs/pitch
+- [ ] Firmware  - [ ] Node-RED  - [ ] Backend  - [ ] AI  - [ ] Grafana  - [ ] Docs/pitch
 
 ## Checklist
-- [ ] App runs (`docker compose up --build`)
-- [ ] `pytest` passes
+- [ ] `docker compose --profile sim up --build` still works
+- [ ] `pytest` passes (backend/AI changes)
 - [ ] Follows `CONTRACT.md` (or this PR updates it and the team knows)
-- [ ] No secrets / API keys committed
+- [ ] No secrets / passwords committed
 
-## Screenshot (if UI)
+## Screenshot (dashboard / Node-RED changes)

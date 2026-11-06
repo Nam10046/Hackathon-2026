@@ -1,0 +1,29 @@
+// Copy this file to config.h and fill in. config.h is in .gitignore (never commit passwords).
+#pragma once
+
+#define WIFI_SSID     "your-wifi"
+#define WIFI_PASSWORD "your-password"
+
+// IP of the laptop running docker compose (find it with: ipconfig)
+#define MQTT_HOST     "192.168.1.50"
+#define MQTT_PORT     1883
+
+#define COMPACTOR_ID  "C1"
+
+// Pins
+#define HX711_DOUT    16
+#define HX711_SCK     4
+#define US_TRIG       5    // HC-SR04 ultrasonic (fill level), optional
+#define US_ECHO       18
+#define TARE_BUTTON   0    // BOOT button on most ESP32 boards
+
+// Calibration: put a known weight on, adjust until the reading is right
+#define CALIBRATION_FACTOR  -7050.0
+// Demo scale: 1 kg on the mini load cell = this many "compactor kg"
+#define DEMO_SCALE          100.0
+
+// Distance (cm) from sensor to bottom when empty / to top when full
+#define EMPTY_DISTANCE_CM   40.0
+#define FULL_DISTANCE_CM    5.0
+
+#define SEND_INTERVAL_MS    5000

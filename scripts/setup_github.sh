@@ -12,7 +12,7 @@ git commit -m "Initial project skeleton"
 gh repo create "$REPO_NAME" --private --source=. --push
 
 # Labels for the issue board
-for l in frontend backend ai pitch bug task; do
+for l in firmware nodered backend ai grafana pitch bug task; do
   gh label create "$l" --force >/dev/null
 done
 

@@ -1,5 +1,6 @@
 # Secrets
 .env
+firmware/compactor_node/config.h
 
 # Python
 __pycache__/
@@ -7,12 +8,18 @@ __pycache__/
 .venv/
 venv/
 .pytest_cache/
+*.db
+
+# Node-RED runtime files (keep only flows.json in git)
+nodered/*
+!nodered/flows.json
 
 # Models / data (too big for git — share via Drive)
 *.pt
 *.pth
 *.h5
 *.onnx
+*.pkl
 data/raw/
 
 # OS / editors
@@ -20,7 +27,4 @@ data/raw/
 Thumbs.db
 .vscode/
 .idea/
-
-# Node (if the team adds a framework later)
 node_modules/
-dist/
