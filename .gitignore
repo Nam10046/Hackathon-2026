@@ -1,0 +1,26 @@
+# Secrets
+.env
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+
+# Models / data (too big for git — share via Drive)
+*.pt
+*.pth
+*.h5
+*.onnx
+data/raw/
+
+# OS / editors
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Node (if the team adds a framework later)
+node_modules/
+dist/
