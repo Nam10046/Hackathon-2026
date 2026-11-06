@@ -117,7 +117,20 @@ It uses Europress's own calculators (called **baselines**) and adds our layer on
 **Evidence tags** (the judges' rubric asks for this): every number is marked
 **OBSERVED** (from a real record), **ESTIMATED** (our calculation or the device), or **HYPOTHETICAL** (an assumed price).
 
-👉 *Honest note:* the problem-finding itself is still Europress's baseline. Beating it is our next improvement (20 % criterion).
+👉 *Honest note:* most problem-finding is still Europress's baseline — **except lift problems**, where we trained our own model (next section).
+
+### 2.3b Our own AI model — the live lift model (`training/train_lift_model.py`)
+- **What it learns:** from ~10,700 lifts in the training months, it learns what an **unnecessary early lift** and a
+  **too-late lift** look like.
+- **What it looks at:** only what the compactor knows *at that moment*: fill %, weight, hours spent full, how fast it
+  filled, time since the last lift, the hygiene limit, weekday, material. **No bills, no truck tickets.**
+- **How good:** tested on 2 months it never saw, with Europress's own scorer: F1 **0.93** (unnecessary) and **0.92**
+  (late). Europress's simple rules get 0.72 / 0.77; their ML gets about the same as ours, **but it needs the truck's
+  weight and the bill**, which come days later.
+- **Why that matters:** ours can warn **live**, the moment the container is emptied → it is the "real-time" brain for SMART.
+- **How it runs live:** exported as ONNX files in `models/lift_premature/` and `models/lift_delayed/`. When the backend
+  sees an emptying, it builds the same features from the readings and asks the model. Tested with a fake early lift
+  and a fake late lift — both gave the right alert.
 
 ### 2.4 The Grafana cockpit (http://localhost:3000/d/value-cockpit)
 | Panel | What it shows | Which requirement |

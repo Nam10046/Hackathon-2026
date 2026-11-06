@@ -30,8 +30,9 @@ def check(new: dict, history: list[dict], compactor: dict, material: dict) -> li
         prev = history[-1]["weight_kg"]
         delta = w - prev
 
-        # 2. Weight went to ~0 -> compactor was emptied (normal event)
-        if prev > cap * 0.2 and w < cap * 0.05:
+        # 2. Weight went to ~0 -> compactor was emptied (normal event).
+        #    Low threshold on purpose: an EARLY (half-empty) lift is still a lift, and the lift model must see it.
+        if prev >= cap * 0.08 and w < cap * 0.05:
             alerts.append(_a("emptied", "info", f"Emptied: {prev:.0f} kg collected"))
 
         # 3. Weight dropped but not emptied -> strange (sensor drift, theft, leak)

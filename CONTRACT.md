@@ -80,7 +80,7 @@ header `X-API-Key: <key>`. Reading (GET) is open. On the laptop the key is empty
 { "id": 7, "compactor_id": "C1", "ts": "...", "type": "contamination",
   "severity": "warning", "message": "Density 520 kg/m³ is above normal for cardboard (150–450)" }
 ```
-Alert `type` values: `sensor_fault`, `spike`, `unexpected_drop`, `contamination`, `emptied`, `nearly_full`, `ml_anomaly` (from a model in `models/`).
+Alert `type` values: `sensor_fault`, `spike`, `unexpected_drop`, `contamination`, `emptied`, `nearly_full`, `ml_anomaly` (from a model in `models/`), `ml_premature_unjustified` and `ml_delayed_collection` (live lift model, checked on every emptying).
 `severity`: `info`, `warning`, `critical`.
 
 ---

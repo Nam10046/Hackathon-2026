@@ -1,5 +1,14 @@
+# Tested together (newer scikit-learn + skl2onnx can fail to export to ONNX)
 numpy==2.1.3
+pandas==2.2.3
+pyarrow==18.1.0
+duckdb==1.1.3
+pyyaml==6.0.2
+pytz==2024.2
+tabulate==0.9.0
 scikit-learn==1.5.2
-skl2onnx==1.17.0
+skl2onnx==1.20.0
+onnx==1.23.2
+onnxruntime==1.20.1
 SQLAlchemy==2.0.36
 psycopg[binary]==3.2.3

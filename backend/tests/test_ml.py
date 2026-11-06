@@ -34,3 +34,38 @@ def test_model_plugin(tmp_path, monkeypatch):
         assert any(a["type"] == "ml_anomaly" for a in weird["alerts"])
         assert c.post("/api/models/reload").json()["loaded"] == ["test_iforest"]
     db.reset_engine()
+
+
+def test_live_lift_model(tmp_path, monkeypatch):
+    """A lift model in models/ judges every emptying, using only the compactor's own readings."""
+    import json
+    from datetime import datetime, timedelta, timezone
+
+    from sklearn.ensemble import GradientBoostingClassifier
+    from skl2onnx import to_onnx
+
+    from app.ai.lift_features import FEATURES
+    rng = np.random.default_rng(1)
+    X = rng.uniform(-1, 100, (300, len(FEATURES))).astype(np.float32)
+    y = (X[:, FEATURES.index("fill_before")] < 40).astype(int)          # toy rule: low fill = premature
+    m = GradientBoostingClassifier(n_estimators=20).fit(X, y)
+    out = tmp_path / "models" / "lift_premature"
+    out.mkdir(parents=True)
+    onx = to_onnx(m, X[:1], target_opset={"": 17, "ai.onnx.ml": 3}, options={id(m): {"zipmap": False}})
+    (out / "model.onnx").write_bytes(onx.SerializeToString())
+    (out / "model.json").write_text(json.dumps({"type": "lift_classifier", "family": "PREMATURE_UNJUSTIFIED",
+                                                "input_features": FEATURES, "threshold": 0.5, "alert_message": "Too early"}))
+    monkeypatch.setenv("MODELS_DIR", str(tmp_path / "models"))
+    monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'lift.db'}")
+    db.reset_engine()
+    from app.main import app
+    t0 = datetime(2026, 11, 1, tzinfo=timezone.utc)
+    with TestClient(app) as c:
+        send = lambda w, fill, h: c.post("/api/readings", json={"compactor_id": "C1", "weight_kg": w, "fill_pct": fill,  # noqa: E731
+                                                              "ts": (t0 + timedelta(hours=h)).isoformat()}).json()
+        for i in range(5):
+            send(100 + 50 * i, 5 + 5 * i, i)                             # fills up to 25 % only
+        res = send(5, 0, 6)                                               # emptied at 25 % -> premature
+        types = [a["type"] for a in res["alerts"]]
+        assert "emptied" in types and "ml_premature_unjustified" in types
+    db.reset_engine()

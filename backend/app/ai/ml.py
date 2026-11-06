@@ -64,3 +64,24 @@ def check(features: dict) -> list[dict]:
             alerts.append({"type": "ml_anomaly", "severity": "warning",
                            "message": f"Model '{name}' flags this reading as unusual (score {score:.2f})"})
     return alerts
+
+
+def check_lift(raw: dict) -> list[dict]:
+    """Run every LIFT model (type "lift_classifier") on one emptying. raw: see live_lift.build_raw."""
+    from app.ai.lift_features import to_vector
+    alerts = []
+    for name, m in _models.items():
+        meta = m["meta"]
+        if meta.get("type") != "lift_classifier":
+            continue
+        try:
+            x = np.array([to_vector(raw)], dtype=np.float32)
+            sess = m["session"]
+            prob = float(np.asarray(sess.run(None, {sess.get_inputs()[0].name: x})[1])[0][1])
+        except Exception as e:
+            print(f"Warning: lift model {name} failed: {e}", flush=True)
+            continue
+        if prob >= float(meta.get("threshold", 0.5)):
+            alerts.append({"type": "ml_" + meta.get("family", name).lower(), "severity": "warning",
+                           "message": f"{meta.get('alert_message', name)} (model {name}, {prob:.0%} likely). Check before acting."})
+    return alerts

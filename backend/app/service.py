@@ -1,9 +1,9 @@
 """Business logic: store a reading, run the AI parts, update status. Owner: backend person."""
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, insert, select
 
-from app.ai import anomaly, features, forecast, ml, value
+from app.ai import anomaly, features, forecast, live_lift, ml, value
 from app.db import alerts, compactor_status, compactors, get_engine, materials, readings
 
 HISTORY_SIZE = 50  # how many previous readings the AI looks at
@@ -43,11 +43,26 @@ def ingest(reading: dict) -> dict:
         found = anomaly.check(new, history, dict(comp), dict(mat))
 
         # ML models from models/ (skip if the reading is clearly broken)
+        plausible = [h for h in history if -20 <= h["weight_kg"] <= comp["capacity_kg"] * 1.3]
         if not any(a["type"] == "sensor_fault" and a["severity"] == "critical" for a in found):
-            plausible = [h for h in history if -20 <= h["weight_kg"] <= comp["capacity_kg"] * 1.3]
             prev_w = plausible[-1]["weight_kg"] if plausible else None
             feats = features.make_features(new["weight_kg"], new["fill_pct"], prev_w, dict(comp), dict(mat))
             found += ml.check(feats)
+
+        # LIVE LIFT MODEL: when the container was just emptied, judge the lift (too early? too late?)
+        if any(a["type"] == "emptied" for a in found) and plausible:
+            window = [dict(r) for r in conn.execute(
+                select(readings.c.ts, readings.c.weight_kg, readings.c.fill_pct)
+                .where(readings.c.compactor_id == comp["id"], readings.c.ts < ts, readings.c.ts >= ts - timedelta(hours=72))
+                .order_by(readings.c.ts)).mappings()]
+            for r in window:
+                r["ts"] = _utc(r["ts"])
+            last = conn.execute(
+                select(alerts.c.ts).where(alerts.c.compactor_id == comp["id"], alerts.c.type == "emptied", alerts.c.ts < ts)
+                .order_by(alerts.c.ts.desc()).limit(1)).first()
+            before = {**plausible[-1], "ts": _utc(plausible[-1]["ts"])}
+            raw = live_lift.build_raw(ts, before, window, _utc(last[0]) if last else None, dict(comp))
+            found += ml.check_lift(raw)
 
         reading_id = conn.execute(
             insert(readings).values(compactor_id=comp["id"], ts=ts, **new)

@@ -1,5 +1,18 @@
 # Models folder
 
+## Included: the LIVE LIFT MODEL (trained on the Europress dataset)
+| Folder | Answers at the moment of an emptying | Validation F1 (organisers' scorer) |
+|---|---|---|
+| `lift_premature/` | was this lift unnecessary (too early, no reason)? | **0.927** (rule baseline B2: 0.716 · ML baseline B4: 0.925) |
+| `lift_delayed/` | did the lift come too late (overflow risk)? | **0.922** (B2: 0.773 · B4: 0.919) |
+
+Inputs = only what the compactor knows live (`backend/app/ai/lift_features.py`), unlike B4 which also needs the
+weighbridge weight and the cost per tonne — so ours can warn **before** the bill. Retrain:
+`pip install -r training/requirements.txt` then `python training/train_lift_model.py` (≈1 min, writes
+`training/lift_model_report.json`).
+
+## Folder format
+
 Every sub-folder with `model.json` + `model.onnx` is loaded by the backend.
 
 ```

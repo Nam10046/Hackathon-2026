@@ -92,6 +92,21 @@ the evidence layer, € impact, evidence tags and the human-approval workflow. S
 | B2 — operator scorecard | B5 from customer records | 67.8 / 100 |
 | C2 — operator/contract actions | B6 rules | value captured 77 %, mean regret €240 per case (vs €1,064 doing nothing) |
 
+**Our own model — the LIVE LIFT MODEL** (`training/train_lift_model.py`, `models/lift_*`): trained on the dataset's
+train months, threshold chosen on train only, scored on validation with the organisers' scorer:
+
+| Family | Rule baseline B2 | ML baseline B4 | **Our live model** | Inputs |
+|---|---:|---:|---:|---|
+| PREMATURE_UNJUSTIFIED (F1) | 0.716 | 0.925 | **0.927** | ours: live device data only |
+| — justified lifts wrongly flagged (traps) | 0 | 13 | **8** | |
+| DELAYED_COLLECTION (F1) | 0.773 | 0.919 | **0.922** | |
+
+B4 needs the weighbridge weight, cost per tonne and the fill level after the lift — known only after the operator
+weighs and bills. Our model reaches the same accuracy with **only what the compactor knows at the moment of the lift**
+(fill, weight, hours full, fill speed, time since last lift, hygiene limit, weekday, material), so it runs **live**
+in the backend (ONNX) and warns before the invoice arrives. Tested end-to-end: an early lift and a late lift sent as
+live readings each raise the right alert.
+
 **Why rules first:** every proposal can be explained in one sentence and checked against a row. The ML option
 (`models/` folder, ONNX) is plugged in as a *second opinion* (`ml_anomaly`), never as the only reason for an action.
 
