@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Customer Value Cockpit — recommended actions</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --text:#1c1e21; --muted:#5f6670; --line:#e3e6ea; --accent:#1f6feb;
+          --ok:#1a7f37; --no:#b42318; --warn:#9a6700; }
+  * { box-sizing: border-box; }
+  body { margin:0; font:15px/1.5 system-ui, -apple-system, "Segoe UI", sans-serif; background:var(--bg); color:var(--text); }
+  header { background:#0f2a3d; color:#fff; padding:18px 28px; }
+  header h1 { margin:0; font-size:20px; font-weight:600; }
+  header p { margin:4px 0 0; color:#b9c7d3; font-size:13px; }
+  main { max-width:1100px; margin:0 auto; padding:20px; }
+  .bar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:16px; }
+  .bar input, .bar select { padding:7px 10px; border:1px solid var(--line); border-radius:6px; font:inherit; }
+  .pill { padding:6px 12px; border:1px solid var(--line); border-radius:999px; background:var(--card); cursor:pointer; }
+  .pill.on { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .card { background:var(--card); border:1px solid var(--line); border-radius:10px; padding:16px 18px; margin-bottom:12px; }
+  .row { display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; }
+  .act { font-weight:600; }
+  .muted { color:var(--muted); font-size:13px; }
+  .eur { font-variant-numeric: tabular-nums; font-weight:600; }
+  .status { font-size:12px; padding:2px 8px; border-radius:999px; border:1px solid currentColor; }
+  .PENDING { color:var(--warn); } .APPROVED { color:var(--ok); } .REJECTED { color:var(--no); }
+  button { font:inherit; padding:6px 12px; border-radius:6px; border:1px solid var(--line); background:#fff; cursor:pointer; }
+  button.approve { background:var(--ok); color:#fff; border-color:var(--ok); }
+  button.reject { color:var(--no); border-color:var(--no); }
+  .actions { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; align-items:center; }
+  .actions input { flex:1; min-width:180px; padding:6px 10px; border:1px solid var(--line); border-radius:6px; font:inherit; }
+  table { width:100%; border-collapse:collapse; margin-top:10px; font-size:13px; }
+  th, td { text-align:left; padding:5px 6px; border-bottom:1px solid var(--line); vertical-align:top; }
+  .note { background:#fff8e6; border:1px solid #f0d58a; border-radius:8px; padding:10px 14px; font-size:13px; margin-bottom:16px; }
+  .err { color:var(--no); font-size:13px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Customer Value Cockpit — recommended actions</h1>
+  <p>Proposals only. A named person approves or rejects; every decision is logged and can be reverted. Synthetic data.</p>
+</header>
+<main>
+  <div class="note">Each proposal comes from device data + the customer's own contract and invoices. Differences can have
+    several causes (sensor, data gaps, combined loads) — they are <b>discrepancies to check</b>, not accusations.</div>
+  <div class="bar">
+    <label>Your name <input id="who" placeholder="e.g. Nam"></label>
+    <label>API key <input id="key" type="password" placeholder="only if the server has one"></label>
+    <span id="filters"></span>
+  </div>
+  <div id="count" class="muted"></div>
+  <div id="list"></div>
+</main>
+<script>
+const API = location.origin + "/api/cockpit";
+const store = { get(k){ try { return localStorage.getItem(k) || ""; } catch(e) { return ""; } },
+                set(k,v){ try { localStorage.setItem(k,v); } catch(e) {} } };
+const who = document.getElementById("who"), key = document.getElementById("key");
+who.value = store.get("cockpit_who"); who.onchange = () => store.set("cockpit_who", who.value);
+let filter = "PENDING", rows = [];
+const eur = n => (n || 0).toLocaleString("fi-FI", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+
+function renderFilters() {
+  document.getElementById("filters").innerHTML = ["PENDING", "APPROVED", "REJECTED", "ALL"].map(f =>
+    `<button class="pill ${f === filter ? "on" : ""}" onclick="setFilter('${f}')">${f.toLowerCase()}</button>`).join(" ");
+}
+function setFilter(f) { filter = f; renderFilters(); render(); }
+
+async function load() {
+  const r = await fetch(API + "/actions");
+  rows = await r.json();
+  render();
+}
+function render() {
+  const shown = rows.filter(r => filter === "ALL" || r.status === filter);
+  document.getElementById("count").textContent =
+    `${shown.length} shown · ${rows.filter(r => r.status === "PENDING").length} pending of ${rows.length} proposals`;
+  document.getElementById("list").innerHTML = shown.length ? shown.map(r => `
+    <div class="card" id="c-${esc(r.action_id)}">
+      <div class="row">
+        <div><span class="act">${esc(r.action.replaceAll("_", " ").toLowerCase())}</span>
+          <span class="status ${r.status}">${r.status.toLowerCase()}</span><br>
+          <span class="muted">${esc(r.customer_name)} · operator ${esc(r.operator_name)} · contract ${esc(r.contract_id)} · device ${esc(r.device_id)}</span></div>
+        <div class="eur" title="Sum of flagged invoice lines for this device (estimated)">${eur(r.flagged_invoice_eur)} flagged</div>
+      </div>
+      <div style="margin-top:6px">${esc(r.rationale)}</div>
+      ${r.notice_period_days ? `<div class="muted">Notice period ${r.notice_period_days} days</div>` : ""}
+      ${r.decided_by ? `<div class="muted">Last decision: ${esc(r.decision)} by ${esc(r.decided_by)}${r.decision_note ? " — " + esc(r.decision_note) : ""}</div>` : ""}
+      <div class="actions">
+        <button onclick="showEvidence('${esc(r.action_id)}')">Show evidence</button>
+        <input id="n-${esc(r.action_id)}" placeholder="Note (why?)">
+        ${r.status === "PENDING"
+          ? `<button class="approve" onclick="decide('${esc(r.action_id)}','APPROVE')">Approve</button>
+             <button class="reject" onclick="decide('${esc(r.action_id)}','REJECT')">Reject</button>`
+          : `<button onclick="decide('${esc(r.action_id)}','REVERT')">Revert to pending</button>`}
+        <span class="err" id="e-${esc(r.action_id)}"></span>
+      </div>
+      <div id="ev-${esc(r.action_id)}"></div>
+    </div>`).join("") : `<div class="card muted">Nothing here.</div>`;
+}
+async function decide(id, decision) {
+  const err = document.getElementById("e-" + id);
+  if (!who.value.trim()) { err.textContent = "Enter your name first"; who.focus(); return; }
+  err.textContent = "";
+  const r = await fetch(`${API}/actions/${encodeURIComponent(id)}/decision`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...(key.value ? { "X-API-Key": key.value } : {}) },
+    body: JSON.stringify({ decision, decided_by: who.value.trim(), note: document.getElementById("n-" + id).value || null }),
+  });
+  if (!r.ok) { err.textContent = r.status === 401 ? "Wrong or missing API key" : "Error " + r.status; return; }
+  await load();
+}
+async function showEvidence(id) {
+  const box = document.getElementById("ev-" + id);
+  if (box.innerHTML) { box.innerHTML = ""; return; }
+  const d = await (await fetch(`${API}/actions/${encodeURIComponent(id)}/evidence`)).json();
+  box.innerHTML = `<table><tr><th>Date</th><th>Record</th><th>Finding</th><th>Evidence</th><th>€ at stake</th></tr>` +
+    d.findings.map(f => `<tr><td>${esc((f.found_at || "").slice(0, 10))}</td><td>${esc(f.entity_type)}<br>${esc(f.entity_id)}</td>
+      <td>${esc(f.explanation)}</td><td>${esc(f.evidence)}</td><td>${eur(f.eur_at_stake)}</td></tr>`).join("") +
+    `</table>` + (d.decision_history.length ? `<div class="muted" style="margin-top:6px">History: ` +
+    d.decision_history.map(h => `${esc(h.decision)} by ${esc(h.decided_by)} (${esc(String(h.decided_at).slice(0, 16))})`).join(" → ") + `</div>` : "");
+}
+renderFilters(); load();
+</script>
+</body>
+</html>

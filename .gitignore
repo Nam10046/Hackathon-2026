@@ -1,3 +1,6 @@
+# Europress dataset (unzip here, never commit)
+europress/
+
 # Secrets
 .env
 firmware/compactor_node/include/config.h

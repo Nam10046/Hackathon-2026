@@ -97,3 +97,25 @@ def test_tigerdata_url_is_accepted():
     url = "postgres://tsdbadmin:pw@abc.tsdb.cloud.timescale.com:31234/tsdb?sslmode=require"
     assert db.normalize_url(url) == "postgresql+psycopg://tsdbadmin:pw@abc.tsdb.cloud.timescale.com:31234/tsdb?sslmode=require"
     assert db.normalize_url("sqlite:///x.db") == "sqlite:///x.db"
+
+
+def test_cockpit_approval_flow(client):
+    from sqlalchemy import text
+    with db.get_engine().begin() as conn:
+        conn.execute(text("CREATE TABLE cp_actions (action_id TEXT, case_id TEXT, action TEXT, contract_id TEXT, "
+                          "device_id TEXT, customer_name TEXT, operator_name TEXT, notice_period_days INTEGER, "
+                          "flagged_invoice_eur REAL, rationale TEXT)"))
+        conn.execute(text("INSERT INTO cp_actions VALUES ('OC-1-DISPUTE_INVOICE','OC-1','DISPUTE_INVOICE','CTR-1',"
+                          "'CMP-1','Shop Oy','Hauler Alpha',30,120.5,'why')"))
+        conn.execute(text("CREATE TABLE cp_flags (entity_type TEXT, entity_id TEXT, label_family TEXT, found_at TEXT, "
+                          "device_id TEXT, explanation TEXT, evidence TEXT, eur_at_stake REAL, evidence_tag TEXT)"))
+    assert client.get("/api/cockpit/actions").json()[0]["status"] == "PENDING"
+    r = client.post("/api/cockpit/actions/OC-1-DISPUTE_INVOICE/decision", json={"decision": "APPROVE", "decided_by": "Nam"})
+    assert r.json()["status"] == "APPROVED"
+    assert client.get("/api/cockpit/actions?status=approved").json()[0]["decided_by"] == "Nam"
+    client.post("/api/cockpit/actions/OC-1-DISPUTE_INVOICE/decision", json={"decision": "REVERT", "decided_by": "Nam"})
+    ev = client.get("/api/cockpit/actions/OC-1-DISPUTE_INVOICE/evidence").json()
+    assert [h["decision"] for h in ev["decision_history"]] == ["APPROVE", "REVERT"]
+    assert client.get("/api/cockpit/actions").json()[0]["status"] == "PENDING"
+    assert client.post("/api/cockpit/actions/NOPE/decision", json={"decision": "APPROVE", "decided_by": "x"}).status_code == 404
+    assert "Customer Value Cockpit" in client.get("/cockpit").text

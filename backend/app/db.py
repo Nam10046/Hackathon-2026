@@ -62,6 +62,17 @@ compactor_status = Table(
     Column("last_ts", DateTime(timezone=True)),
 )
 
+# Human decisions on recommended actions (Customer Value Cockpit). Never deleted = audit trail.
+action_decisions = Table(
+    "action_decisions", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("action_id", String, nullable=False, index=True),
+    Column("decision", String, nullable=False),        # APPROVE | REJECT | REVERT
+    Column("decided_by", String, nullable=False),
+    Column("note", String),
+    Column("decided_at", DateTime(timezone=True), nullable=False),
+)
+
 # PLACEHOLDER numbers — replace with real prices/densities from Europress or recyclers
 SEED_MATERIALS = [
     {"name": "cardboard", "price_eur_per_kg": 0.08, "density_min": 150, "density_max": 450, "co2_factor": 0.9},

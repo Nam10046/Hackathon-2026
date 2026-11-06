@@ -29,6 +29,13 @@ docker compose down              # stop (data is kept)
 docker compose down -v           # stop AND delete all data (fresh start)
 ```
 
+## Customer Value Cockpit (the Europress dataset)
+1. Unzip the Europress participants package into `europress/` (git-ignored)
+2. `docker compose run --rm analytics` (≈1 min)
+3. Grafana → **Customer Value Cockpit** (http://localhost:3000/d/value-cockpit) · approve proposals at **http://localhost:8000/cockpit**
+
+Details: [`analytics/README.md`](analytics/README.md)
+
 ## Test without a sensor
 
 1. Open **Node-RED** → http://localhost:1880

@@ -3,11 +3,12 @@ import os
 import time
 from contextlib import asynccontextmanager
 
-from fastapi import Depends, FastAPI, Header, HTTPException
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from app import service
+from app import cockpit, service
+from app.security import require_key
 from app.ai import ml
 from app.db import alerts, get_engine, init_db, materials, readings
 from app.schemas import (
@@ -31,15 +32,9 @@ async def lifespan(app: FastAPI):
     yield
 
 
-def require_key(x_api_key: str | None = Header(default=None)):
-    """Writes need the X-API-Key header when INGEST_API_KEY is set (always set it on Rahti)."""
-    expected = os.getenv("INGEST_API_KEY", "")
-    if expected and x_api_key != expected:
-        raise HTTPException(401, "Missing or wrong X-API-Key")
-
-
 app = FastAPI(title="Smart Compactor API", version=os.getenv("APP_VERSION", "0.2.0"), lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+app.include_router(cockpit.router)
 
 
 @app.get("/api/health", response_model=HealthResponse)
