@@ -49,6 +49,8 @@ Node-RED forwards the same JSON to the backend.
 | GET | `/compactors/{id}/readings?limit=500` | Latest readings, oldest first |
 | GET | `/alerts?compactor_id=C1&limit=50` | Latest alerts, newest first |
 | GET | `/materials` | Price & density table |
+| GET | `/models` | Loaded ML models (from `models/`) |
+| POST | `/models/reload` | Load new/changed model folders without restart |
 
 **Status object**
 ```json
@@ -75,7 +77,7 @@ Node-RED forwards the same JSON to the backend.
 { "id": 7, "compactor_id": "C1", "ts": "...", "type": "contamination",
   "severity": "warning", "message": "Density 520 kg/m³ is above normal for cardboard (150–450)" }
 ```
-Alert `type` values: `sensor_fault`, `spike`, `unexpected_drop`, `contamination`, `emptied`, `nearly_full`.
+Alert `type` values: `sensor_fault`, `spike`, `unexpected_drop`, `contamination`, `emptied`, `nearly_full`, `ml_anomaly` (from a model in `models/`).
 `severity`: `info`, `warning`, `critical`.
 
 ---
@@ -92,7 +94,14 @@ Alert `type` values: `sensor_fault`, `spike`, `unexpected_drop`, `contamination`
 
 Only the backend **writes**. Grafana and others **read**.
 
+## 4. ML model folder
+
+`models/<name>/model.onnx` + `model.json` (`type`, `input_features`). Input features are defined in
+`backend/app/ai/features.py` and shared with `training/train_anomaly.py`. Output for `type: anomaly`:
+label (`1` normal, `-1` unusual) + score.
+
 ## Change log
 | Date | Change | By |
 |---|---|---|
 | 2026-11-06 | Compactor contract v1 (MQTT reading, API, tables) | — |
+| 2026-11-06 | ML model folder + `/models` endpoints, `ml_anomaly` alert | — |

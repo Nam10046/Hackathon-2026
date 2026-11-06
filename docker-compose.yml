@@ -1,67 +1,126 @@
-# Start everything: docker compose up -d --build
-# Stop:             docker compose down
-services:
-  postgres:
-    image: postgres:16-alpine
-    environment:
-      POSTGRES_USER: compactor
-      POSTGRES_PASSWORD: compactor
-      POSTGRES_DB: compactor
-    ports:
-      - "5432:5432"
-    volumes:
-      - pgdata:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U compactor"]
-      interval: 3s
-      retries: 20
+# Smart compactor server. Settings come from .env (copy .env.example; defaults work without it).
+#
+#   docker compose up -d --build     start everything
+#   docker compose ps                all should be "healthy"
+#   docker compose down              stop (data is kept)
+#   docker compose down -v           stop and wipe all data
+#
+# Ports listen only on this laptop (BIND_ADDR=127.0.0.1), except MQTT,
+# which the ESP32 must reach over Wi-Fi.
 
+name: ${STACK_NAME:-compactor}
+
+services:
   mosquitto:
     image: eclipse-mosquitto:2
     ports:
-      - "1883:1883"
+      - "${MQTT_BIND:-0.0.0.0}:1883:1883"
     volumes:
       - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
+      - mosquitto-data:/mosquitto/data
+    healthcheck:
+      test: ["CMD", "mosquitto_sub", "-t", "$$SYS/#", "-C", "1", "-W", "3"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+    environment:
+      - TZ=${TIMEZONE:-Europe/Helsinki}
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=${DB_USER:-compactor}
+      - POSTGRES_PASSWORD=${DB_PASS:-compactor}
+      - POSTGRES_DB=${DB_NAME:-compactor}
+      - TZ=${TIMEZONE:-Europe/Helsinki}
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-compactor} -d ${DB_NAME:-compactor}"]
+      interval: 3s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
 
   backend:
     build: ./backend
     environment:
-      DATABASE_URL: postgresql+psycopg://compactor:compactor@postgres:5432/compactor
+      - DATABASE_URL=postgresql+psycopg://${DB_USER:-compactor}:${DB_PASS:-compactor}@postgres:5432/${DB_NAME:-compactor}
+      - MODELS_DIR=/models
+      - TZ=${TIMEZONE:-Europe/Helsinki}
     ports:
-      - "8000:8000"
+      - "${BIND_ADDR:-127.0.0.1}:8000:8000"
     volumes:
-      - ./backend/app:/code/app   # live reload while coding
+      - ./backend/app:/code/app      # live reload while coding
+      - ./models:/models:ro          # drop trained ONNX models here
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/health')"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
 
   nodered:
     image: nodered/node-red:4.0
     ports:
-      - "1880:1880"
+      - "${BIND_ADDR:-127.0.0.1}:1880:1880"
     volumes:
       - ./nodered:/data
+    environment:
+      - TZ=${TIMEZONE:-Europe/Helsinki}
     depends_on:
-      - mosquitto
-      - backend
+      mosquitto:
+        condition: service_healthy
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
 
   grafana:
     image: grafana/grafana:11.3.0
     environment:
-      GF_SECURITY_ADMIN_USER: admin
-      GF_SECURITY_ADMIN_PASSWORD: admin
-      GF_AUTH_ANONYMOUS_ENABLED: "true"      # judges can view without login
-      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
-      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/compactor.json
+      - TZ=${TIMEZONE:-Europe/Helsinki}
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS:-admin}
+      - GF_AUTH_ANONYMOUS_ENABLED=true        # judges can view without login
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/var/lib/grafana/dashboards/compactor.json
+      - DB_USER=${DB_USER:-compactor}
+      - DB_PASS=${DB_PASS:-compactor}
+      - DB_NAME=${DB_NAME:-compactor}
     ports:
-      - "3000:3000"
+      - "${BIND_ADDR:-127.0.0.1}:3000:3000"
     volumes:
+      - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
     depends_on:
       postgres:
         condition: service_healthy
+    restart: unless-stopped
 
+  adminer:
+    image: adminer:latest
+    ports:
+      - "${BIND_ADDR:-127.0.0.1}:8080:8080"
+    environment:
+      - ADMINER_DEFAULT_SERVER=postgres
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
-  pgdata:
+  mosquitto-data:
+  postgres-data:
+  grafana-data:

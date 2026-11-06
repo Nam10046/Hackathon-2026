@@ -4,12 +4,12 @@ datasources:
     uid: compactor-pg
     type: grafana-postgresql-datasource
     url: postgres:5432
-    user: compactor
+    user: ${DB_USER}
     isDefault: true
     secureJsonData:
-      password: compactor
+      password: ${DB_PASS}
     jsonData:
-      database: compactor
+      database: ${DB_NAME}
       sslmode: disable
       postgresVersion: 1600
       timescaledb: false

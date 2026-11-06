@@ -1,9 +1,10 @@
 // Compactor sensor node — ESP32 + HX711 load cell (+ optional HC-SR04 fill sensor)
 // Owner: hardware person. Sends the reading format from CONTRACT.md via MQTT.
 //
-// Libraries (Arduino Library Manager): "HX711" by Bogdan Necula, "PubSubClient" by Nick O'Leary
-// Board: ESP32 Dev Module
+// Build & upload with PlatformIO (VS Code extension): Upload button, or `pio run -t upload`.
+// Libraries are installed automatically from platformio.ini.
 
+#include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
 #include "HX711.h"

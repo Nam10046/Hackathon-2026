@@ -1,4 +1,4 @@
-// Copy this file to config.h and fill in. config.h is in .gitignore (never commit passwords).
+// Copy this file to include/config.h and fill in. config.h is in .gitignore (never commit passwords).
 #pragma once
 
 #define WIFI_SSID     "your-wifi"

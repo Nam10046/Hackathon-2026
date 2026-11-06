@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy import delete, insert, select
 
-from app.ai import anomaly, forecast, value
+from app.ai import anomaly, features, forecast, ml, value
 from app.db import alerts, compactor_status, compactors, get_engine, materials, readings
 
 HISTORY_SIZE = 50  # how many previous readings the AI looks at
@@ -41,6 +41,13 @@ def ingest(reading: dict) -> dict:
 
         new = {"weight_kg": reading["weight_kg"], "fill_pct": reading.get("fill_pct")}
         found = anomaly.check(new, history, dict(comp), dict(mat))
+
+        # ML models from models/ (skip if the reading is clearly broken)
+        if not any(a["type"] == "sensor_fault" and a["severity"] == "critical" for a in found):
+            plausible = [h for h in history if -20 <= h["weight_kg"] <= comp["capacity_kg"] * 1.3]
+            prev_w = plausible[-1]["weight_kg"] if plausible else None
+            feats = features.make_features(new["weight_kg"], new["fill_pct"], prev_w, dict(comp), dict(mat))
+            found += ml.check(feats)
 
         reading_id = conn.execute(
             insert(readings).values(compactor_id=comp["id"], ts=ts, **new)

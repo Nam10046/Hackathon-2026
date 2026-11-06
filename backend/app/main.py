@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
 from app import service
+from app.ai import ml
 from app.db import alerts, get_engine, init_db, materials, readings
 from app.schemas import (
     Alert, BulkReadingsIn, HealthResponse, Material, ReadingIn, ReadingOut, ReadingResult, Status,
@@ -26,6 +27,7 @@ async def lifespan(app: FastAPI):
             time.sleep(2)
     else:
         raise RuntimeError("could not connect to the database — is the postgres container running?")
+    ml.load_all()  # plug-in models from models/
     yield
 
 
@@ -92,3 +94,14 @@ def get_alerts(compactor_id: str | None = None, limit: int = 50):
 def get_materials():
     with get_engine().connect() as conn:
         return [dict(r) for r in conn.execute(select(materials)).mappings()]
+
+
+@app.get("/api/models")
+def get_models():
+    return ml.list_models()
+
+
+@app.post("/api/models/reload")
+def reload_models():
+    """Call after copying a new model folder into models/ — no restart needed."""
+    return {"loaded": ml.load_all()}

@@ -14,15 +14,16 @@
 | **Mosquitto** | Receives sensor messages (MQTT) | `localhost:1883` (MQTT Explorer app) | none |
 | **Node-RED** | Sends messages to the backend, handles alerts, **test buttons** | http://localhost:1880 | none |
 | **Backend** | Checks data: anomalies, fill forecast, value € | http://localhost:8000/docs | none |
-| **PostgreSQL** | Saves everything | `localhost:5432` (DBeaver / VS Code) | compactor / compactor, db `compactor` |
+| **PostgreSQL** | Saves everything | `localhost:5432` | compactor / compactor, db `compactor` |
+| **Adminer** | Look inside the database in the browser | http://localhost:8080 | System *PostgreSQL*, server `postgres`, user/password `compactor`, db `compactor` |
 | **Grafana** | Dashboard | http://localhost:3000 | none (admin/admin to edit) |
 
 ## Start / stop
 
-Install **Docker Desktop**, then in this folder:
+Install **Docker Desktop**, then in this folder (settings: copy `.env.example` → `.env` if you want to change passwords/ports — optional):
 ```powershell
 docker compose up -d --build     # start everything in the background
-docker compose ps                # check all 5 are "running"
+docker compose ps                # all 6 should be "healthy" / "running"
 docker compose logs -f backend   # watch one part's messages (Ctrl+C to stop watching)
 docker compose down              # stop (data is kept)
 docker compose down -v           # stop AND delete all data (fresh start)
@@ -41,9 +42,17 @@ docker compose exec mosquitto mosquitto_pub -t compactor/C1/reading -m '{\"compa
 ```
 
 ## Connect the real sensor (ESP32)
-1. Copy `firmware/compactor_node/config.h.example` → `config.h`, fill in Wi-Fi and your laptop IP (`ipconfig`)
-2. Upload `compactor_node.ino` with Arduino IDE (libraries: HX711, PubSubClient)
-3. Laptop and ESP32 on the same Wi-Fi; allow port 1883 in Windows firewall
+1. Open `firmware/compactor_node/` in VS Code with the **PlatformIO** extension
+2. Copy `include/config.h.example` → `include/config.h`, fill in Wi-Fi and your laptop IP (`ipconfig`)
+3. Click **Upload** (libraries install automatically)
+4. Laptop and ESP32 on the same Wi-Fi; allow port 1883 in Windows firewall
+5. Grafana → Status table → "Last seen" turns red if a sensor stops sending
+
+## Add an AI model (no code change)
+1. Collect a few days of normal readings
+2. `pip install -r training/requirements.txt` then `python training/train_anomaly.py`
+3. Load it: open http://localhost:8000/docs → `POST /api/models/reload` → Execute
+4. Unusual readings now also get an `ml_anomaly` alert. See `models/README.md`
 
 ## Who owns what
 
@@ -52,7 +61,7 @@ docker compose exec mosquitto mosquitto_pub -t compactor/C1/reading -m '{\"compa
 | Hardware (load cell, ESP32) | `firmware/` | _name_ |
 | Data flow & alerts | `nodered/`, `mosquitto/` | _name_ |
 | Backend & database | `backend/app/main.py`, `service.py`, `db.py` | _name_ |
-| AI: anomaly, forecast, value | `backend/app/ai/` | _name_ |
+| AI: rules, forecast, value, ML models | `backend/app/ai/`, `training/`, `models/` | _name_ |
 | Dashboard | `grafana/` | _name_ |
 | Pitch & business model | `docs/` | _name_ |
 | **`main` keeper** (merges PRs) | — | _name_ |

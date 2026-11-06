@@ -11,15 +11,17 @@ Team are beginners: prefer simple, readable code with short comments over clever
 ESP32 sensor → MQTT (Mosquitto) → Node-RED → FastAPI backend → PostgreSQL ← Grafana
 
 ## Stack & files
-- **Firmware:** Arduino C++ for ESP32, `firmware/compactor_node/`. Libraries HX711 (bogde), PubSubClient. Secrets in `config.h` (git-ignored).
+- **Firmware:** PlatformIO project `firmware/compactor_node/` (ESP32, Arduino framework). Libraries in `platformio.ini`. Secrets in `include/config.h` (git-ignored).
 - **Node-RED:** `nodered/flows.json`. MQTT topic `compactor/+/reading` → POST `http://backend:8000/api/readings`.
 - **Backend:** Python 3.12, FastAPI, Pydantic v2, SQLAlchemy 2 Core (no ORM classes), pytest.
   - `app/main.py` endpoints · `app/service.py` ingest logic · `app/db.py` tables + seed data · `app/schemas.py` shapes
   - Works with PostgreSQL (Docker) and SQLite (local/tests) — keep queries portable (use SQLAlchemy, not raw Postgres-only SQL).
 - **AI:** `app/ai/anomaly.py` `check(new, history, compactor, material) -> list[alert]`, `forecast.py` `hours_to_full(points, load_pct)`, `value.py` `material_value(weight, material)`. Keep these signatures.
+  - `app/ai/features.py` = features shared by live backend and training. `app/ai/ml.py` loads ONNX models from `models/`.
+- **Training:** `training/train_anomaly.py` (scikit-learn IsolationForest → ONNX via skl2onnx) → `models/<name>/`.
 - **Testing without sensor:** test buttons (inject nodes) in the Node-RED flow publish sample readings.
 - **Dashboard:** Grafana, `grafana/dashboards/compactor.json`, reads PostgreSQL directly (read-only).
-- **Run all:** `docker compose up -d --build`. Ports: Grafana 3000, Node-RED 1880, API 8000, Postgres 5432, MQTT 1883.
+- **Run all:** `docker compose up -d --build`. Ports: Grafana 3000, Node-RED 1880, API 8000, Adminer 8080, Postgres 5432, MQTT 1883. Settings in `.env` (see `.env.example`).
 
 ## Rules for generated code
 1. Follow `CONTRACT.md` exactly — JSON fields, MQTT topic, endpoints, table columns.

@@ -1,6 +1,7 @@
 # Secrets
 .env
-firmware/compactor_node/config.h
+firmware/compactor_node/include/config.h
+firmware/**/.pio/
 
 # Python
 __pycache__/

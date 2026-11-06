@@ -6,7 +6,7 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "10s",
   "time": {
     "from": "now-7d",
@@ -342,14 +342,53 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT c.id AS \"ID\", c.name AS \"Name\", c.material AS \"Material\", s.weight_kg AS \"Weight (kg)\", s.load_pct AS \"Load %\", s.density_kg_m3 AS \"Density (kg/m3)\", s.value_eur AS \"Value (EUR)\", s.hours_to_full AS \"Full in (h)\", s.last_ts AS \"Last reading\" FROM compactors c LEFT JOIN compactor_status s ON s.compactor_id = c.id ORDER BY c.id"
+          "rawSql": "SELECT c.id AS \"ID\", c.name AS \"Name\", c.material AS \"Material\", s.weight_kg AS \"Weight (kg)\", s.load_pct AS \"Load %\", s.density_kg_m3 AS \"Density (kg/m3)\", s.value_eur AS \"Value (EUR)\", s.hours_to_full AS \"Full in (h)\", s.last_ts AS \"Last reading\", round((extract(epoch FROM now() - s.last_ts) / 60)::numeric) AS \"Last seen (min ago)\" FROM compactors c LEFT JOIN compactor_status s ON s.compactor_id = c.id ORDER BY c.id"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "decimals": 1
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Last seen (min ago)"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": null
+                    },
+                    {
+                      "color": "orange",
+                      "value": 5
+                    },
+                    {
+                      "color": "red",
+                      "value": 15
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              }
+            ]
+          }
+        ]
       },
       "options": {}
     },
