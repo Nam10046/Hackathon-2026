@@ -23,6 +23,7 @@ nodered/*
 *.pth
 *.h5
 *.onnx
+!models/*/model.onnx      # our small trained models ARE committed
 *.pkl
 data/raw/
 
