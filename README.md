@@ -38,6 +38,7 @@ docker compose up -d --build
 docker compose exec backend python -m app.seed_demo   # optional demo customers
 ```
 Portal: http://localhost:8000/portal. Grafana now needs a login, and most API reads need a session.
+Frontend structure, mock mode and tests: [`docs/FRONTEND_HANDOFF_NAM.md`](docs/FRONTEND_HANDOFF_NAM.md).
 
 ## 📦 Hackathon submission
 Everything the judges need is in [`submission/`](submission/README.md): weighing concept, software demo notes,

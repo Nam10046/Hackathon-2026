@@ -42,7 +42,7 @@ a { color: var(--teal); }
 .side { display: flex; flex-direction: column; gap: var(--s5); padding: var(--s5) var(--s3); background: var(--navy); color: var(--side-ink); }
 .brand { padding: 0 var(--s2); color: #FFF; font-weight: 700; line-height: 1.25; }
 .brand small { display: block; margin-top: 2px; color: var(--side-ink); font-weight: 400; font-size: 12px; }
-.nav { display: grid; gap: 2px; }
+.nav { position: relative; display: grid; gap: 2px; }
 .nav a { display: flex; justify-content: space-between; align-items: center; gap: var(--s2); padding: 9px var(--s3); border-radius: 6px; color: var(--side-ink); text-decoration: none; }
 .nav a:hover { background: var(--navy-2); color: #FFF; }
 .nav a[aria-current="page"] { background: #FFF; color: var(--navy); font-weight: 650; }
