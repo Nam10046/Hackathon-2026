@@ -155,3 +155,23 @@ def test_issues_are_counted_once(world):
     assert (s["issues"], s["lift_issues"], s["device_issues"]) == (2, 1, 1)
     assert sorted((x["kind"], x["times"]) for x in c.get("/api/analysis/problems", headers=a).json()) == [("device", 3), ("lift", 1)]
     assert c.get("/api/analysis/problems", headers=b).json() == []
+
+
+def test_book_works_with_only_a_grafana_login(world, monkeypatch):
+    """The Book truck panel lives inside Grafana: a Grafana login in the admin org is enough, no Portal sign-in.
+    A Grafana login in a customer's org, or a fake cookie, is not."""
+    from app import access
+    c, *_ = world
+    c.cookies.clear()
+    users = {"admin-session": {"login": "admin", "orgId": 1}, "customer-session": {"login": "a@a.example", "orgId": 7}}
+    monkeypatch.setattr(access, "_grafana_user", lambda s: users.get(s))
+    access._seen.clear()
+    assert c.get("/api/pickups/board").status_code == 401                                   # nobody signed in
+    for cookie, status in (("admin-session", 200), ("customer-session", 401), ("made-up", 401)):
+        c.cookies.set("grafana_session", cookie)
+        assert c.get("/api/pickups/board").status_code == status, cookie
+        assert c.post("/api/pickups/book", json={"compactor_id": "C1"}).status_code == status, cookie
+    c.cookies.clear()
+    c.cookies.set("grafana_session", "admin-session")
+    assert c.get("/api/analysis/summary").status_code == 401           # only the booking panel accepts the Grafana login
+    c.cookies.clear()

@@ -1,5 +1,6 @@
 """Manual truck booking: only a PERSON books a truck (the system only sends a pickup_needed notice).
-Needs a login: a customer sees and books only the compactors assigned to them; an admin sees and books all.
+Needs a login: the Portal session, or a Grafana login in the admin org (the panel lives inside Grafana). A customer sees
+and books only the compactors assigned to them; an admin sees and books all.
   GET  /book                 small HTML page with a "Book truck" button per compactor (embedded in Grafana "Site now")
   GET  /api/pickups/board    what that page shows: load, on-call %, open truck per compactor
   POST /api/pickups/book     {"compactor_id": "C1"} -> truck goes now: the board empties THAT compactor only
@@ -14,7 +15,7 @@ from sqlalchemy import select
 
 from app import pickups
 from app.db import compactor_status, compactors, get_engine
-from app.access import Viewer, who_is_asking
+from app.access import Viewer, portal_or_grafana
 
 router = APIRouter()
 PAGE = pathlib.Path(__file__).parent / "static" / "book.html"
@@ -31,7 +32,7 @@ def book_page():
 
 
 @router.get("/api/pickups/board")
-def board(v: Viewer = Depends(who_is_asking)):
+def board(v: Viewer = Depends(portal_or_grafana)):
     now = datetime.now(timezone.utc)
     out = []
     with get_engine().connect() as conn:
@@ -55,7 +56,7 @@ def board(v: Viewer = Depends(who_is_asking)):
 
 
 @router.post("/api/pickups/book")
-def book(body: BookIn, v: Viewer = Depends(who_is_asking)):
+def book(body: BookIn, v: Viewer = Depends(portal_or_grafana)):
     if v.devices is not None and body.compactor_id not in v.devices:
         raise HTTPException(404, f"Unknown compactor '{body.compactor_id}'")     # 404: do not reveal other customers' ids
     now = datetime.now(timezone.utc)
