@@ -230,14 +230,14 @@ pg._add({"type": "text", "title": "Your prices — cost per lift and price per t
                                                 f'style="width:100%;height:265px;border:0;display:block"></iframe>'}}, 24, 9)
 pg.y += 9
 pg.stats([
-    ("Collected", f"SELECT round(sum(p.kg_collected)) {PRICED}", "masskg", None, "Measured by the board, not by the truck"),
+    ("Collected", f"SELECT round((sum(p.kg_collected) / 1000)::numeric, 2) {PRICED}", "suffix: t", None, "Measured by the board, not by the truck"),
     ("Lift costs €", f"SELECT round(sum({LIFT})) {PRICED}", "currencyEUR", None, "Cost per lift × number of lifts"),
     ("Material value €", f"SELECT round(sum({VALUE})) {PRICED}", "currencyEUR", None, "kg × your price per tonne: + earned / − paid"),
     ("Total cost €", f"SELECT round(sum({TOTAL})) {PRICED}", "currencyEUR",
      [{"color": "green", "value": None}, {"color": "orange", "value": 1}], "Lift costs − material value"),
     ("Total cost € / t", f"SELECT round((sum({TOTAL}) / NULLIF(sum(p.kg_collected) / 1000, 0))::numeric, 1) {PRICED}",
      "currencyEUR", None, "Total cost per tonne collected"),
-    ("CO₂ saved", f"SELECT round(sum(p.co2_kg)) {PRICED}", "masskg", GOOD, "Recycled material × CO₂ factor"),
+    ("CO₂ saved", f"SELECT round((sum(p.co2_kg) / 1000)::numeric, 2) {PRICED}", "suffix: t", GOOD, "Recycled material × CO₂ factor"),
 ])
 p = pg.panel("barchart", "Per material (€)", 0, pg.y, 10, 9,
              f"SELECT c.material AS \"Material\", round(sum({LIFT})) AS \"Lift costs\", round(sum({VALUE})) AS \"Material value\", "
@@ -246,12 +246,12 @@ p["fieldConfig"]["defaults"] = {"unit": "currencyEUR"}
 p["options"] = {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True}}
 p = pg.panel("timeseries", "Running total: total cost € and CO₂ saved", 10, pg.y, 14, 9, [
     f"SELECT p.done_at AS time, sum({TOTAL}) OVER (ORDER BY p.done_at) AS \"Total cost € (running)\" {PRICED} ORDER BY 1",
-    f"SELECT p.done_at AS time, sum(p.co2_kg) OVER (ORDER BY p.done_at) AS \"CO₂ saved kg (running)\" {PRICED} ORDER BY 1",
+    f"SELECT p.done_at AS time, sum(p.co2_kg) OVER (ORDER BY p.done_at) / 1000 AS \"CO₂ saved t (running)\" {PRICED} ORDER BY 1",
 ], fmt="time_series")
 p["fieldConfig"] = {"defaults": {"custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "showPoints": "always"}},
                     "overrides": [{"matcher": {"id": "byName", "options": "Total cost € (running)"}, "properties": [{"id": "unit", "value": "currencyEUR"}]},
-                                  {"matcher": {"id": "byName", "options": "CO₂ saved kg (running)"}, "properties": [
-                                      {"id": "unit", "value": "masskg"}, {"id": "custom.axisPlacement", "value": "right"},
+                                  {"matcher": {"id": "byName", "options": "CO₂ saved t (running)"}, "properties": [
+                                      {"id": "unit", "value": "suffix: t"}, {"id": "decimals", "value": 2}, {"id": "custom.axisPlacement", "value": "right"},
                                       {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}]}
 pg.y += 9
 r2 = "::numeric, 2)"
@@ -294,11 +294,11 @@ p = pg.panel("barchart", "Data problems by type", 12, pg.y, 12, 7,
              "'sensor_fault','data_gap','zero_shift','overload','unexpected_drop','signature_invalid','edge_buffered') GROUP BY 1 ORDER BY 2 DESC")
 p["fieldConfig"]["defaults"] = {"color": {"mode": "fixed", "fixedColor": "orange"}}
 pg.y += 7
-p = pg.panel("timeseries", "Weight from the board (kg) — dots = delivered later from the offline buffer", 0, pg.y, 24, 8, [
-    "SELECT ts AS time, compactor_id AS metric, weight_kg FROM readings WHERE $__timeFilter(ts) ORDER BY 1",
-    "SELECT ts AS time, compactor_id || ' (from buffer)' AS metric, weight_kg FROM readings WHERE from_buffer AND $__timeFilter(ts) ORDER BY 1",
+p = pg.panel("timeseries", "Weight from the board (t) — dots = delivered later from the offline buffer", 0, pg.y, 24, 8, [
+    "SELECT ts AS time, compactor_id AS metric, weight_kg / 1000 AS weight_t FROM readings WHERE $__timeFilter(ts) ORDER BY 1",
+    "SELECT ts AS time, compactor_id || ' (from buffer)' AS metric, weight_kg / 1000 AS weight_t FROM readings WHERE from_buffer AND $__timeFilter(ts) ORDER BY 1",
 ], fmt="time_series")
-p["fieldConfig"] = {"defaults": {"unit": "masskg", "custom": {"lineWidth": 2, "showPoints": "never", "spanNulls": 60000}},
+p["fieldConfig"] = {"defaults": {"unit": "suffix: t", "decimals": 2, "custom": {"lineWidth": 2, "showPoints": "never", "spanNulls": 60000}},
                     "overrides": [{"matcher": {"id": "byRegexp", "options": ".*from buffer.*"}, "properties": [
                         {"id": "custom.drawStyle", "value": "points"}, {"id": "custom.pointSize", "value": 9},
                         {"id": "color", "value": {"mode": "fixed", "fixedColor": "purple"}}]}]}

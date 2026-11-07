@@ -551,7 +551,7 @@
     },
     {
       "type": "timeseries",
-      "title": "Weight from the board (kg) — dots = delivered later from the offline buffer",
+      "title": "Weight from the board (t) — dots = delivered later from the offline buffer",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
@@ -573,7 +573,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "time_series",
-          "rawSql": "SELECT ts AS time, compactor_id AS metric, weight_kg FROM readings WHERE $__timeFilter(ts) ORDER BY 1"
+          "rawSql": "SELECT ts AS time, compactor_id AS metric, weight_kg / 1000 AS weight_t FROM readings WHERE $__timeFilter(ts) ORDER BY 1"
         },
         {
           "refId": "B",
@@ -584,12 +584,13 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "time_series",
-          "rawSql": "SELECT ts AS time, compactor_id || ' (from buffer)' AS metric, weight_kg FROM readings WHERE from_buffer AND $__timeFilter(ts) ORDER BY 1"
+          "rawSql": "SELECT ts AS time, compactor_id || ' (from buffer)' AS metric, weight_kg / 1000 AS weight_t FROM readings WHERE from_buffer AND $__timeFilter(ts) ORDER BY 1"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "masskg",
+          "unit": "suffix: t",
+          "decimals": 2,
           "custom": {
             "lineWidth": 2,
             "showPoints": "never",

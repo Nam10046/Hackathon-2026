@@ -122,12 +122,13 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT round(sum(p.kg_collected)) AS v FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at)"
+          "rawSql": "SELECT round((sum(p.kg_collected) / 1000)::numeric, 2) AS v FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at)"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "masskg",
+          "unit": "suffix: t",
+          "decimals": 2,
           "noValue": "0"
         },
         "overrides": []

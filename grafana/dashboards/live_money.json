@@ -85,12 +85,12 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT round(sum(p.kg_collected)) FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at)"
+          "rawSql": "SELECT round((sum(p.kg_collected) / 1000)::numeric, 2) FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at)"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "masskg",
+          "unit": "suffix: t",
           "decimals": null,
           "color": {
             "mode": "thresholds"
@@ -399,12 +399,12 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT round(sum(p.co2_kg)) FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at)"
+          "rawSql": "SELECT round((sum(p.co2_kg) / 1000)::numeric, 2) FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at)"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "masskg",
+          "unit": "suffix: t",
           "decimals": null,
           "color": {
             "mode": "thresholds"
@@ -514,7 +514,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "time_series",
-          "rawSql": "SELECT p.done_at AS time, sum(p.co2_kg) OVER (ORDER BY p.done_at) AS \"CO₂ saved kg (running)\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY 1"
+          "rawSql": "SELECT p.done_at AS time, sum(p.co2_kg) OVER (ORDER BY p.done_at) / 1000 AS \"CO₂ saved t (running)\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY 1"
         }
       ],
       "fieldConfig": {
@@ -542,12 +542,16 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "CO₂ saved kg (running)"
+              "options": "CO₂ saved t (running)"
             },
             "properties": [
               {
                 "id": "unit",
-                "value": "masskg"
+                "value": "suffix: t"
+              },
+              {
+                "id": "decimals",
+                "value": 2
               },
               {
                 "id": "custom.axisPlacement",
