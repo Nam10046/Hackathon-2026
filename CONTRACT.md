@@ -55,7 +55,7 @@ Node-RED forwards the same JSON to the backend.
 | POST | `/alerts/{id}/feedback` | `{"verdict": "CORRECT"\|"FALSE_ALARM", "decided_by", "note"}` — was this alert right? (API key) |
 
 **Reads need a session:** `/compactors*`, `/alerts` and `/pickups` need a signed-in user and return only that customer's devices.
-Another customer's device answers 404. `/cockpit/*` reads and `/models/performance` are admin-only. `/health`, `/materials` and `/models` stay open.
+Another customer's device answers 404. `/cockpit/*` reads, `/cockpit/actions/{id}/decision` and `/models/performance` are admin-only. A decision needs a signed-in admin, the API key is not accepted, and `decided_by` is that admin's e-mail, whatever the request says. `/health`, `/materials` and `/models` stay open.
 
 | Method | Path | What it does |
 |---|---|---|

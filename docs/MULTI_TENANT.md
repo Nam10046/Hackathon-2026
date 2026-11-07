@@ -20,7 +20,7 @@ the rows of devices owned by `current_user`. Every org gets the same dashboards;
 | Postgres | One read-only role per customer, `security_barrier` views, no temp tables, no `SET ROLE`, 10 connections |
 | Grafana | One org per customer, members are Viewers, anonymous access / sign-up / org creation / snapshots off |
 | Backend | Data endpoints need a session; another customer's device answers 404, same as an unknown id |
-| Writes | Readings need `X-API-Key`; Europress analysis and model health are admin-only |
+| Writes | Readings need `X-API-Key`. Europress analysis and model health are admin-only. Cockpit decisions need a signed-in admin and log that admin's e-mail |
 | Onboarding | Registration gives nothing. Only an admin sets the tenant and the devices |
 | Fail closed | Customers are refused (503) while `INGEST_API_KEY` is empty, `GRAFANA_PASS` is weak, or Grafana is anonymous |
 

@@ -290,3 +290,37 @@ def test_customer_dashboards_only_use_the_tenant_views():
             for target in panel.get("targets", []):
                 for table in re.findall(r"(?:FROM|JOIN)\s+([a-z_.]+)", target["rawSql"]):
                     assert table.startswith("tenant_api."), (f.name, table)
+
+
+@pytest.fixture()
+def cockpit_action(world):
+    from sqlalchemy import text
+    with db.get_engine().begin() as conn:
+        conn.execute(text("CREATE TABLE cp_actions (action_id TEXT, action TEXT, device_id TEXT, flagged_invoice_eur REAL)"))
+        conn.execute(text("INSERT INTO cp_actions VALUES ('ACT-1', 'DISPUTE_INVOICE', 'CMP-1', 10)"))
+    return world
+
+
+DECISION = "/api/cockpit/actions/ACT-1/decision"
+
+
+def stored_decisions():
+    with db.get_engine().connect() as conn:
+        return conn.execute(select(db.action_decisions.c.decided_by)).scalars().all()
+
+
+def test_only_a_signed_in_admin_can_decide(cockpit_action):
+    c, _, a, _ = cockpit_action
+    body = {"decision": "APPROVE"}
+    assert c.post(DECISION, json=body).status_code == 401
+    assert c.post(DECISION, json=body, headers={"X-API-Key": "machine-key"}).status_code == 401
+    assert c.post(DECISION, json=body, headers=a).status_code == 403
+    assert c.post(DECISION, json=body, headers={**a, "X-API-Key": "machine-key"}).status_code == 403
+    assert stored_decisions() == []
+
+
+def test_decision_log_names_the_admin_not_the_typed_name(cockpit_action):
+    c, admin, _, _ = cockpit_action
+    r = c.post(DECISION, headers=admin, json={"decision": "APPROVE", "decided_by": "Someone Else"})
+    assert r.status_code == 200 and r.json()["decided_by"] == ADMIN[0]
+    assert stored_decisions() == [ADMIN[0]]

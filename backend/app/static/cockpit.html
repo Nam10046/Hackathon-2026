@@ -44,8 +44,7 @@
   <div class="note">Each proposal comes from device data + the customer's own contract and invoices. Differences can have
     several causes (sensor, data gaps, combined loads) — they are <b>discrepancies to check</b>, not accusations.</div>
   <div class="bar">
-    <label>Your name <input id="who" placeholder="e.g. Nam"></label>
-    <label>API key <input id="key" type="password" placeholder="only if the server has one"></label>
+    <span class="muted">Signed in as <b id="who"></b></span>
     <span id="filters"></span>
   </div>
   <div id="count" class="muted"></div>
@@ -53,10 +52,7 @@
 </main>
 <script>
 const API = location.origin + "/api/cockpit";
-const store = { get(k){ try { return localStorage.getItem(k) || ""; } catch(e) { return ""; } },
-                set(k,v){ try { localStorage.setItem(k,v); } catch(e) {} } };
-const who = document.getElementById("who"), key = document.getElementById("key");
-who.value = store.get("cockpit_who"); who.onchange = () => store.set("cockpit_who", who.value);
+fetch("/api/auth/me").then(r => r.ok ? r.json() : {}).then(me => { document.getElementById("who").textContent = me.email || ""; });
 let filter = "PENDING", rows = [];
 const eur = n => (n || 0).toLocaleString("fi-FI", { style: "currency", currency: "EUR", maximumFractionDigits: 0 });
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
@@ -108,14 +104,14 @@ function render() {
 }
 async function decide(id, decision) {
   const err = document.getElementById("e-" + id);
-  if (!who.value.trim()) { err.textContent = "Enter your name first"; who.focus(); return; }
   err.textContent = "";
   const r = await fetch(`${API}/actions/${encodeURIComponent(id)}/decision`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", ...(key.value ? { "X-API-Key": key.value } : {}) },
-    body: JSON.stringify({ decision, decided_by: who.value.trim(), note: document.getElementById("n-" + id).value || null }),
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ decision, note: document.getElementById("n-" + id).value || null }),
   });
-  if (!r.ok) { err.textContent = r.status === 401 ? "Wrong or missing API key" : "Error " + r.status; return; }
+  if (r.status === 401 || r.status === 403) { location.href = "/portal"; return; }
+  if (!r.ok) { err.textContent = "Error " + r.status; return; }
   await load();
 }
 async function showEvidence(id) {
