@@ -1,0 +1,13 @@
+{
+  "name": "smart-frontend-tests",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "unit": "node --test adapter.test.mjs",
+    "browser": "node browser.mjs"
+  },
+  "devDependencies": {
+    "axe-core": "4.10.2",
+    "puppeteer-core": "23.11.1"
+  }
+}

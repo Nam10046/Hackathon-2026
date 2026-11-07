@@ -21,11 +21,11 @@
 
   /* ---------- signed out ---------- */
   function renderAuth(tab = "signin", notice = "") {
-    app().innerHTML = `${SC.modeBanner()}<div class="auth"><div class="auth-brand">
+    app().innerHTML = `${SC.modeBanner()}<div class="auth"><header class="auth-brand">
         <h1>SMART Material Value Engine</h1>
         <p>One place to follow your compactors and the material they collect.</p>
         <ul><li>Weight and fill level per compactor</li><li>Estimated material value and CO₂</li><li>Alerts and pickup history</li></ul>
-      </div><main class="auth-form" id="content"><div>
+      </header><main class="auth-form" id="content"><div>
         <div class="seg" role="group" aria-label="Account">
           <button id="t-signin" aria-pressed="${tab === "signin"}">Sign in</button>
           <button id="t-register" aria-pressed="${tab === "register"}">Request access</button></div>
@@ -249,7 +249,7 @@
     } catch (err) {
       me = null;
       if (err.kind === "auth") { renderAuth(); return; }
-      app().innerHTML = SC.modeBanner() + `<main class="content" id="content" style="margin:0 auto">${SC.errorState(err)}</main>`;
+      app().innerHTML = SC.modeBanner() + `<main class="content" id="content" style="margin:0 auto">${SC.head("Portal")}${SC.errorState(err)}</main>`;
       const b = document.getElementById("retry");
       if (b) b.onclick = start;
       return;

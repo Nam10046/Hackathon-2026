@@ -18,7 +18,7 @@
     const [kind, text] = STATUS[r.status] || ["info", r.status];
     const id = esc(r.action_id);
     return `<article class="card proposal" data-id="${id}">
-      <div class="proposal-head row"><div><div class="proposal-title">${esc(r.label)}</div>
+      <div class="proposal-head row"><div><h2 class="proposal-title">${esc(r.label)}</h2>
         <div class="small muted">${esc(r.customer_name)} · device ${esc(r.device_id)}</div></div>${badge(kind, text)}</div>
       <div class="proposal-body">
         <div><h3>What was found</h3><p>${esc(r.rationale)}</p></div>
@@ -60,7 +60,7 @@
     const words = { APPROVE: "Approve", REJECT: "Reject", REVERT: "Revert" }[decision];
     const yes = await SC.confirm({ title: `${words} this proposal?`, yes: words, danger: decision === "REJECT",
       body: `This is logged under ${me.email}. You can revert it later, and the history is kept.` });
-    if (yes && await SC.busy(button, () => SC.data.decide(id, { decision, note }))) { SC.toast(SC.data.done(`${words}d`.replace("eed", "ed"))); await load(); }
+    if (yes && await SC.busy(button, () => SC.data.decide(id, { decision, note }))) { SC.toast(SC.data.done({ APPROVE: "Approved", REJECT: "Rejected", REVERT: "Back to pending" }[decision])); await load(); }
   }
 
   async function evidence(box, button) {
@@ -98,7 +98,7 @@
     try {
       me = await SC.data.me();
     } catch (err) {
-      document.getElementById("app").innerHTML = SC.modeBanner() + `<main class="content" id="content" style="margin:0 auto">${SC.errorState(err)}</main>`;
+      document.getElementById("app").innerHTML = SC.modeBanner() + `<main class="content" id="content" style="margin:0 auto">${SC.head("Decision cockpit")}${SC.errorState(err)}</main>`;
       const b = document.getElementById("retry");
       if (b) b.onclick = start;
       return;
