@@ -151,9 +151,9 @@ With a reading every 10 s you may want it shorter. Check it on the board.
 
 Backend, no firmware needed:
 ```powershell
-docker compose exec backend sh -c "pip install -q pytest && python -m pytest /code/tests -q"
+docker build -f backend/Dockerfile -t sc-backend-test .
+docker run --rm -v "${PWD}/backend:/t" -w /t sc-backend-test python -m pytest -q
 ```
-If the tests folder is not in the container, run them on your machine in `backend/` with `python -m pytest -q`.
 
 Tenant isolation, on the running stack with demo customers:
 ```powershell
