@@ -42,7 +42,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### Pickups: did each truck come at the right moment?\nEvery emptied container is judged and priced. Check the status line first: it says what this page can show right now."
+        "content": "### Pickups: did each truck come at the right moment?\nStart with the status line below."
       },
       "id": 102
     },
@@ -486,7 +486,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "Higher means fewer trucks for the same waste",
+      "description": "Higher means fewer trucks for the same waste. A dash means there is nothing to average, or the data is unavailable.",
       "gridPos": {
         "x": 16,
         "y": 8,
@@ -537,7 +537,7 @@
               "options": {
                 "match": "null+nan",
                 "result": {
-                  "text": "No pickups",
+                  "text": "–",
                   "color": "text",
                   "index": 0
                 }
@@ -616,7 +616,7 @@
               "options": {
                 "match": "null+nan",
                 "result": {
-                  "text": "No pickups",
+                  "text": "–",
                   "color": "text",
                   "index": 0
                 }
@@ -649,7 +649,7 @@
         "x": 0,
         "y": 11,
         "w": 24,
-        "h": 5
+        "h": 7
       },
       "options": {
         "mode": "markdown",
@@ -667,7 +667,7 @@
       "description": "How the pickups of each compactor were judged. A compactor with mostly orange gets trucks too soon.",
       "gridPos": {
         "x": 0,
-        "y": 16,
+        "y": 18,
         "w": 10,
         "h": 9
       },
@@ -757,7 +757,7 @@
       "description": "Fill level at pickup when the system booked the truck, compared with the old fixed schedule. Trucks are simulated.",
       "gridPos": {
         "x": 10,
-        "y": 16,
+        "y": 18,
         "w": 7,
         "h": 9
       },
@@ -800,7 +800,7 @@
       "description": "The same pickups as the numbers above, as shares of the total.",
       "gridPos": {
         "x": 17,
-        "y": 16,
+        "y": 18,
         "w": 7,
         "h": 9
       },
@@ -930,7 +930,7 @@
       "description": "Newest first. A dash means the value was not recorded. Weights are simulated, net is an estimate with placeholder prices, and invoices are simulated.",
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 27,
         "w": 24,
         "h": 11
       },
@@ -1082,7 +1082,7 @@
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 36,
+        "y": 38,
         "w": 24,
         "h": 2
       },

@@ -155,7 +155,7 @@ SITE_TIME = (" In fast demo mode 1 real minute is {:.0f} site minutes.".format(S
 NO_EVENTS = "Nothing to show here. See the status line above."   # also appears when a query fails, so it must not claim "no pickups"
 pg = Page("live-pickups", "Live 2 · Pickups",
           "### Pickups: did each truck come at the right moment?\n"
-          "Every emptied container is judged and priced. Check the status line first: it says what this page can show right now.",
+          "Start with the status line below.",
           time_from="now-6h", refresh="10s", intro_h=3)
 pg.links = [{"type": "dashboards", "tags": ["live"], "asDropdown": True, "title": "Live pages", "keepTime": True, "icon": "external link",
              "includeVars": False, "targetBlank": False}]
@@ -202,18 +202,18 @@ pg.stats([
     ("Too late", f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'TOO_LATE'", "short",
      [{"color": "green", "value": None}, {"color": "red", "value": 1}], "Full for 2+ site hours before the truck came"),
     ("Avg load at pickup", f"SELECT round(avg(load_before_pct)) FROM pickups WHERE {done}", "percent",
-     [{"color": "red", "value": None}, {"color": "orange", "value": 60}, {"color": "green", "value": 80}], "Higher means fewer trucks for the same waste"),
+     [{"color": "red", "value": None}, {"color": "orange", "value": 60}, {"color": "green", "value": 80}], "Higher means fewer trucks for the same waste. A dash means there is nothing to average, or the data is unavailable."),
     ("Wasted fees (est.)", f"SELECT round(sum(fee_eur * greatest(0, 1 - load_before_pct / 100))) FROM pickups WHERE {done}",
      "currencyEUR", [{"color": "green", "value": None}, {"color": "orange", "value": 20}],
      "Fees paid for empty space. Estimate: placeholder lift fee × the empty part of the container"),
 ], h=3, color_mode="value")
-for tile in pg.panels[-2:]:   # no pickups is not good or bad news, so it gets no threshold colour
-    tile["fieldConfig"]["defaults"]["mappings"] = [{"type": "special", "options": {"match": "null+nan", "result": {"text": "No pickups", "color": "text", "index": 0}}}]
+for tile in pg.panels[-2:]:   # nothing to average is neither good nor bad. A failed query lands here too, so only a neutral dash is true
+    tile["fieldConfig"]["defaults"]["mappings"] = [{"type": "special", "options": {"match": "null+nan", "result": {"text": "–", "color": "text", "index": 0}}}]
 
 pg.text("- **Too late:** full (98 % or more) for 2 site hours or longer before the lift. Overflow and side-waste risk. Checked first.\n"
         "- **Too early:** emptied more than 20 points below that compactor's on-call level. A paid lift for a part-full container.\n"
         "- **On time:** neither of the above.\n\n"
-        "The on-call level is the fill at which a truck is ordered: 80 % for C1 and C2, 85 % for C3." + SITE_TIME, h=5, title="How each pickup is judged")
+        "The on-call level is the fill at which a truck is ordered: 80 % for C1 and C2, 85 % for C3." + SITE_TIME, h=7, title="How each pickup is judged")
 
 # --- analysis
 p = pg.panel("barchart", "Verdict per compactor", 0, pg.y, 10, 9,
