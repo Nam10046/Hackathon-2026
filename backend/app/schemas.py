@@ -53,6 +53,7 @@ class ReadingResult(BaseModel):
     alerts: list[Alert]
     status: Status
     duplicate: bool = False          # True = this exact reading was already stored (message sent twice)
+    commands: list[dict] = []        # for the edge node, e.g. {"topic": "site/S1/cmd", "compactor_id": "C2", "action": "empty"}
 
 
 class ReadingOut(BaseModel):

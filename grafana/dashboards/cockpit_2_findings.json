@@ -30,7 +30,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "[1 Overview](/d/value-cockpit) &nbsp;&nbsp;·&nbsp;&nbsp; **● 2 Problems found** &nbsp;&nbsp;·&nbsp;&nbsp; [3 Cost & weight](/d/cockpit-cost) &nbsp;&nbsp;·&nbsp;&nbsp; [4 Waste companies](/d/cockpit-operators) &nbsp;&nbsp;·&nbsp;&nbsp; [5 Decisions](/d/cockpit-actions) &nbsp;&nbsp;·&nbsp;&nbsp; [6 Live sensors](/d/smart-compactor) &nbsp;&nbsp;·&nbsp;&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
+        "content": "🟢 **Live (ESP32):** [Site now](/d/smart-compactor) · [Pickups](/d/live-pickups) · [Money & CO₂](/d/live-money) · [Devices](/d/edge-live) &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (Europress history):** [1 Overview](/d/value-cockpit) · **● 2 Problems found** · [3 Cost & weight](/d/cockpit-cost) · [4 Waste companies](/d/cockpit-operators) · [5 Decisions](/d/cockpit-actions) &nbsp;·&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
       }
     },
     {

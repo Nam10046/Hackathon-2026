@@ -93,6 +93,15 @@ def get_alerts(compactor_id: str | None = None, limit: int = 50):
         return [dict(r) for r in conn.execute(q).mappings()]
 
 
+@app.get("/api/pickups")
+def list_pickups(limit: int = 100):
+    """Every lift: booked / done, verdict, kg, money, CO2, invoice check (app/pickups.py)."""
+    from sqlalchemy import select
+    from app.db import get_engine, pickups
+    with get_engine().connect() as conn:
+        return [dict(r) for r in conn.execute(select(pickups).order_by(pickups.c.id.desc()).limit(min(limit, 1000))).mappings()]
+
+
 @app.get("/api/materials", response_model=list[Material])
 def get_materials():
     with get_engine().connect() as conn:

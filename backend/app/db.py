@@ -41,6 +41,11 @@ readings = Table(
     Column("fill_pct", Float),
     # signed by the device and checked: True = verified, False = signature wrong, NULL = not signed / no key set
     Column("verified", Boolean),
+    # what the edge node itself decided (firmware/edge_node); NULL for plain sensors
+    Column("seq", Integer),
+    Column("edge_quality", String),          # stable | settling | stuck ...
+    Column("spikes_filtered", Integer),      # spikes the board removed before sending
+    Column("from_buffer", Boolean),          # sent later from the board's offline buffer
 )
 
 alerts = Table(
@@ -51,6 +56,38 @@ alerts = Table(
     Column("type", String, nullable=False),
     Column("severity", String, nullable=False),
     Column("message", String, nullable=False),
+)
+
+# one row per lift: booked -> (truck arrives) -> done, judged, priced, invoice checked (app/pickups.py)
+pickups = Table(
+    "pickups", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("compactor_id", String, ForeignKey("compactors.id"), nullable=False, index=True),
+    Column("status", String, nullable=False),            # scheduled | booked | done | cancelled
+    Column("kind", String, nullable=False),              # booked (by us) | fixed_route (old schedule) | manual
+    Column("created_at", DateTime(timezone=True)),
+    Column("trigger_load_pct", Float),                   # fixed_route: comes at this load
+    Column("booked_at", DateTime(timezone=True)),
+    Column("booked_load_pct", Float),
+    Column("truck_due", DateTime(timezone=True)),
+    Column("truck_late", Boolean),
+    Column("cmd_sent_at", DateTime(timezone=True)),
+    Column("done_at", DateTime(timezone=True), index=True),
+    Column("load_before_pct", Float),
+    Column("kg_collected", Float),
+    Column("full_hours", Float),                         # site hours it was full before the lift
+    Column("wait_hours", Float),                         # site hours from booking to lift
+    Column("verdict", String),                           # ON_TIME | TOO_EARLY | TOO_LATE
+    Column("verdict_reason", String),
+    Column("value_eur", Float),                          # material value: + earned, - paid
+    Column("fee_eur", Float),                            # contract lift fee
+    Column("net_eur", Float),
+    Column("co2_kg", Float),
+    Column("invoice_kg", Float),
+    Column("invoice_fee_eur", Float),
+    Column("invoice_net_eur", Float),
+    Column("invoice_check", String),                     # OK | WEIGHT_MISMATCH | WRONG_FEE | both
+    Column("claim_eur", Float),
 )
 
 compactor_status = Table(
@@ -135,11 +172,16 @@ def init_db():
     if "on_call_threshold_pct" not in {c["name"] for c in inspect(engine).get_columns("compactors")}:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE compactors ADD COLUMN on_call_threshold_pct FLOAT"))
-    if "verified" not in {c["name"] for c in inspect(engine).get_columns("readings")}:
-        with engine.begin() as conn:
-            conn.execute(text("ALTER TABLE readings ADD COLUMN verified BOOLEAN"))
+    have = {c["name"] for c in inspect(engine).get_columns("readings")}
+    for col, typ in [("verified", "BOOLEAN"), ("seq", "INTEGER"), ("edge_quality", "VARCHAR"),
+                     ("spikes_filtered", "INTEGER"), ("from_buffer", "BOOLEAN")]:
+        if col not in have:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE readings ADD COLUMN {col} {typ}"))
     with engine.begin() as conn:
         if conn.execute(select(materials.c.name)).first() is None:
             conn.execute(insert(materials), SEED_MATERIALS)
-        if conn.execute(select(compactors.c.id)).first() is None:
-            conn.execute(insert(compactors), SEED_COMPACTORS)
+        have_ids = {r[0] for r in conn.execute(select(compactors.c.id))}
+        missing = [c for c in SEED_COMPACTORS if c["id"] not in have_ids]
+        if missing:   # also adds compactors that were added to the seed later
+            conn.execute(insert(compactors), missing)

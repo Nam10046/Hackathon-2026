@@ -1,0 +1,724 @@
+{
+  "uid": "edge-live",
+  "title": "Live 4 · Devices & data health",
+  "tags": [
+    "live",
+    "esp32"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5s",
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 99,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "🟢 **Live (ESP32):** [Site now](/d/smart-compactor) · [Pickups](/d/live-pickups) · [Money & CO₂](/d/live-money) · **● Devices** &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (Europress history):** [1 Overview](/d/value-cockpit) · [2 Problems found](/d/cockpit-findings) · [3 Cost & weight](/d/cockpit-cost) · [4 Waste companies](/d/cockpit-operators) · [5 Decisions](/d/cockpit-actions) &nbsp;·&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
+      }
+    },
+    {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### The ESP32-C6 edge node: can we trust its data?  Secure Boot V2 + flash encryption · every reading HMAC-signed"
+      },
+      "id": 102
+    },
+    {
+      "type": "stat",
+      "title": "Last reading",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Seconds since the board's last reading",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT round(extract(epoch FROM now() - max(ts)))::int FROM readings"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 30
+              },
+              {
+                "color": "red",
+                "value": 120
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 103
+    },
+    {
+      "type": "stat",
+      "title": "Readings / min",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "3 compactors × 6 per minute = 18 when all is well",
+      "gridPos": {
+        "x": 4,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT round(count(*) / 5.0, 1) FROM readings WHERE ts > now() - interval '5 minutes'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 104
+    },
+    {
+      "type": "stat",
+      "title": "Signed & verified",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Below 100 % = tampering or wrong key",
+      "gridPos": {
+        "x": 8,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT round(100.0 * count(*) FILTER (WHERE verified) / NULLIF(count(*), 0)) FROM readings WHERE $__timeFilter(ts)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 50
+              },
+              {
+                "color": "green",
+                "value": 100
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 105
+    },
+    {
+      "type": "stat",
+      "title": "Spikes removed on the board",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Bad samples that never reached the cloud",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT coalesce(sum(m), 0) FROM (SELECT max(spikes_filtered) AS m FROM readings WHERE $__timeFilter(ts) GROUP BY compactor_id) x"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 106
+    },
+    {
+      "type": "stat",
+      "title": "Sent from offline buffer",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Measured while offline, delivered later",
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT count(*) FROM readings WHERE from_buffer AND $__timeFilter(ts)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 107
+    },
+    {
+      "type": "stat",
+      "title": "Data problems",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "",
+      "gridPos": {
+        "x": 20,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT count(*) FROM alerts WHERE $__timeFilter(ts) AND type IN ('spike','sensor_stuck','sensor_fault','data_gap','zero_shift','overload','unexpected_drop','signature_invalid')"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 108
+    },
+    {
+      "type": "table",
+      "title": "Per compactor",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT c.id AS \"Compactor\", c.material AS \"Material\", round(extract(epoch FROM now() - max(r.ts)))::int AS \"Last seen (s)\", count(r.*) AS \"Readings\", round(100.0 * count(*) FILTER (WHERE r.verified) / NULLIF(count(r.*), 0)) AS \"Verified %\", max(r.spikes_filtered) AS \"Spikes removed\", count(*) FILTER (WHERE r.from_buffer) AS \"From buffer\", (array_agg(r.edge_quality ORDER BY r.ts DESC))[1] AS \"Quality now\" FROM compactors c LEFT JOIN readings r ON r.compactor_id = c.id AND $__timeFilter(r.ts) GROUP BY c.id, c.material ORDER BY c.id"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Quality now"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "OK": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "STUCK": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "OVERLOAD": {
+                        "color": "red",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {},
+      "id": 109
+    },
+    {
+      "type": "barchart",
+      "title": "Data problems by type",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "",
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT type AS \"Problem\", count(*) AS \"Count\" FROM alerts WHERE $__timeFilter(ts) AND type IN ('spike','sensor_stuck','sensor_fault','data_gap','zero_shift','overload','unexpected_drop','signature_invalid','edge_buffered') GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "orange"
+          }
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 110
+    },
+    {
+      "type": "timeseries",
+      "title": "Weight from the board (kg) — dots = delivered later from the offline buffer",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, compactor_id AS metric, weight_kg FROM readings WHERE $__timeFilter(ts) ORDER BY 1"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "time_series",
+          "rawSql": "SELECT ts AS time, compactor_id || ' (from buffer)' AS metric, weight_kg FROM readings WHERE from_buffer AND $__timeFilter(ts) ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "masskg",
+          "custom": {
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": 60000
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": ".*from buffer.*"
+            },
+            "properties": [
+              {
+                "id": "custom.drawStyle",
+                "value": "points"
+              },
+              {
+                "id": "custom.pointSize",
+                "value": 9
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {},
+      "id": 111
+    },
+    {
+      "type": "table",
+      "title": "Latest readings",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT ts AS \"Time\", compactor_id AS \"Compactor\", weight_kg AS \"Weight (kg)\", fill_pct AS \"Fill %\", seq AS \"Seq\", edge_quality AS \"Quality\", spikes_filtered AS \"Spikes removed (since boot)\", CASE WHEN from_buffer THEN 'yes' ELSE '' END AS \"From buffer\", CASE WHEN verified THEN '✓ signed' WHEN verified IS FALSE THEN '✗ BAD SIGNATURE' ELSE 'not signed' END AS \"Signature\" FROM readings ORDER BY ts DESC, id DESC LIMIT 20"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Signature"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "✓ signed": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "✗ BAD SIGNATURE": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "not signed": {
+                        "color": "orange",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {},
+      "id": 112
+    },
+    {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 31,
+        "w": 24,
+        "h": 6
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "| Demo on the board (serial monitor) | You see |\n|---|---|\n| `1` `2` `3` select a compactor, `e` empty it by hand | a *manual* pickup, usually judged TOO EARLY |\n| `s` a spike hits the sensor | removed on the board: *Spikes removed* +1, no jump in the line |\n| hold **BOOT** 2 s (or `o`), wait 1 min, again | data gap, then **purple dots** = sent from the offline buffer |\n| `k` sensor stuck 70 s | quality STUCK, alert *sensor_stuck* |\n| `h` heavy / wet material | weight rises faster than the fill level |"
+      },
+      "id": 113
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "links": [],
+  "annotations": {
+    "list": []
+  }
+}

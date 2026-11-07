@@ -6,10 +6,17 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, insert, select
 
+from app import pickups
 from app.ai import anomaly, features, forecast, live_lift, ml, value
 from app.db import alerts, compactor_status, compactors, get_engine, materials, readings
 
 HISTORY_SIZE = 50  # how many previous readings the AI looks at
+
+
+def _stretch(t, anchor):
+    """Fast demo mode: turn real time into SITE time (DEMO_TIME_SCALE=60: 1 real minute = 1 site hour), so models
+    trained on real hours (lift model, fill forecast) see the durations they expect."""
+    return t if pickups.SCALE == 1 else anchor - (anchor - t) * pickups.SCALE
 
 
 def _utc(ts):
@@ -71,7 +78,7 @@ def ingest(reading: dict) -> dict:
         dup = conn.execute(select(readings.c.id).where(readings.c.compactor_id == comp["id"], readings.c.ts == ts)).first()
         if dup is not None:
             st = conn.execute(select(compactor_status).where(compactor_status.c.compactor_id == comp["id"])).mappings().first()
-            return {"reading_id": dup[0], "alerts": [], "duplicate": True,
+            return {"reading_id": dup[0], "alerts": [], "duplicate": True, "commands": [],
                     "status": {**(dict(st) if st else {"compactor_id": comp["id"]}), "name": comp["name"], "material": comp["material"]}}
 
         new = {"weight_kg": reading["weight_kg"], "fill_pct": reading.get("fill_pct")}
@@ -90,15 +97,16 @@ def ingest(reading: dict) -> dict:
         if any(a["type"] == "emptied" for a in found) and plausible:
             window = [dict(r) for r in conn.execute(
                 select(readings.c.ts, readings.c.weight_kg, readings.c.fill_pct)
-                .where(readings.c.compactor_id == comp["id"], readings.c.ts < ts, readings.c.ts >= ts - timedelta(hours=72))
+                .where(readings.c.compactor_id == comp["id"], readings.c.ts < ts,
+                       readings.c.ts >= ts - timedelta(hours=72 / pickups.SCALE))
                 .order_by(readings.c.ts)).mappings()]
             for r in window:
-                r["ts"] = _utc(r["ts"])
+                r["ts"] = _stretch(_utc(r["ts"]), ts)
             last = conn.execute(
                 select(alerts.c.ts).where(alerts.c.compactor_id == comp["id"], alerts.c.type == "emptied", alerts.c.ts < ts)
                 .order_by(alerts.c.ts.desc()).limit(1)).first()
-            before = {**plausible[-1], "ts": _utc(plausible[-1]["ts"])}
-            raw = live_lift.build_raw(ts, before, window, _utc(last[0]) if last else None, dict(comp))
+            before = {**plausible[-1], "ts": _stretch(_utc(plausible[-1]["ts"]), ts)}
+            raw = live_lift.build_raw(ts, before, window, _stretch(_utc(last[0]), ts) if last else None, dict(comp))
             found += ml.check_lift(raw)
 
         # edge node: proof of origin, and readings that waited in the board's offline buffer
@@ -112,7 +120,10 @@ def ingest(reading: dict) -> dict:
                           "message": f"Delivered from the device's offline buffer, {late:.0f} min after it was measured"})
 
         reading_id = conn.execute(
-            insert(readings).values(compactor_id=comp["id"], ts=ts, verified=verified, **new)
+            insert(readings).values(compactor_id=comp["id"], ts=ts, verified=verified, **new,
+                                   seq=reading.get("seq"), edge_quality=edge.get("quality"),
+                                   spikes_filtered=edge.get("spikes_filtered"),
+                                   from_buffer=edge.get("from_buffer") if edge else None)
         ).inserted_primary_key[0]
 
         # --- status ---
@@ -128,7 +139,7 @@ def ingest(reading: dict) -> dict:
             pct = _load_pct(h["weight_kg"], h["fill_pct"], comp["capacity_kg"])
             if cycle and pct < cycle[-1][1] - 30:  # big drop = emptied -> new cycle
                 cycle = []
-            cycle.append((_utc(h["ts"]), pct))
+            cycle.append((_stretch(_utc(h["ts"]), ts), pct))
 
         density = anomaly.calc_density(new["weight_kg"], new["fill_pct"], comp["volume_m3"])
         status = {
@@ -141,6 +152,12 @@ def ingest(reading: dict) -> dict:
             "hours_to_full": forecast.hours_to_full(cycle, load),
             "last_ts": ts,
         }
+        # --- pickups: book trucks, send them to the board, judge every lift, price it, check the invoice ---
+        emptied = any(a["type"] == "emptied" for a in found) or bool(edge.get("emptied"))
+        before = ({**plausible[-1], "after_kg": new["weight_kg"]} if plausible else None)
+        p_alerts, commands = pickups.tick(conn, dict(comp), dict(mat), ts, load, emptied, before)
+        found += p_alerts
+
         conn.execute(delete(compactor_status).where(compactor_status.c.compactor_id == comp["id"]))
         conn.execute(insert(compactor_status).values(**status))
 
@@ -149,7 +166,7 @@ def ingest(reading: dict) -> dict:
             aid = conn.execute(insert(alerts).values(compactor_id=comp["id"], ts=ts, **a)).inserted_primary_key[0]
             saved.append({"id": aid, "compactor_id": comp["id"], "ts": ts, **a})
 
-    return {"reading_id": reading_id, "alerts": saved,
+    return {"reading_id": reading_id, "alerts": saved, "commands": commands,
             "status": {**status, "name": comp["name"], "material": comp["material"]}}
 
 

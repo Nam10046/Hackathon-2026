@@ -55,6 +55,9 @@ services:
       - MODELS_DIR=/models
       - INGEST_API_KEY=${INGEST_API_KEY:-}
       - DEVICE_KEYS=${DEVICE_KEYS:-}          # edge nodes that sign readings, e.g. C1:secret (firmware/edge_node)
+      - DEMO_TIME_SCALE=${DEMO_TIME_SCALE:-1}        # 60 = fast demo: 1 real minute = 1 site hour (same as TIME_SCALE in firmware)
+      - READING_INTERVAL_H=${READING_INTERVAL_H:-1}  # how often a sensor reports; 0.003 (~10 s) for the ESP32
+      - SITE_ID=${SITE_ID:-S1}                       # the edge node listens for trucks on site/<SITE_ID>/cmd
       - TZ=${TIMEZONE:-Europe/Helsinki}
     ports:
       - "${BIND_ADDR:-127.0.0.1}:8000:8000"

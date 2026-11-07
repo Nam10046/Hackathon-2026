@@ -21,7 +21,7 @@ No extra libraries: Wi-Fi, MQTT (Espressif esp-mqtt), HMAC (mbedTLS) and the LED
    The ESP32 and the laptop must be on the **same Wi-Fi**.
 2. **Config:** copy `include/config.h.example` to `include/config.h` and fill in Wi-Fi, `MQTT_HOST` (the IP above)
    and a `DEVICE_KEY` (any long random text).
-3. **Backend key:** in the project's `.env` add the same key: `DEVICE_KEYS=C1:<your DEVICE_KEY>`, then
+3. **Backend key:** in the project's `.env` add the same key: `DEVICE_KEYS=E1:<your DEVICE_KEY>`, then
    `docker compose up -d backend` (restarts it with the key).
 4. **Windows firewall:** the first time, Windows may ask whether Docker can accept connections. Allow it on
    **private networks**; otherwise the board cannot reach MQTT on port 1883.

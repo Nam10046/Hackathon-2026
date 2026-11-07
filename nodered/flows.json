@@ -61,7 +61,8 @@
     "wires": [
       [
         "fn_alerts_only",
-        "debug_response"
+        "debug_response",
+        "fn_commands"
       ]
     ]
   },
@@ -284,6 +285,34 @@
     "info": "",
     "x": 380,
     "y": 220,
+    "wires": []
+  },
+  {
+    "id": "fn_commands",
+    "type": "function",
+    "z": "tab_ingest",
+    "name": "Truck commands -> board",
+    "func": "// the backend answers each reading with commands for the edge node (e.g. the booked truck arrived: empty C2)\nif (msg.statusCode !== 200 || !msg.payload || !msg.payload.commands) return null;\nreturn [msg.payload.commands.map(c => ({topic: c.topic, payload: JSON.stringify(c)}))];",
+    "outputs": 1,
+    "x": 560,
+    "y": 200,
+    "wires": [
+      [
+        "mqtt_out_cmd"
+      ]
+    ]
+  },
+  {
+    "id": "mqtt_out_cmd",
+    "type": "mqtt out",
+    "z": "tab_ingest",
+    "name": "site/<id>/cmd",
+    "topic": "",
+    "qos": "1",
+    "retain": "false",
+    "broker": "broker_local",
+    "x": 790,
+    "y": 200,
     "wires": []
   }
 ]

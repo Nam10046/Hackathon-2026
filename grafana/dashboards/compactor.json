@@ -1,16 +1,16 @@
 {
   "uid": "smart-compactor",
-  "title": "6 Live sensors",
+  "title": "Live 1 · Site now",
   "tags": [
-    "europress-cockpit",
-    "live"
+    "live",
+    "esp32"
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 3,
-  "refresh": "10s",
+  "version": 1,
+  "refresh": "5s",
   "time": {
-    "from": "now-7d",
+    "from": "now-30m",
     "to": "now"
   },
   "panels": [
@@ -27,36 +27,37 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "[1 Overview](/d/value-cockpit) &nbsp;&nbsp;\u00b7&nbsp;&nbsp; [2 Problems found](/d/cockpit-findings) &nbsp;&nbsp;\u00b7&nbsp;&nbsp; [3 Cost & weight](/d/cockpit-cost) &nbsp;&nbsp;\u00b7&nbsp;&nbsp; [4 Waste companies](/d/cockpit-operators) &nbsp;&nbsp;\u00b7&nbsp;&nbsp; [5 Decisions](/d/cockpit-actions) &nbsp;&nbsp;\u00b7&nbsp;&nbsp; **\u25cf 6 Live sensors** &nbsp;&nbsp;\u00b7&nbsp;&nbsp; [Approve decisions \u2197](http://localhost:8000/cockpit)"
+        "content": "🟢 **Live (ESP32):** **● Site now** · [Pickups](/d/live-pickups) · [Money & CO₂](/d/live-money) · [Devices](/d/edge-live) &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (Europress history):** [1 Overview](/d/value-cockpit) · [2 Problems found](/d/cockpit-findings) · [3 Cost & weight](/d/cockpit-cost) · [4 Waste companies](/d/cockpit-operators) · [5 Decisions](/d/cockpit-actions) &nbsp;·&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
       }
     },
     {
-      "id": 100,
       "type": "text",
-      "title": "How to read this page",
+      "title": "",
+      "transparent": true,
       "gridPos": {
         "x": 0,
         "y": 2,
         "w": 24,
-        "h": 4
+        "h": 2
       },
       "options": {
         "mode": "markdown",
-        "content": "**Live data from real sensors** (ESP32 / Node-RED test buttons), not the Europress year. Each reading is checked by the rules and the **live lift model** \u2014 alerts appear in the table at the bottom. *Last seen* turns red when a sensor stops sending.\n\n**Edge node** (bottom row): an ESP32 at the compactor weighs only when the press is still, filters spikes, keeps readings while offline and **signs** each one, so nobody can change a weight later."
-      }
+        "content": "### Site S1 — live from the ESP32 edge node &nbsp;·&nbsp; 3 compactors &nbsp;·&nbsp; **demo speed: 1 real minute = 60 site minutes**"
+      },
+      "id": 102
     },
     {
-      "id": 1,
-      "title": "Net value now (EUR)",
       "type": "stat",
+      "title": "Trucks on the way",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
+      "description": "Booked by the system, not arrived yet",
       "gridPos": {
         "x": 0,
-        "y": 6,
-        "w": 6,
+        "y": 4,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -67,120 +68,25 @@
             "uid": "compactor-pg"
           },
           "editorMode": "code",
-          "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT round(sum(value_eur)::numeric, 2) AS \"Net value now (EUR)\" FROM compactor_status"
+          "format": "table",
+          "rawSql": "SELECT count(*) FROM pickups WHERE status = 'booked'"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "currencyEUR",
-          "decimals": 2
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "value"
-      }
-    },
-    {
-      "id": 2,
-      "title": "CO2 saved now",
-      "type": "stat",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      },
-      "gridPos": {
-        "x": 6,
-        "y": 6,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
           },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT round(sum(co2_saved_kg)::numeric) AS \"CO2 saved now (kg)\" FROM compactor_status"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "masskg"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "value",
-        "graphMode": "none",
-        "textMode": "value"
-      }
-    },
-    {
-      "id": 3,
-      "title": "Warnings (last 24 h)",
-      "type": "stat",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      },
-      "gridPos": {
-        "x": 12,
-        "y": 6,
-        "w": 6,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT count(*) AS \"Warnings (24 h)\" FROM alerts WHERE severity <> 'info' AND ts > now() - interval '24 hours'"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
+          "noValue": "–",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "blue",
                 "value": null
-              },
-              {
-                "color": "orange",
-                "value": 1
-              },
-              {
-                "color": "red",
-                "value": 5
               }
             ]
           }
@@ -195,23 +101,25 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "none",
-        "textMode": "value"
-      }
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 103
     },
     {
-      "id": 4,
-      "title": "Next pickup needed in",
       "type": "stat",
+      "title": "Next truck in (site h)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
+      "description": "Site hours until the next booked truck arrives",
       "gridPos": {
-        "x": 18,
-        "y": 6,
-        "w": 6,
+        "x": 4,
+        "y": 4,
+        "w": 4,
         "h": 4
       },
       "targets": [
@@ -222,15 +130,28 @@
             "uid": "compactor-pg"
           },
           "editorMode": "code",
-          "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT round(min(hours_to_full)::numeric, 1) AS \"Next pickup in (h)\" FROM compactor_status"
+          "format": "table",
+          "rawSql": "SELECT round((extract(epoch FROM min(truck_due) - now()) / 3600 * 60.0)::numeric, 1) FROM pickups WHERE status = 'booked' AND cmd_sent_at IS NULL"
         }
       ],
       "fieldConfig": {
         "defaults": {
-          "unit": "h",
-          "decimals": 1
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
         },
         "overrides": []
       },
@@ -242,24 +163,26 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "value",
+        "colorMode": "background",
         "graphMode": "none",
-        "textMode": "value"
-      }
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 104
     },
     {
-      "id": 5,
-      "title": "Load per compactor",
-      "type": "bargauge",
+      "type": "stat",
+      "title": "Pickups (last 24 site h)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
+      "description": "",
       "gridPos": {
-        "x": 0,
-        "y": 10,
-        "w": 8,
-        "h": 8
+        "x": 8,
+        "y": 4,
+        "w": 4,
+        "h": 4
       },
       "targets": [
         {
@@ -269,9 +192,273 @@
             "uid": "compactor-pg"
           },
           "editorMode": "code",
-          "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT c.name AS \"Compactor\", s.load_pct AS \"Load\" FROM compactor_status s JOIN compactors c ON c.id = s.compactor_id ORDER BY c.id"
+          "format": "table",
+          "rawSql": "SELECT count(*) FROM pickups WHERE status = 'done' AND done_at > now() - interval '24 minutes'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 105
+    },
+    {
+      "type": "stat",
+      "title": "On time",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Share of all lifts that were on time",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT round(100.0 * count(*) FILTER (WHERE verdict = 'ON_TIME') / NULLIF(count(*), 0)) FROM pickups WHERE status = 'done'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 60
+              },
+              {
+                "color": "green",
+                "value": 85
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 106
+    },
+    {
+      "type": "stat",
+      "title": "Net result €",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Material value minus lift fees, all pickups",
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT round(sum(net_eur)) FROM pickups WHERE status = 'done'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 107
+    },
+    {
+      "type": "stat",
+      "title": "Invoice claims €",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Money to claim back: invoices that do not match what we measured",
+      "gridPos": {
+        "x": 20,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT round(sum(claim_eur)) FROM pickups WHERE status = 'done'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 108
+    },
+    {
+      "type": "bargauge",
+      "title": "Load now",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT c.id || ' ' || c.material AS \"Compactor\", s.load_pct AS \"Load\" FROM compactors c LEFT JOIN compactor_status s ON s.compactor_id = c.id ORDER BY c.id"
         }
       ],
       "fieldConfig": {
@@ -288,11 +475,11 @@
               },
               {
                 "color": "orange",
-                "value": 75
+                "value": 80
               },
               {
                 "color": "red",
-                "value": 90
+                "value": 98
               }
             ]
           }
@@ -300,30 +487,33 @@
         "overrides": []
       },
       "options": {
-        "orientation": "horizontal",
-        "displayMode": "gradient",
         "reduceOptions": {
           "calcs": [
             "lastNotNull"
           ],
           "fields": "",
           "values": true
-        }
-      }
+        },
+        "orientation": "horizontal",
+        "displayMode": "lcd",
+        "showUnfilled": true,
+        "valueMode": "color"
+      },
+      "id": 109
     },
     {
-      "id": 6,
-      "title": "Weight over time (kg)",
       "type": "timeseries",
+      "title": "Load over time (%) — dashed = on-call 80 %, purple marks = pickups",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
+      "description": "",
       "gridPos": {
         "x": 8,
-        "y": 10,
+        "y": 8,
         "w": 16,
-        "h": 8
+        "h": 9
       },
       "targets": [
         {
@@ -333,146 +523,59 @@
             "uid": "compactor-pg"
           },
           "editorMode": "code",
+          "rawQuery": true,
           "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT ts AS \"time\", compactor_id AS metric, weight_kg FROM readings WHERE $__timeFilter(ts) ORDER BY 1"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "masskg",
-          "custom": {
-            "lineWidth": 1,
-            "fillOpacity": 5
-          }
-        },
-        "overrides": []
-      },
-      "options": {}
-    },
-    {
-      "id": 7,
-      "title": "Status",
-      "type": "table",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 18,
-        "w": 24,
-        "h": 6
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT c.id AS \"ID\", c.name AS \"Name\", c.material AS \"Material\", s.weight_kg AS \"Weight (kg)\", s.load_pct AS \"Load %\", s.density_kg_m3 AS \"Density (kg/m3)\", s.value_eur AS \"Value (EUR)\", s.hours_to_full AS \"Full in (h)\", s.last_ts AS \"Last reading\", round((extract(epoch FROM now() - s.last_ts) / 60)::numeric) AS \"Last seen (min ago)\" FROM compactors c LEFT JOIN compactor_status s ON s.compactor_id = c.id ORDER BY c.id"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "decimals": 1
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Last seen (min ago)"
-            },
-            "properties": [
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background"
-                }
-              },
-              {
-                "id": "thresholds",
-                "value": {
-                  "mode": "absolute",
-                  "steps": [
-                    {
-                      "color": "green",
-                      "value": null
-                    },
-                    {
-                      "color": "orange",
-                      "value": 5
-                    },
-                    {
-                      "color": "red",
-                      "value": 15
-                    }
-                  ]
-                }
-              },
-              {
-                "id": "decimals",
-                "value": 0
-              }
-            ]
-          }
-        ]
-      },
-      "options": {}
-    },
-    {
-      "id": 8,
-      "title": "Fill level over time (%)",
-      "type": "timeseries",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      },
-      "gridPos": {
-        "x": 0,
-        "y": 24,
-        "w": 12,
-        "h": 8
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "time_series",
-          "rawQuery": true,
-          "rawSql": "SELECT ts AS \"time\", compactor_id AS metric, fill_pct FROM readings WHERE $__timeFilter(ts) AND fill_pct IS NOT NULL ORDER BY 1"
+          "rawSql": "SELECT r.ts AS time, r.compactor_id AS metric, round((greatest(r.weight_kg / c.capacity_kg * 100, coalesce(r.fill_pct, 0)))::numeric, 1) AS load FROM readings r JOIN compactors c ON c.id = r.compactor_id WHERE $__timeFilter(r.ts) ORDER BY 1"
         }
       ],
       "fieldConfig": {
         "defaults": {
           "unit": "percent",
           "min": 0,
-          "max": 100
+          "max": 105,
+          "custom": {
+            "lineWidth": 2,
+            "showPoints": "never",
+            "spanNulls": 60000,
+            "thresholdsStyle": {
+              "mode": "dashed"
+            }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "transparent",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 80
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          }
         },
         "overrides": []
       },
-      "options": {}
+      "options": {},
+      "id": 110
     },
     {
-      "id": 9,
-      "title": "Latest alerts",
       "type": "table",
+      "title": "Trucks: booked and on the way",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
+      "description": "'scheduled' = the old fixed route will still come at a set load, without looking at the sensor",
       "gridPos": {
-        "x": 12,
-        "y": 24,
-        "w": 12,
+        "x": 0,
+        "y": 17,
+        "w": 10,
         "h": 8
       },
       "targets": [
@@ -483,9 +586,9 @@
             "uid": "compactor-pg"
           },
           "editorMode": "code",
-          "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT ts AS \"Time\", compactor_id AS \"Compactor\", severity AS \"Severity\", type AS \"Type\", message AS \"Message\" FROM alerts WHERE $__timeFilter(ts) ORDER BY ts DESC, id DESC LIMIT 100"
+          "format": "table",
+          "rawSql": "SELECT id AS \"#\", compactor_id AS \"Compactor\", kind AS \"Who\", status AS \"Status\", booked_load_pct AS \"Booked at %\", CASE WHEN cmd_sent_at IS NOT NULL THEN 'arrived' ELSE round((extract(epoch FROM truck_due - now()) / 3600 * 60.0)::numeric, 1)::text || ' h' END AS \"Arrives in (site)\", CASE WHEN truck_late THEN 'late' ELSE '' END AS \"Note\" FROM pickups WHERE status IN ('booked', 'scheduled') ORDER BY id DESC"
         }
       ],
       "fieldConfig": {
@@ -494,13 +597,14 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Severity"
+              "options": "Status"
             },
             "properties": [
               {
                 "id": "custom.cellOptions",
                 "value": {
-                  "type": "color-text"
+                  "type": "color-background",
+                  "mode": "basic"
                 }
               },
               {
@@ -509,14 +613,25 @@
                   {
                     "type": "value",
                     "options": {
-                      "critical": {
-                        "color": "red"
+                      "ON_TIME": {
+                        "color": "green",
+                        "index": 0
                       },
-                      "warning": {
-                        "color": "orange"
+                      "TOO_EARLY": {
+                        "color": "orange",
+                        "index": 1
                       },
-                      "info": {
-                        "color": "blue"
+                      "TOO_LATE": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "booked": {
+                        "color": "blue",
+                        "index": 3
+                      },
+                      "scheduled": {
+                        "color": "purple",
+                        "index": 4
                       }
                     }
                   }
@@ -526,152 +641,123 @@
           }
         ]
       },
-      "options": {}
+      "options": {},
+      "id": 111
     },
     {
-      "id": 10,
-      "title": "Edge node: signed readings verified (24 h)",
-      "type": "stat",
+      "type": "table",
+      "title": "What happened (all decisions, newest first)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
+      "description": "",
+      "gridPos": {
+        "x": 10,
+        "y": 17,
+        "w": 14,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT ts AS \"Time\", compactor_id AS \"Compactor\", type AS \"Event\", message AS \"What\" FROM alerts WHERE $__timeFilter(ts) ORDER BY ts DESC, id DESC LIMIT 60"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compactor"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Event"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          }
+        ]
+      },
+      "options": {},
+      "id": 112
+    },
+    {
+      "type": "text",
+      "title": "",
+      "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 32,
-        "w": 8,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT round(100.0 * count(*) FILTER (WHERE verified) / NULLIF(count(*) FILTER (WHERE verified IS NOT NULL), 0)) AS \"Verified %\" FROM readings WHERE ts > now() - interval '24 hours'"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "percent"
-        },
-        "overrides": []
+        "y": 25,
+        "w": 24,
+        "h": 3
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "value"
+        "mode": "markdown",
+        "content": "**How it works:** the board measures (stable weight, spikes removed, signed). At the on-call % the system **books a truck**. When the truck arrives, the system tells the board over MQTT; the board **detects the emptying itself**. Every lift is then **judged** (on time / too early / too late), **priced** (material value − lift fee), its **CO₂** counted and the operator's **invoice checked** against our kg. Some trucks are late and the old fixed route sometimes comes early — on purpose, so you see every case."
       },
-      "description": "Share of signed readings whose HMAC signature matched the device key (DEVICE_KEYS in .env). Empty = no signed readings yet."
-    },
-    {
-      "id": 11,
-      "title": "Edge node: readings sent later from its offline buffer (24 h)",
-      "type": "stat",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      },
-      "gridPos": {
-        "x": 8,
-        "y": 32,
-        "w": 8,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT count(*) AS \"From buffer\" FROM alerts WHERE type = 'edge_buffered' AND ts > now() - interval '24 hours'"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "value"
-      },
-      "description": "The board kept these readings while the network was down and sent them when it came back, with their original time."
-    },
-    {
-      "id": 12,
-      "title": "Edge node: signature problems (24 h)",
-      "type": "stat",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      },
-      "gridPos": {
-        "x": 16,
-        "y": 32,
-        "w": 8,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT count(*) AS \"Invalid\" FROM alerts WHERE type = 'signature_invalid' AND ts > now() - interval '24 hours'"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "none"
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "none",
-        "graphMode": "none",
-        "textMode": "value"
-      },
-      "description": "A reading whose signature does not match was changed after the device sent it, or the key is wrong. Never use it as evidence."
+      "id": 113
     }
   ],
   "templating": {
     "list": []
   },
-  "links": []
+  "links": [],
+  "annotations": {
+    "list": [
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "enable": true,
+        "name": "Pickups",
+        "iconColor": "purple",
+        "target": {
+          "refId": "Anno",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT done_at AS time, compactor_id || ' emptied: ' || verdict || ' (' || round(kg_collected) || ' kg)' AS text, compactor_id AS tags FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
+        }
+      }
+    ]
+  }
 }

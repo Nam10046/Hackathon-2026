@@ -1,0 +1,865 @@
+{
+  "uid": "live-pickups",
+  "title": "Live 2 · Pickups",
+  "tags": [
+    "live",
+    "esp32"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "10s",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 99,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "🟢 **Live (ESP32):** [Site now](/d/smart-compactor) · **● Pickups** · [Money & CO₂](/d/live-money) · [Devices](/d/edge-live) &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (Europress history):** [1 Overview](/d/value-cockpit) · [2 Problems found](/d/cockpit-findings) · [3 Cost & weight](/d/cockpit-cost) · [4 Waste companies](/d/cockpit-operators) · [5 Decisions](/d/cockpit-actions) &nbsp;·&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
+      }
+    },
+    {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Every lift, judged — from the board's own emptying detection"
+      },
+      "id": 102
+    },
+    {
+      "type": "stat",
+      "title": "Pickups",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT count(*) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 103
+    },
+    {
+      "type": "stat",
+      "title": "On time",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "",
+      "gridPos": {
+        "x": 4,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT count(*) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at) AND verdict = 'ON_TIME'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 104
+    },
+    {
+      "type": "stat",
+      "title": "Too early",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Emptied well below the on-call level",
+      "gridPos": {
+        "x": 8,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT count(*) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at) AND verdict = 'TOO_EARLY'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 105
+    },
+    {
+      "type": "stat",
+      "title": "Too late",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Full for 2+ site hours before the truck came",
+      "gridPos": {
+        "x": 12,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT count(*) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at) AND verdict = 'TOO_LATE'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 106
+    },
+    {
+      "type": "stat",
+      "title": "Avg load at pickup",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Higher = fewer trucks for the same waste",
+      "gridPos": {
+        "x": 16,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT round(avg(load_before_pct)) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 60
+              },
+              {
+                "color": "green",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 107
+    },
+    {
+      "type": "stat",
+      "title": "Paid for empty space €",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Lift fee × the empty part of the container: what too-early lifts cost",
+      "gridPos": {
+        "x": 20,
+        "y": 4,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT round(sum(fee_eur * greatest(0, 1 - load_before_pct / 100))) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 20
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 108
+    },
+    {
+      "type": "barchart",
+      "title": "Verdict per compactor",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT p.compactor_id || ' ' || c.material AS \"Compactor\", count(*) FILTER (WHERE verdict = 'ON_TIME') AS \"On time\", count(*) FILTER (WHERE verdict = 'TOO_EARLY') AS \"Too early\", count(*) FILTER (WHERE verdict = 'TOO_LATE') AS \"Too late\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND $__timeFilter(p.done_at) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "On time"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Too early"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Too late"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "stacking": "normal",
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "xTickLabelRotation": 0
+      },
+      "id": 109
+    },
+    {
+      "type": "barchart",
+      "title": "Who sent the truck",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Booking on the sensor's data vs the old fixed schedule",
+      "gridPos": {
+        "x": 8,
+        "y": 8,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT CASE kind WHEN 'booked' THEN 'Booked by sensor' WHEN 'fixed_route' THEN 'Old fixed route' ELSE 'By hand' END AS \"Who\", round(avg(load_before_pct)) AS \"Avg load at pickup %\" FROM pickups WHERE status = 'done' AND $__timeFilter(done_at) GROUP BY 1 ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "blue"
+          }
+        },
+        "overrides": []
+      },
+      "options": {},
+      "id": 110
+    },
+    {
+      "type": "piechart",
+      "title": "Verdicts",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "",
+      "gridPos": {
+        "x": 16,
+        "y": 8,
+        "w": 8,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT verdict AS metric, count(*) AS value FROM pickups WHERE status = 'done' AND $__timeFilter(done_at) GROUP BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "ON_TIME"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "green"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TOO_EARLY"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "orange"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "TOO_LATE"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "booked"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "scheduled"
+            },
+            "properties": [
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "purple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": true
+        },
+        "pieType": "donut",
+        "legend": {
+          "displayMode": "table",
+          "placement": "right",
+          "values": [
+            "value",
+            "percent"
+          ],
+          "showLegend": true
+        }
+      },
+      "id": 111
+    },
+    {
+      "type": "table",
+      "title": "All pickups",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "",
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT p.id AS \"#\", p.done_at AS \"Emptied\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", p.kind AS \"Who\", p.load_before_pct AS \"Load %\", p.kg_collected AS \"kg\", p.wait_hours AS \"Wait (site h)\", p.full_hours AS \"Full for (site h)\", p.verdict AS \"Verdict\", p.verdict_reason AS \"Why\", p.net_eur AS \"Net €\", p.invoice_check AS \"Invoice\", p.claim_eur AS \"Claim €\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY p.done_at DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Verdict"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "ON_TIME": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "TOO_EARLY": {
+                        "color": "orange",
+                        "index": 1
+                      },
+                      "TOO_LATE": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "booked": {
+                        "color": "blue",
+                        "index": 3
+                      },
+                      "scheduled": {
+                        "color": "purple",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Invoice"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "OK": {
+                        "color": "green",
+                        "index": 0
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Why"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 330
+              }
+            ]
+          }
+        ]
+      },
+      "options": {},
+      "id": 112
+    },
+    {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Rules:** TOO LATE = full (≥ 98 %) for 2+ site hours before the lift · TOO EARLY = emptied more than 20 points below the on-call level (80 %) · otherwise ON TIME. The lift-model verdicts (trained on the Europress history) are shown as a second opinion on the *Site now* page."
+      },
+      "id": 113
+    }
+  ],
+  "templating": {
+    "list": []
+  },
+  "links": [],
+  "annotations": {
+    "list": [
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "enable": true,
+        "name": "Pickups",
+        "iconColor": "purple",
+        "target": {
+          "refId": "Anno",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT done_at AS time, compactor_id || ' emptied: ' || verdict || ' (' || round(kg_collected) || ' kg)' AS text, compactor_id AS tags FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
+        }
+      }
+    ]
+  }
+}

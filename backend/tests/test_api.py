@@ -72,7 +72,7 @@ def test_emptied_alert(client):
     send(client, "C1", 1200, minutes=0)
     res = send(client, "C1", 10, minutes=60)
     assert any(a["type"] == "emptied" for a in res["alerts"])
-    assert client.get("/api/alerts?compactor_id=C1").json()[0]["type"] == "emptied"
+    assert "emptied" in {a["type"] for a in client.get("/api/alerts?compactor_id=C1").json()}
 
 
 def test_bulk_and_history(client):
@@ -184,3 +184,56 @@ def test_buffered_reading_is_marked(client):
     body = {"compactor_id": "C2", "weight_kg": 300, "fill_pct": 20, "ts": (T0 - timedelta(hours=2)).isoformat(),
             "edge": {"from_buffer": True, "quality": "OK", "spikes_filtered": 3}}
     assert "edge_buffered" in {a["type"] for a in client.post("/api/readings", json=body).json()["alerts"]}
+
+
+def test_edge_fields_are_stored(client):
+    from sqlalchemy import select
+    from app.db import get_engine, readings
+    body = {"compactor_id": "C1", "weight_kg": 412.0, "fill_pct": 20.0, "seq": 300007,
+            "edge": {"quality": "stable", "spikes_filtered": 2, "from_buffer": False}}
+    assert client.post("/api/readings", json=body).status_code == 200
+    with get_engine().connect() as c:
+        r = c.execute(select(readings).where(readings.c.seq == 300007)).mappings().first()
+    assert (r["seq"], r["edge_quality"], r["spikes_filtered"], r["from_buffer"]) == (300007, "stable", 2, False)
+
+
+def _feed(client, cid, kgs, start, step_s=10):
+    out = []
+    for i, w in enumerate(kgs):
+        ts = (start + timedelta(seconds=i * step_s)).isoformat()
+        out.append(client.post("/api/readings", json={"compactor_id": cid, "weight_kg": w, "fill_pct": w / 20, "ts": ts}).json())
+    return out
+
+
+def test_pickup_loop_book_truck_judge_invoice(client, monkeypatch):
+    """C1 (2000 kg, on-call 80 %) fills up -> truck booked -> command to the board -> emptied -> judged + priced."""
+    import random
+    from app import pickups
+    monkeypatch.setattr(pickups, "SCALE", 60.0)          # 1 min = 1 site hour
+    monkeypatch.setattr(pickups, "P_TRUCK_LATE", 0.0)
+    monkeypatch.setattr(pickups, "P_FIXED_ROUTE", 0.0)
+    monkeypatch.setattr(pickups, "P_INVOICE_KG", 1.0)    # force a wrong invoice
+    monkeypatch.setattr(pickups, "P_INVOICE_FEE", 0.0)
+    random.seed(1)
+    start = datetime.now(timezone.utc) - timedelta(minutes=30)
+    kgs = [1000 + 30 * i for i in range(25)] + [1720 + (i % 4) * 3 for i in range(40)]   # crosses 1600, then waits 6.7 site h
+    res = _feed(client, "C1", kgs, start)
+    booked = [a for r in res for a in r["alerts"] if a["type"] == "pickup_booked"]
+    assert len(booked) == 1
+    cmds = [c for r in res for c in r.get("commands", [])]
+    assert cmds and cmds[0]["compactor_id"] == "C1" and cmds[0]["action"] == "empty"   # truck due within 1.5-3.5 site h
+    last = start + timedelta(seconds=len(kgs) * 10)
+    r = _feed(client, "C1", [12], last)[0]                                         # the board reports it emptied
+    types = {a["type"] for a in r["alerts"]}
+    assert "pickup_on_time" in types and "invoice_mismatch" in types
+    p = client.get("/api/pickups").json()[0]
+    assert p["status"] == "done" and p["verdict"] == "ON_TIME" and p["kind"] == "booked"
+    assert p["kg_collected"] > 1600 and p["invoice_check"] == "WEIGHT_MISMATCH" and p["claim_eur"] > 0
+    assert p["net_eur"] == round(p["value_eur"] - p["fee_eur"], 2)
+
+
+def test_early_lift_is_judged_too_early(client):
+    start = datetime.now(timezone.utc) - timedelta(minutes=10)
+    _feed(client, "C2", [600, 610, 620], start)                                   # 40 % of 1500 kg
+    r = _feed(client, "C2", [10], start + timedelta(seconds=30))[0]
+    assert "pickup_too_early" in {a["type"] for a in r["alerts"]}

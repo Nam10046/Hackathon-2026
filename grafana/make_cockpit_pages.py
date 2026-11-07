@@ -15,7 +15,10 @@ TIME = {"from": "2025-10-01T00:00:00Z", "to": "2026-10-15T00:00:00Z"}
 
 PAGES = [  # (uid, menu label)
     ("value-cockpit", "1 Overview"), ("cockpit-findings", "2 Problems found"), ("cockpit-cost", "3 Cost & weight"),
-    ("cockpit-operators", "4 Waste companies"), ("cockpit-actions", "5 Decisions"), ("smart-compactor", "6 Live sensors"),
+    ("cockpit-operators", "4 Waste companies"), ("cockpit-actions", "5 Decisions"),
+]
+LIVE_PAGES = [  # the live product, fed only by the ESP32 edge node (grafana/make_live_pages.py)
+    ("smart-compactor", "Site now"), ("live-pickups", "Pickups"), ("live-money", "Money & CO₂"), ("edge-live", "Devices"),
 ]
 
 # plain-language names for the codes in the data
@@ -47,10 +50,12 @@ SQL = []
 
 
 def menu_text(current_uid):
-    """The page menu as its own line (a text panel), so filters can never squeeze it."""
-    items = [f"**● {label}**" if uid == current_uid else f"[{label}](/d/{uid})" for uid, label in PAGES]
-    items.append("[Approve decisions ↗](http://localhost:8000/cockpit)")
-    return " &nbsp;&nbsp;·&nbsp;&nbsp; ".join(items)
+    """The page menu as its own line (a text panel), so filters can never squeeze it.
+    Two parts: the LIVE product (ESP32 data only) and the ANALYSIS of the Europress history (dataset)."""
+    def items(pages):
+        return " · ".join(f"**● {label}**" if uid == current_uid else f"[{label}](/d/{uid})" for uid, label in pages)
+    return (f"🟢 **Live (ESP32):** {items(LIVE_PAGES)} &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (Europress history):** {items(PAGES)}"
+            " &nbsp;·&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)")
 
 
 def menu_panel(current_uid):
@@ -257,15 +262,4 @@ if __name__ == "__main__":
         for name, d in [("cockpit_1_overview", overview), ("cockpit_2_findings", findings), ("cockpit_3_cost_weight", cost),
                         ("cockpit_4_operators", ops), ("cockpit_5_actions", acts)]:
             (out / f"{name}.json").write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
-        live = out / "compactor.json"            # page 6 gets the same menu
-        if live.exists():
-            d = json.loads(live.read_text(encoding="utf-8"))
-            d.update(title="6 Live sensors", links=[], tags=["europress-cockpit", "live"])
-            if not any(p.get("id") == 99 for p in d["panels"]):     # first time: make room for the menu line
-                for p in d["panels"]:
-                    p["gridPos"]["y"] += 2
-                d["panels"].insert(0, menu_panel("smart-compactor"))
-            else:
-                d["panels"] = [menu_panel("smart-compactor") if p.get("id") == 99 else p for p in d["panels"]]
-            live.write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"written to {out}")
