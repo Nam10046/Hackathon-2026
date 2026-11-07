@@ -230,6 +230,8 @@ Important ones to know:
 docker compose up -d --build            # start the server
 docker compose run --rm analytics       # audit pipeline (first time ≈ 5 min) + load the Europress year into the cockpit
 python -m pytest audit/tests -q          # teammate's tests, incl. "no future data"
+python simulator/simulate.py grade       # stress test: fake compactors with good and bad data, scorecard 0-100
+python simulator/simulate.py live --hours 72 --faults   # fill Grafana "6 Live sensors" with simulated readings
 ```
 | Open | What |
 |---|---|

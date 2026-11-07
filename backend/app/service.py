@@ -39,8 +39,17 @@ def ingest(reading: dict) -> dict:
         ).mappings().all()
         history = [dict(h) for h in reversed(history)]
 
+        # the same message twice (network retry, MQTT QoS 1): store it once, no new alerts
+        dup = conn.execute(select(readings.c.id).where(readings.c.compactor_id == comp["id"], readings.c.ts == ts)).first()
+        if dup is not None:
+            st = conn.execute(select(compactor_status).where(compactor_status.c.compactor_id == comp["id"])).mappings().first()
+            return {"reading_id": dup[0], "alerts": [], "duplicate": True,
+                    "status": {**(dict(st) if st else {"compactor_id": comp["id"]}), "name": comp["name"], "material": comp["material"]}}
+
         new = {"weight_kg": reading["weight_kg"], "fill_pct": reading.get("fill_pct")}
-        found = anomaly.check(new, history, dict(comp), dict(mat))
+        for h in history:
+            h["ts"] = _utc(h["ts"])
+        found = anomaly.check(new, history, dict(comp), dict(mat), ts=ts)
 
         # ML models from models/ (skip if the reading is clearly broken)
         plausible = [h for h in history if -20 <= h["weight_kg"] <= comp["capacity_kg"] * 1.3]

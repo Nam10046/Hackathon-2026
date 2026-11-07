@@ -98,8 +98,10 @@ def main():
             for d in devices[devices.device_id.isin(pick)].itertuples():
                 past = tele[(tele.device_id == d.device_id) & (tele.measured_at < lo)].mass_kg
                 cap = float(np.nanpercentile(past, 99)) if len(past) > 50 else float(tele[tele.device_id == d.device_id].mass_kg.max())
+                thr = d.on_call_threshold_pct           # SMART setting (fill % that orders a truck)
                 conn.execute(insert(compactors).values(id=d.device_id, name=d.device_id, material=d.material_stream,
-                                                       capacity_kg=max(cap, 50.0), volume_m3=d.container_volume_m3))
+                                                       capacity_kg=max(cap, 50.0), volume_m3=d.container_volume_m3,
+                                                       on_call_threshold_pct=None if thr != thr else thr))
 
     replay = tele[tele.measured_at >= lo]
     t0 = time.time()

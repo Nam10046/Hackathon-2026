@@ -81,85 +81,85 @@
       "B": {
         "lifts": 3084,
         "real_problems": 404,
-        "flagged": 425,
-        "caught": 261,
-        "false_alarms": 164,
-        "missed": 143,
-        "correct_ok": 2516,
-        "precision": 0.614,
-        "recall": 0.646,
-        "f1": 0.63,
-        "false_alarm_rate": 0.061,
-        "eur_caught_share": 0.681
+        "flagged": 459,
+        "caught": 265,
+        "false_alarms": 194,
+        "missed": 139,
+        "correct_ok": 2486,
+        "precision": 0.577,
+        "recall": 0.656,
+        "f1": 0.614,
+        "false_alarm_rate": 0.072,
+        "eur_caught_share": 0.692
       },
       "C": {
         "lifts": 3084,
         "real_problems": 404,
-        "flagged": 352,
-        "caught": 282,
-        "false_alarms": 70,
-        "missed": 122,
-        "correct_ok": 2610,
-        "precision": 0.801,
-        "recall": 0.698,
-        "f1": 0.746,
-        "false_alarm_rate": 0.026,
-        "eur_caught_share": 0.709,
+        "flagged": 349,
+        "caught": 293,
+        "false_alarms": 56,
+        "missed": 111,
+        "correct_ok": 2624,
+        "precision": 0.84,
+        "recall": 0.725,
+        "f1": 0.778,
+        "false_alarm_rate": 0.021,
+        "eur_caught_share": 0.727,
         "by_month": {
           "2026-05": {
             "lifts": 1501,
             "real_problems": 200,
-            "flagged": 191,
+            "flagged": 180,
             "caught": 146,
-            "false_alarms": 45,
+            "false_alarms": 34,
             "missed": 54,
-            "correct_ok": 1256,
-            "precision": 0.764,
+            "correct_ok": 1267,
+            "precision": 0.811,
             "recall": 0.73,
-            "f1": 0.747,
-            "false_alarm_rate": 0.035,
-            "eur_caught_share": 0.758
+            "f1": 0.768,
+            "false_alarm_rate": 0.026,
+            "eur_caught_share": 0.757
           },
           "2026-06": {
             "lifts": 1583,
             "real_problems": 204,
-            "flagged": 161,
-            "caught": 136,
-            "false_alarms": 25,
-            "missed": 68,
-            "correct_ok": 1354,
-            "precision": 0.845,
-            "recall": 0.667,
-            "f1": 0.745,
-            "false_alarm_rate": 0.018,
-            "eur_caught_share": 0.659
+            "flagged": 169,
+            "caught": 147,
+            "false_alarms": 22,
+            "missed": 57,
+            "correct_ok": 1357,
+            "precision": 0.87,
+            "recall": 0.721,
+            "f1": 0.788,
+            "false_alarm_rate": 0.016,
+            "eur_caught_share": 0.696
           }
         },
         "calibration": [
           {
             "model_says": "0%-20%",
-            "lifts": 2638,
-            "really_problem": 0.035
+            "lifts": 2661,
+            "really_problem": 0.029
           },
           {
             "model_says": "20%-40%",
-            "lifts": 83,
-            "really_problem": 0.313
+            "lifts": 55,
+            "really_problem": 0.382
           },
           {
             "model_says": "40%-60%",
-            "lifts": 55,
-            "really_problem": 0.436
+            "lifts": 47,
+            "really_problem": 0.574
           },
           {
             "model_says": "60%-80%",
-            "lifts": 66,
-            "really_problem": 0.636
+            "lifts": 62,
+            "really_problem": 0.677
           },
           {
             "model_says": "80%-100%",
-            "lifts": 242,
-            "really_problem": 0.909
+            "lifts": 259,
+            "really_problem": 0.911
           }
         ]
       }
@@ -239,85 +239,85 @@
       "B": {
         "lifts": 3084,
         "real_problems": 466,
-        "flagged": 115,
-        "caught": 82,
-        "false_alarms": 33,
-        "missed": 384,
-        "correct_ok": 2585,
-        "precision": 0.713,
-        "recall": 0.176,
-        "f1": 0.282,
-        "false_alarm_rate": 0.013,
+        "flagged": 133,
+        "caught": 94,
+        "false_alarms": 39,
+        "missed": 372,
+        "correct_ok": 2579,
+        "precision": 0.707,
+        "recall": 0.202,
+        "f1": 0.314,
+        "false_alarm_rate": 0.015,
         "eur_caught_share": null
       },
       "C": {
         "lifts": 3084,
         "real_problems": 466,
-        "flagged": 374,
-        "caught": 265,
-        "false_alarms": 109,
-        "missed": 201,
-        "correct_ok": 2509,
-        "precision": 0.709,
-        "recall": 0.569,
-        "f1": 0.631,
-        "false_alarm_rate": 0.042,
+        "flagged": 470,
+        "caught": 298,
+        "false_alarms": 172,
+        "missed": 168,
+        "correct_ok": 2446,
+        "precision": 0.634,
+        "recall": 0.639,
+        "f1": 0.637,
+        "false_alarm_rate": 0.066,
         "eur_caught_share": null,
         "by_month": {
           "2026-05": {
             "lifts": 1501,
             "real_problems": 229,
-            "flagged": 172,
-            "caught": 126,
-            "false_alarms": 46,
-            "missed": 103,
-            "correct_ok": 1226,
-            "precision": 0.733,
-            "recall": 0.55,
-            "f1": 0.628,
-            "false_alarm_rate": 0.036,
+            "flagged": 223,
+            "caught": 141,
+            "false_alarms": 82,
+            "missed": 88,
+            "correct_ok": 1190,
+            "precision": 0.632,
+            "recall": 0.616,
+            "f1": 0.624,
+            "false_alarm_rate": 0.064,
             "eur_caught_share": null
           },
           "2026-06": {
             "lifts": 1583,
             "real_problems": 237,
-            "flagged": 202,
-            "caught": 139,
-            "false_alarms": 63,
-            "missed": 98,
-            "correct_ok": 1283,
-            "precision": 0.688,
-            "recall": 0.586,
-            "f1": 0.633,
-            "false_alarm_rate": 0.047,
+            "flagged": 247,
+            "caught": 157,
+            "false_alarms": 90,
+            "missed": 80,
+            "correct_ok": 1256,
+            "precision": 0.636,
+            "recall": 0.662,
+            "f1": 0.649,
+            "false_alarm_rate": 0.067,
             "eur_caught_share": null
           }
         },
         "calibration": [
           {
             "model_says": "0%-20%",
-            "lifts": 2569,
-            "really_problem": 0.061
+            "lifts": 2570,
+            "really_problem": 0.058
           },
           {
             "model_says": "20%-40%",
-            "lifts": 141,
-            "really_problem": 0.312
+            "lifts": 136,
+            "really_problem": 0.338
           },
           {
             "model_says": "40%-60%",
-            "lifts": 74,
-            "really_problem": 0.405
+            "lifts": 82,
+            "really_problem": 0.463
           },
           {
             "model_says": "60%-80%",
-            "lifts": 109,
-            "really_problem": 0.642
+            "lifts": 104,
+            "really_problem": 0.587
           },
           {
             "model_says": "80%-100%",
-            "lifts": 191,
-            "really_problem": 0.864
+            "lifts": 192,
+            "really_problem": 0.891
           }
         ]
       }

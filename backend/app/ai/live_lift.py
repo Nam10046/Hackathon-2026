@@ -40,7 +40,9 @@ def build_raw(lift_at, before: dict, window: list[dict], last_lift_at, compactor
         "cycles_24h": None, "press_max_24h": None, "sensor_bad_24h": None,   # not sent by the ESP32 node yet
         "hours_since_prev": (lift_at - last_lift_at).total_seconds() / 3600 if last_lift_at else None,
         "max_days_between_collections": MAX_DAYS.get(material),
-        "delay_hours": None, "on_call_threshold": None,
+        "delay_hours": None,
+        # a SETTING, not a sensor: the fill % at which SMART orders a truck (None if the compactor has no on-call setting)
+        "on_call_threshold": compactor.get("on_call_threshold_pct"),
         "lift_at": lift_at,
         "at_min_frequency": False,
         "trigger": compactor.get("trigger", "ON_CALL_ORDER"),

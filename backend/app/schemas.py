@@ -48,6 +48,7 @@ class ReadingResult(BaseModel):
     reading_id: int
     alerts: list[Alert]
     status: Status
+    duplicate: bool = False          # True = this exact reading was already stored (message sent twice)
 
 
 class ReadingOut(BaseModel):

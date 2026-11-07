@@ -1,14 +1,16 @@
 # Part 6 — How accurate is our model, and does it work on live data?
 
 Short answer: **on full SMART data the model is about 92 % right (F1). On a simple ESP32 (weight + fill only) it is
-about 63–75 % right.** We measured both on months the model never saw, and we tested the live path by playing
-67,000 real sensor readings into our backend, one by one, like a real device would.
+about 64–78 % right.** We measured both on months the model never saw, tested the live path by playing 67,000 real
+sensor readings into our backend one by one, and stress-tested it with a **simulator that injects bad data with known
+answers** (section 5b): **65 → 93 points** after the fixes it revealed.
 
 Everything below can be re-run:
 
 ```
 python training/evaluate_lift_model.py          # accuracy on unseen months (about 1 min)
 python training/replay_live.py --devices 40     # live test through the real backend (about 12 min; re-run to continue if stopped)
+python simulator/simulate.py grade              # stress test with good and bad data, scorecard 0-100 (about 3 min)
 ```
 
 ## 1. What the model does
@@ -44,7 +46,8 @@ How to read the numbers:
 |---|---|---|---|
 | **Full SMART data** (press load, cycles, sensor status, order type, delay) | full model | **0.93** | **0.92** |
 | Only weight + fill + time | full model (wrong for this input) | 0.63 | 0.28 |
-| Only weight + fill + time | **ESP32 model** (trained on exactly this) | **0.75** | **0.63** |
+| Only weight + fill + time | **ESP32 model** (trained on exactly this) | 0.75 | 0.63 |
+| Only weight + fill + time + **the order level setting** (fill % at which SMART orders a truck) | **ESP32 model, final** | **0.78** | **0.64** |
 | *Organisers' rule baseline B2 (uses full data)* | rules | *0.72* | *0.77* |
 
 Details for the full-data model:
@@ -77,17 +80,57 @@ The live replay showed false "emptied" events: noise near empty (75 kg → 25 kg
 ## 5. Live test: real readings through the real backend
 
 40 compactors from the dataset, 66,861 hourly readings, sent one by one to the backend. The backend got only
-`{compactor, time, weight, fill}` — no labels, no list of lifts.
+`{compactor, time, weight, fill}` plus each compactor's order-level setting — no labels, no list of lifts.
 
-| Check | Result |
-|---|---|
-| Real lifts the backend noticed by itself | **238 of 256 (93 %)** |
-| "Emptied" alerts with no real lift | 35 |
-| Too early: precision / recall / F1 | 0.68 / 0.50 / **0.58** (26 real problems) |
-| Too late: precision / recall / F1 | 0.67 / 0.74 / **0.70** (35 real problems) |
+| Check | First version | **Final** |
+|---|---|---|
+| Real lifts the backend noticed by itself | 238 of 256 (93.0 %) | **239 of 256 (93.4 %)** |
+| "Emptied" alerts with no real lift | 35 | 37 |
+| Too early: precision / recall / F1 | 0.68 / 0.50 / 0.58 | 0.75 / 0.58 / **0.65** (26 real problems) |
+| Too late: precision / recall / F1 | 0.67 / 0.74 / 0.70 | 0.63 / 0.89 / **0.74** (35 real problems) |
 
 The sample is small, so these numbers move by about ±0.1. They are in the same range as section 3, which shows the
 whole live chain works: sensor reading → emptying detected → inputs built → model → alert.
+
+## 5b. Stress test: a simulator with known answers (`simulator/`)
+
+We have no load cell, so a simulator pretends to be compactors. It writes down the **right answer** for every event:
+normal, too early, too late, and **justified early lifts** (hygiene maximum reached — a trap that must not be flagged).
+It also injects **bad data**: spikes, impossible values, a stuck sensor, missing hours, slow drift, single glitches,
+duplicate messages and heavy/wrong material. Every reading goes through the real backend code.
+
+| Part (weight) | First run | After fixes |
+|---|---:|---:|
+| Lift detection (25 %) | 0.986 | **0.995** |
+| Too early (15 %) | 0.928 | 0.909 |
+| Too late (15 %) | 0.673 | 0.660 |
+| Justified lifts left alone (5 %) | 0.913 | 0.957 |
+| **Bad data noticed (25 %)** | **0.484** | **1.000** |
+| **False alarms per compactor-week (15 %)** | **2.76** | **0.03** |
+| **Total (0–100)** | **65.3** | **92.7** |
+
+What the simulator found, and what we fixed in the backend (`backend/app/ai/anomaly.py`, `service.py`):
+
+| Weak spot | Fix |
+|---|---|
+| Normal sensor noise (±15 kg) raised 671 "unexpected drop" alarms | a drop must be clearly bigger than noise (6σ or 15 %) |
+| Normal busy-hour filling looked like spikes | limit = 2.5 × the usual large increase; no spike check after a data gap |
+| A few kg below zero on an empty scale = "sensor fault" | allow noise down to about −60 kg |
+| **Stuck sensor never noticed** | new `sensor_stuck`: 6 identical readings in a row |
+| **Silent device never noticed** | new `data_gap`: no reading for 3 intervals |
+| **Slow drift never noticed** (and lifts on a drifted scale were missed) | new `zero_shift`: an empty container must read about 0; emptying also detected from the fill sensor |
+| **Duplicate messages stored twice** | the same reading is stored once (`"duplicate": true`) |
+| Heavy material that hits the scale's limit looked "normal density" | new `overload`: above the rated payload (also a truck-safety issue) |
+
+**Is it overfitted to our simulator?** We checked on two **new worlds it had never seen** (30 compactors × 90 days each):
+**92.7 and 91.0** points; bad data noticed 98.5–99.2 %, false alarms 0.02 per compactor-week. And on the **real Europress
+replay** the new rules did not hurt: lifts found 93.0 → 93.4 %.
+
+**Two honest notes.** (1) "Too late" stays around 0.6–0.7 in the simulator because the dataset (and so the model) also
+calls a lift "late" when it came long after the order level, not only when the container sat 100 % full; the scorecard
+shows both definitions. We did **not** tune the model to our simulator. (2) Adding the order-level setting made the model
+better on real data (dataset and replay) but slightly worse on the simulator's early lifts (0.943 → 0.909). We keep it,
+because real data is our main evidence.
 
 ## 6. Keeping the model right after go-live
 
@@ -106,7 +149,8 @@ retrained (`python training/train_lift_model.py --feed esp32`, about 1 min) and 
 ## 7. What this means for Europress
 
 - **With SMART's own data** (press, cycles, order times), the model is accurate enough to act on (F1 ≈ 0.92).
-- **With a cheap add-on weighing node only**, it is a useful early warning (F1 ≈ 0.6–0.75), but a person must check.
+- **With a cheap add-on weighing node only**, it is a useful early warning (F1 ≈ 0.64–0.78), but a person must check.
+  Bad data (stuck, silent, drifting, duplicated, overloaded) is caught by rules, not by the model.
 - **Biggest gain for little cost:** send the **order type and order time** from SMART's order system with each lift.
   In our test, adding only the order type raised early-lift F1 from 0.84 to 0.90 (organiser-computed inputs).
 

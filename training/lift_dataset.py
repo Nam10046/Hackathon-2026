@@ -85,7 +85,7 @@ def live_matrix(pub: Path, f: pd.DataFrame, open_dataset) -> np.ndarray:
     con = open_dataset(pub)
     tele = con.sql("SELECT device_id, measured_at, mass_kg, fill_pct FROM telemetry_dedup "
                    "WHERE mass_kg IS NOT NULL ORDER BY device_id, measured_at").df()
-    dev = con.sql("SELECT device_id, material_stream, container_volume_m3 FROM devices").df().set_index("device_id")
+    dev = con.sql("SELECT device_id, material_stream, container_volume_m3, on_call_threshold_pct FROM devices").df().set_index("device_id")
     con.close()
     tele["measured_at"] = pd.to_datetime(tele.measured_at, utc=True)
     tele["fill_pct"] = tele.fill_pct.clip(0, 100)
@@ -95,7 +95,9 @@ def live_matrix(pub: Path, f: pd.DataFrame, open_dataset) -> np.ndarray:
         ts, w = t.measured_at.dt.tz_convert(None).to_numpy("datetime64[ns]"), t.mass_kg.to_numpy(dtype=float)
         fill = t.fill_pct.to_numpy(dtype=float)
         cap = float(np.nanpercentile(w, 99)) if len(w) else 1.0            # stands in for the registered capacity
-        comp = {"material": dev.material_stream.get(device_id), "volume_m3": dev.container_volume_m3.get(device_id)}
+        thr = dev.on_call_threshold_pct.get(device_id)
+        comp = {"material": dev.material_stream.get(device_id), "volume_m3": dev.container_volume_m3.get(device_id),
+                "on_call_threshold_pct": None if thr is None or thr != thr else float(thr)}
         prev_lift = None
         for r in lf.itertuples():
             i = int(np.searchsorted(ts, r.actual_at.tz_convert(None).to_datetime64(), side="left"))

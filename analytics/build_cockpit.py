@@ -207,6 +207,10 @@ def build(pub: Path, engine_dir: Path, audit_dir: Path | None = None, profile: s
             "likely_cause": fnd.likely_cause, "side": fnd.side})
         flags = pd.concat([flags, af], ignore_index=True)
     flags["eur_at_stake"] = flags.eur_at_stake.astype(float).round(2)
+    # the audit's cause explains a WEIGHT difference (stale truck tare, sensor drift, side waste) or a billing line;
+    # for lift-timing, cost or quality findings it would describe the weight, not the problem -> leave it empty
+    explains = flags.entity_type.eq("invoice_line") | flags.label_family.eq("WEIGHT_DISCREPANCY")
+    flags.loc[~explains, ["likely_cause", "side"]] = None
 
     # ---------- issues: the same problem on the same compactor counted once ----------
     key = flags.device_id.fillna("customer:" + flags.customer_name.fillna("unknown"))

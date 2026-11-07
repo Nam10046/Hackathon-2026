@@ -119,3 +119,41 @@ def test_cockpit_approval_flow(client):
     assert client.get("/api/cockpit/actions").json()[0]["status"] == "PENDING"
     assert client.post("/api/cockpit/actions/NOPE/decision", json={"decision": "APPROVE", "decided_by": "x"}).status_code == 404
     assert "Customer Value Cockpit" in client.get("/cockpit").text
+
+
+# ---- bad-data rules found with the simulator (simulator/simulate.py) ----
+def types(res):
+    return {a["type"] for a in res["alerts"]}
+
+
+def test_noise_is_not_an_alarm(client):
+    # +-40 kg wobble on a near-empty container is sensor noise, not a drop, spike or emptying
+    for i, w in enumerate([60, 100, 55, 95, 45, 90, 50, 85]):
+        assert not types(send(client, "C1", w, 5, minutes=60 * i)) & {"unexpected_drop", "spike", "emptied", "sensor_fault"}
+    assert "sensor_fault" not in types(send(client, "C1", -30, 0, minutes=600))      # slightly negative = noise
+
+
+def test_stuck_sensor_and_data_gap(client):
+    for i in range(5):
+        send(client, "C1", 800 + 20 * i, 40 + i, minutes=60 * i)
+    got = [types(send(client, "C1", 900, 45, minutes=60 * (5 + i))) for i in range(6)]
+    assert "sensor_stuck" in got[5] and not any("sensor_stuck" in g for g in got[:5])   # said once, at 6 in a row
+    assert "data_gap" in types(send(client, "C1", 950, 47, minutes=60 * 11 + 60 * 6))   # 6 h silent
+
+
+def test_zero_shift_after_emptying(client):
+    for i in range(4):
+        send(client, "C1", 1200 + 50 * i, 60 + 2 * i, minutes=60 * i)
+    t = types(send(client, "C1", 230, 2, minutes=300))                                  # emptied, but reads 230 kg
+    assert {"emptied", "zero_shift"} <= t
+
+
+def test_duplicate_message_is_stored_once(client):
+    first = send(client, "C1", 500, 25, minutes=0)
+    again = send(client, "C1", 500, 25, minutes=0)
+    assert again["duplicate"] and again["reading_id"] == first["reading_id"] and again["alerts"] == []
+
+
+def test_overload(client):
+    send(client, "C1", 1900, 90, minutes=0)
+    assert "overload" in types(send(client, "C1", 2200, 92, minutes=60))                # C1 rated 2000 kg

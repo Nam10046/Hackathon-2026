@@ -1,0 +1,202 @@
+{
+  "lift_detection": {
+    "precision": 0.978,
+    "recall": 0.994,
+    "f1": 0.986,
+    "tp": 315,
+    "fp": 7,
+    "fn": 2
+  },
+  "premature": {
+    "precision": 1.0,
+    "recall": 0.741,
+    "f1": 0.851,
+    "tp": 40,
+    "fp": 0,
+    "fn": 14
+  },
+  "delayed": {
+    "precision": 0.433,
+    "recall": 1.0,
+    "f1": 0.604,
+    "tp": 42,
+    "fp": 55,
+    "fn": 0
+  },
+  "delayed_oncall_definition": {
+    "precision": 0.495,
+    "recall": 0.873,
+    "f1": 0.632,
+    "tp": 48,
+    "fp": 49,
+    "fn": 7
+  },
+  "justified_trap": {
+    "lifts": 30,
+    "wrongly_flagged": 0
+  },
+  "confusion": {
+    "DELAYED -> late": 42,
+    "JUSTIFIED -> late": 6,
+    "JUSTIFIED -> not seen": 1,
+    "JUSTIFIED -> ok": 23,
+    "NORMAL -> late": 40,
+    "NORMAL -> ok": 151,
+    "PREMATURE -> early": 40,
+    "PREMATURE -> late": 2,
+    "PREMATURE -> not seen": 1,
+    "PREMATURE -> ok": 11
+  },
+  "wrong_flag_examples": {
+    "late": [
+      {
+        "truth": "NORMAL",
+        "fill_before": 83.0,
+        "hours_since_last": 303
+      },
+      {
+        "truth": "PREMATURE",
+        "fill_before": 24.5,
+        "hours_since_last": 46
+      },
+      {
+        "truth": "PREMATURE",
+        "fill_before": 21.0,
+        "hours_since_last": 45
+      },
+      {
+        "truth": "JUSTIFIED",
+        "fill_before": 19.0,
+        "hours_since_last": 676
+      },
+      {
+        "truth": "NORMAL",
+        "fill_before": 87.5,
+        "hours_since_last": 294
+      },
+      {
+        "truth": "NORMAL",
+        "fill_before": 80.1,
+        "hours_since_last": 94
+      },
+      {
+        "truth": "PREMATURE",
+        "fill_before": 34.7,
+        "hours_since_last": 52
+      },
+      {
+        "truth": "NORMAL",
+        "fill_before": 91.0,
+        "hours_since_last": 183
+      },
+      {
+        "truth": "NORMAL",
+        "fill_before": 86.0,
+        "hours_since_last": 151
+      },
+      {
+        "truth": "NORMAL",
+        "fill_before": 84.5,
+        "hours_since_last": 168
+      },
+      {
+        "truth": "NORMAL",
+        "fill_before": 92.4,
+        "hours_since_last": 169
+      },
+      {
+        "truth": "NORMAL",
+        "fill_before": 84.0,
+        "hours_since_last": 294
+      }
+    ]
+  },
+  "faults": {
+    "CONTAMINATION": {
+      "found": 33
+    },
+    "DRIFT": {
+      "found": 26,
+      "missed": 1
+    },
+    "DUPLICATE": {
+      "found": 33
+    },
+    "GAP": {
+      "found": 32
+    },
+    "GLITCH": {
+      "found": 32
+    },
+    "IMPOSSIBLE": {
+      "found": 37
+    },
+    "SPIKE": {
+      "found": 33
+    },
+    "STUCK": {
+      "found": 34,
+      "missed": 1
+    }
+  },
+  "false_alarms": {
+    "total": 7,
+    "per_device_week": 0.02,
+    "by_type": {
+      "spike": 6,
+      "unexpected_drop": 1
+    }
+  },
+  "duplicates": {
+    "readings_stored_twice": 0,
+    "duplicate_alerts": 0
+  },
+  "truth": {
+    "devices": 30,
+    "lifts": {
+      "NORMAL": 191,
+      "PREMATURE": 54,
+      "DELAYED": 42,
+      "JUSTIFIED": 30
+    },
+    "faults": {
+      "SPIKE": 33,
+      "GAP": 32,
+      "CONTAMINATION": 33,
+      "DUPLICATE": 33,
+      "IMPOSSIBLE": 37,
+      "STUCK": 35,
+      "GLITCH": 32,
+      "DRIFT": 27
+    },
+    "device_weeks": 381.4
+  },
+  "fault_detection_rate": 0.992,
+  "score_parts": {
+    "Lift detection (F1)": {
+      "value": 0.986,
+      "weight": 25
+    },
+    "Too early (F1)": {
+      "value": 0.851,
+      "weight": 15
+    },
+    "Too late (F1)": {
+      "value": 0.604,
+      "weight": 15
+    },
+    "Justified lifts left alone": {
+      "value": 1.0,
+      "weight": 5
+    },
+    "Bad data noticed": {
+      "value": 0.992,
+      "weight": 25
+    },
+    "Few false alarms": {
+      "value": 0.98,
+      "weight": 15
+    }
+  },
+  "score": 91.0
+}

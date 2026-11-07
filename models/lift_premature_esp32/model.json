@@ -42,10 +42,10 @@
     "equipment_COMBI",
     "equipment_OTHER"
   ],
-  "threshold": 0.45,
+  "threshold": 0.475,
   "alert_message": "This lift looks unnecessary (container not full, no hygiene/contract reason)",
   "description": "Gradient boosting on live-only lift features (lift_features.py). Trained on the Europress synthetic dataset, train months only. Advice for a human, not a decision.",
   "trained_rows": 10756,
-  "created": "2026-11-06T21:03:51+00:00",
-  "validation_alert_rate": 0.1102
+  "created": "2026-11-07T10:30:08+00:00",
+  "validation_alert_rate": 0.1145
 }

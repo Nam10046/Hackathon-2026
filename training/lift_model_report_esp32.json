@@ -1,11 +1,11 @@
 {
-  "created": "2026-11-06T21:03:51+00:00",
+  "created": "2026-11-07T10:30:08+00:00",
   "families": {
     "PREMATURE_UNJUSTIFIED": {
-      "threshold": 0.45,
+      "threshold": 0.475,
       "train_rows": 10756,
       "train_positives": 1450,
-      "onnx_max_abs_diff": 3.481800713300842e-07,
+      "onnx_max_abs_diff": 3.460333118932013e-07,
       "validation": {
         "baseline_B2": {
           "precision": 0.9023,
@@ -15,19 +15,19 @@
           "value_weighted_recall": 0.5778
         },
         "our_model": {
-          "precision": 0.8294,
-          "recall": 0.698,
-          "f1": 0.7581,
-          "explained_flagged_as_anomaly": 30,
-          "value_weighted_recall": 0.7065
+          "precision": 0.8499,
+          "recall": 0.7426,
+          "f1": 0.7926,
+          "explained_flagged_as_anomaly": 28,
+          "value_weighted_recall": 0.74
         }
       }
     },
     "DELAYED_COLLECTION": {
-      "threshold": 0.4,
+      "threshold": 0.25,
       "train_rows": 10756,
       "train_positives": 1667,
-      "onnx_max_abs_diff": 3.0226366487529077e-07,
+      "onnx_max_abs_diff": 3.1147128970454574e-07,
       "validation": {
         "baseline_B2": {
           "precision": 0.7714,
@@ -37,9 +37,9 @@
           "value_weighted_recall": null
         },
         "our_model": {
-          "precision": 0.7051,
-          "recall": 0.5644,
-          "f1": 0.6269,
+          "precision": 0.6401,
+          "recall": 0.6373,
+          "f1": 0.6387,
           "explained_flagged_as_anomaly": 0,
           "value_weighted_recall": null
         }
@@ -48,10 +48,10 @@
   },
   "macro_f1": {
     "baseline_B2": 0.7309,
-    "rules_plus_model": 0.7229
+    "rules_plus_model": 0.7265
   },
   "macro_f1_detection_only": {
     "baseline_B2": 0.7035,
-    "rules_plus_model": 0.694
+    "rules_plus_model": 0.6982
   }
 }

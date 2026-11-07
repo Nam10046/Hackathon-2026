@@ -28,6 +28,8 @@ compactors = Table(
     Column("material", String, ForeignKey("materials.name"), nullable=False),
     Column("capacity_kg", Float, nullable=False),
     Column("volume_m3", Float, nullable=False),
+    # SETTING from SMART: fill % at which a truck is ordered (on-call). Used by the live lift model. NULL = unknown
+    Column("on_call_threshold_pct", Float),
 )
 
 readings = Table(
@@ -91,9 +93,9 @@ SEED_MATERIALS = [
     {"name": "mixed", "price_eur_per_kg": -0.15, "density_min": 250, "density_max": 650, "co2_factor": 0.0},
 ]
 SEED_COMPACTORS = [
-    {"id": "C1", "name": "Warehouse cardboard", "material": "cardboard", "capacity_kg": 2000, "volume_m3": 8},
-    {"id": "C2", "name": "Store plastic", "material": "plastic", "capacity_kg": 1500, "volume_m3": 8},
-    {"id": "C3", "name": "Mixed waste", "material": "mixed", "capacity_kg": 4000, "volume_m3": 8},
+    {"id": "C1", "name": "Warehouse cardboard", "material": "cardboard", "capacity_kg": 2000, "volume_m3": 8, "on_call_threshold_pct": 80},
+    {"id": "C2", "name": "Store plastic", "material": "plastic", "capacity_kg": 1500, "volume_m3": 8, "on_call_threshold_pct": 80},
+    {"id": "C3", "name": "Mixed waste", "material": "mixed", "capacity_kg": 4000, "volume_m3": 8, "on_call_threshold_pct": 85},
 ]
 
 _engine = None
@@ -126,6 +128,11 @@ def init_db():
     """Create tables and add starter data if empty."""
     engine = get_engine()
     metadata.create_all(engine)
+    # small migration for databases created before the column existed (create_all never alters a table)
+    from sqlalchemy import inspect, text
+    if "on_call_threshold_pct" not in {c["name"] for c in inspect(engine).get_columns("compactors")}:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE compactors ADD COLUMN on_call_threshold_pct FLOAT"))
     with engine.begin() as conn:
         if conn.execute(select(materials.c.name)).first() is None:
             conn.execute(insert(materials), SEED_MATERIALS)

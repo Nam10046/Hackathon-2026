@@ -93,10 +93,10 @@ The contract calculator reproduces **96.4 % of amounts exactly to the cent** on 
 its source record — e.g. job `OP-B-003200015`: contract V2 says €1,041.39 per lift, the invoice has it twice.
 
 **13a. Does it still work on live data from a simple sensor?**
-Yes, but less accurately, and we measured exactly how much. With only weight + fill (an ESP32), F1 is **0.75 / 0.63**
+Yes, but less accurately, and we measured exactly how much. With only weight + fill (an ESP32), F1 is **0.78 / 0.64**
 (too early / too late), compared with **0.93 / 0.92** on full SMART data. So we run a second model trained on exactly the
 ESP32 inputs. Then we played **67,000 real readings from 40 compactors** into our backend one by one: it found
-**93 % of the lifts by itself** and gave F1 0.58 / 0.70 (small sample). Details: `06_model_accuracy_and_live_data.md`.
+**93 % of the lifts by itself** and gave F1 0.65 / 0.74 (small sample). Details: `06_model_accuracy_and_live_data.md`.
 
 **13b. How do you know the model stays right after go-live?**
 Two live checks (`/api/models/performance`): (1) people mark alerts **correct / false alarm** → live precision;
@@ -107,6 +107,13 @@ season) → review and retrain (1 minute, reload without restart).
 Three real problems we fixed: the simple sensor knows less (→ second model), the backend computed inputs slightly
 differently from the training data (→ we now train on the same live code), and sensor noise looked like emptyings
 (→ false emptyings from 112 to 35).
+
+**13c-2. How do you know it handles bad sensor data?**
+We built a **simulator with known answers** that injects spikes, impossible values, a stuck sensor, missing hours, slow
+drift, glitches, duplicate messages and overloads. The first run scored **65 / 100**: it caught only half of the bad
+data and gave 2.8 false alarms per compactor per week. We fixed the rules; now **92.7 / 100**, **100 % of the bad data
+noticed** and 0.03 false alarms per week, and the same on two new simulated worlds (92.7, 91.0). We never train the AI
+on simulator data. `simulator/README.md`.
 
 **13d. What should Europress send to make it better?**
 The **order type and order time** with each lift. SMART already has them, and adding just the order type raised
