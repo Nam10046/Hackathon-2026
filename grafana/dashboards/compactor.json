@@ -27,7 +27,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "[1 Overview](/d/value-cockpit) &nbsp;&nbsp;·&nbsp;&nbsp; [2 Problems found](/d/cockpit-findings) &nbsp;&nbsp;·&nbsp;&nbsp; [3 Cost & weight](/d/cockpit-cost) &nbsp;&nbsp;·&nbsp;&nbsp; [4 Waste companies](/d/cockpit-operators) &nbsp;&nbsp;·&nbsp;&nbsp; [5 Decisions](/d/cockpit-actions) &nbsp;&nbsp;·&nbsp;&nbsp; **● 6 Live sensors** &nbsp;&nbsp;·&nbsp;&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
+        "content": "[1 Overview](/d/value-cockpit) &nbsp;&nbsp;\u00b7&nbsp;&nbsp; [2 Problems found](/d/cockpit-findings) &nbsp;&nbsp;\u00b7&nbsp;&nbsp; [3 Cost & weight](/d/cockpit-cost) &nbsp;&nbsp;\u00b7&nbsp;&nbsp; [4 Waste companies](/d/cockpit-operators) &nbsp;&nbsp;\u00b7&nbsp;&nbsp; [5 Decisions](/d/cockpit-actions) &nbsp;&nbsp;\u00b7&nbsp;&nbsp; **\u25cf 6 Live sensors** &nbsp;&nbsp;\u00b7&nbsp;&nbsp; [Approve decisions \u2197](http://localhost:8000/cockpit)"
       }
     },
     {
@@ -38,11 +38,11 @@
         "x": 0,
         "y": 2,
         "w": 24,
-        "h": 3
+        "h": 4
       },
       "options": {
         "mode": "markdown",
-        "content": "**Live data from real sensors** (ESP32 / Node-RED test buttons), not the Europress year. Each reading is checked by the rules and the **live lift model** — alerts appear in the table at the bottom. *Last seen* turns red when a sensor stops sending."
+        "content": "**Live data from real sensors** (ESP32 / Node-RED test buttons), not the Europress year. Each reading is checked by the rules and the **live lift model** \u2014 alerts appear in the table at the bottom. *Last seen* turns red when a sensor stops sending.\n\n**Edge node** (bottom row): an ESP32 at the compactor weighs only when the press is still, filters spikes, keeps readings while offline and **signs** each one, so nobody can change a weight later."
       }
     },
     {
@@ -55,7 +55,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 5,
+        "y": 6,
         "w": 6,
         "h": 4
       },
@@ -102,7 +102,7 @@
       },
       "gridPos": {
         "x": 6,
-        "y": 5,
+        "y": 6,
         "w": 6,
         "h": 4
       },
@@ -148,7 +148,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 5,
+        "y": 6,
         "w": 6,
         "h": 4
       },
@@ -210,7 +210,7 @@
       },
       "gridPos": {
         "x": 18,
-        "y": 5,
+        "y": 6,
         "w": 6,
         "h": 4
       },
@@ -257,7 +257,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 9,
+        "y": 10,
         "w": 8,
         "h": 8
       },
@@ -321,7 +321,7 @@
       },
       "gridPos": {
         "x": 8,
-        "y": 9,
+        "y": 10,
         "w": 16,
         "h": 8
       },
@@ -360,7 +360,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 18,
         "w": 24,
         "h": 6
       },
@@ -434,7 +434,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 24,
         "w": 12,
         "h": 8
       },
@@ -471,7 +471,7 @@
       },
       "gridPos": {
         "x": 12,
-        "y": 23,
+        "y": 24,
         "w": 12,
         "h": 8
       },
@@ -527,6 +527,147 @@
         ]
       },
       "options": {}
+    },
+    {
+      "id": 10,
+      "title": "Edge node: signed readings verified (24 h)",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(100.0 * count(*) FILTER (WHERE verified) / NULLIF(count(*) FILTER (WHERE verified IS NOT NULL), 0)) AS \"Verified %\" FROM readings WHERE ts > now() - interval '24 hours'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "Share of signed readings whose HMAC signature matched the device key (DEVICE_KEYS in .env). Empty = no signed readings yet."
+    },
+    {
+      "id": 11,
+      "title": "Edge node: readings sent later from its offline buffer (24 h)",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 32,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS \"From buffer\" FROM alerts WHERE type = 'edge_buffered' AND ts > now() - interval '24 hours'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "The board kept these readings while the network was down and sent them when it came back, with their original time."
+    },
+    {
+      "id": 12,
+      "title": "Edge node: signature problems (24 h)",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 32,
+        "w": 8,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS \"Invalid\" FROM alerts WHERE type = 'signature_invalid' AND ts > now() - interval '24 hours'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "description": "A reading whose signature does not match was changed after the device sent it, or the key is wrong. Never use it as evidence."
     }
   ],
   "templating": {

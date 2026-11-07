@@ -157,3 +157,30 @@ def test_duplicate_message_is_stored_once(client):
 def test_overload(client):
     send(client, "C1", 1900, 90, minutes=0)
     assert "overload" in types(send(client, "C1", 2200, 92, minutes=60))                # C1 rated 2000 kg
+
+
+# ---- edge node (firmware/edge_node): signed readings and the offline buffer ----
+def _sign(key, cid, seq, epoch, w, f):
+    import hashlib
+    import hmac
+    return hmac.new(key.encode(), f"{cid}|{seq}|{epoch}|{w:.1f}|{f:.1f}".encode(), hashlib.sha256).hexdigest()
+
+
+def test_signed_reading_verified_and_tampered(client, monkeypatch):
+    from sqlalchemy import select
+    monkeypatch.setenv("DEVICE_KEYS", "C1:test-key")
+    ts = T0 + timedelta(minutes=5)
+    good = {"compactor_id": "C1", "weight_kg": 523.4, "fill_pct": 26.1, "ts": ts.isoformat(), "seq": 100001,
+            "sig": _sign("test-key", "C1", 100001, int(ts.timestamp()), 523.4, 26.1)}
+    r = client.post("/api/readings", json=good).json()
+    assert "signature_invalid" not in {a["type"] for a in r["alerts"]}
+    bad = {**good, "weight_kg": 623.4, "ts": (ts + timedelta(minutes=1)).isoformat()}   # weight changed afterwards
+    assert "signature_invalid" in {a["type"] for a in client.post("/api/readings", json=bad).json()["alerts"]}
+    with db.get_engine().connect() as conn:
+        assert [v for (v,) in conn.execute(select(db.readings.c.verified).order_by(db.readings.c.id))] == [True, False]
+
+
+def test_buffered_reading_is_marked(client):
+    body = {"compactor_id": "C2", "weight_kg": 300, "fill_pct": 20, "ts": (T0 - timedelta(hours=2)).isoformat(),
+            "edge": {"from_buffer": True, "quality": "OK", "spikes_filtered": 3}}
+    assert "edge_buffered" in {a["type"] for a in client.post("/api/readings", json=body).json()["alerts"]}

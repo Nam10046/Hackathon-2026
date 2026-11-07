@@ -85,6 +85,8 @@ header `X-API-Key: <key>`. Reading (GET) is open. On the laptop the key is empty
 Alert `type` values: `sensor_fault`, `spike`, `unexpected_drop`, `contamination`, `emptied`, `nearly_full`, `ml_anomaly` (from a model in `models/`), `ml_premature_unjustified` and `ml_delayed_collection` (live lift model, checked on every emptying), and the bad-data checks found with the simulator: `sensor_stuck` (6 identical readings), `data_gap` (no reading for 3 intervals; env `READING_INTERVAL_H`, default 1), `zero_shift` (an emptied container does not read ~0), `overload` (above the rated payload).
 
 Sending the same reading twice (same compactor and `ts`) is safe: it is stored once and the answer has `"duplicate": true`.
+An edge node (`firmware/edge_node`) may add `seq`, `sig` (HMAC-SHA256 hex of `id|seq|epoch|weight(.1f)|fill(.1f)`, `-` for a missing time) and an `edge` object (`quality`, `spikes_filtered`, `emptied`, `from_buffer`). With `DEVICE_KEYS=C1:key` set, the backend stores `readings.verified` and raises `signature_invalid` (critical) on a mismatch; `edge.from_buffer` raises `edge_buffered` (info).
+
 Each compactor can carry the SMART setting `on_call_threshold_pct` (fill % that orders a truck); the live lift model uses it.
 `severity`: `info`, `warning`, `critical`.
 

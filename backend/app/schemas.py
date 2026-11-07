@@ -15,6 +15,10 @@ class ReadingIn(BaseModel):
     weight_kg: float
     fill_pct: Optional[float] = Field(default=None, ge=0, le=100)
     ts: Optional[datetime] = None
+    # optional, from an edge node (firmware/edge_node): counter, HMAC-SHA256 signature, what the board decided
+    seq: Optional[int] = None
+    sig: Optional[str] = None
+    edge: Optional[dict] = None
 
 
 class BulkReadingsIn(BaseModel):

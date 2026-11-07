@@ -6,7 +6,7 @@ Table layout must match CONTRACT.md section 3.
 import os
 
 from sqlalchemy import (
-    Column, DateTime, Float, ForeignKey, Integer, MetaData, String, Table,
+    Boolean, Column, DateTime, Float, ForeignKey, Integer, MetaData, String, Table,
     create_engine, insert, select,
 )
 
@@ -39,6 +39,8 @@ readings = Table(
     Column("ts", DateTime(timezone=True), nullable=False, index=True),
     Column("weight_kg", Float, nullable=False),
     Column("fill_pct", Float),
+    # signed by the device and checked: True = verified, False = signature wrong, NULL = not signed / no key set
+    Column("verified", Boolean),
 )
 
 alerts = Table(
@@ -133,6 +135,9 @@ def init_db():
     if "on_call_threshold_pct" not in {c["name"] for c in inspect(engine).get_columns("compactors")}:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE compactors ADD COLUMN on_call_threshold_pct FLOAT"))
+    if "verified" not in {c["name"] for c in inspect(engine).get_columns("readings")}:
+        with engine.begin() as conn:
+            conn.execute(text("ALTER TABLE readings ADD COLUMN verified BOOLEAN"))
     with engine.begin() as conn:
         if conn.execute(select(materials.c.name)).first() is None:
             conn.execute(insert(materials), SEED_MATERIALS)

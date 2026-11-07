@@ -54,6 +54,7 @@ services:
       - DATABASE_URL=postgresql+psycopg://${DB_USER:-compactor}:${DB_PASS:-compactor}@${DB_HOST:-postgres}:${DB_PORT:-5432}/${DB_NAME:-compactor}?sslmode=${DB_SSLMODE:-disable}
       - MODELS_DIR=/models
       - INGEST_API_KEY=${INGEST_API_KEY:-}
+      - DEVICE_KEYS=${DEVICE_KEYS:-}          # edge nodes that sign readings, e.g. C1:secret (firmware/edge_node)
       - TZ=${TIMEZONE:-Europe/Helsinki}
     ports:
       - "${BIND_ADDR:-127.0.0.1}:8000:8000"

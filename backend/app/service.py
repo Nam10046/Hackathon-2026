@@ -1,4 +1,7 @@
 """Business logic: store a reading, run the AI parts, update status. Owner: backend person."""
+import hashlib
+import hmac
+import os
 from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import delete, insert, select
@@ -21,10 +24,35 @@ def _load_pct(weight_kg, fill_pct, capacity_kg):
     return round(max(by_weight, fill_pct or 0), 1)
 
 
+def _device_key(compactor_id: str):
+    """DEVICE_KEYS="C1:secret1,C2:secret2" (backend .env). None = this device does not sign."""
+    for part in os.getenv("DEVICE_KEYS", "").split(","):
+        if ":" in part:
+            k, v = part.split(":", 1)
+            if k.strip() == compactor_id:
+                return v.strip()
+    return None
+
+
+def verify_signature(reading: dict, ts_given: bool, ts) -> bool | None:
+    """Edge node signs "id|seq|epoch|weight|fill" with HMAC-SHA256 (firmware/edge_node). None = cannot check."""
+    sig, key = reading.get("sig"), _device_key(reading["compactor_id"])
+    if not sig or not key:
+        return None
+    fill = reading.get("fill_pct")
+    msg = "|".join([reading["compactor_id"], str(reading.get("seq")), str(int(ts.timestamp())) if ts_given else "-",
+                    f"{reading['weight_kg']:.1f}", f"{fill:.1f}" if fill is not None else "-"])
+    good = hmac.new(key.encode(), msg.encode(), hashlib.sha256).hexdigest()
+    return hmac.compare_digest(good, str(sig).lower())
+
+
 def ingest(reading: dict) -> dict:
     """Store one reading and return {"reading_id", "alerts", "status"}. Raises KeyError if unknown compactor."""
     engine = get_engine()
+    ts_given = reading.get("ts") is not None
     ts = _utc(reading.get("ts"))
+    verified = verify_signature(reading, ts_given, ts)
+    edge = reading.get("edge") or {}
 
     with engine.begin() as conn:
         comp = conn.execute(select(compactors).where(compactors.c.id == reading["compactor_id"])).mappings().first()
@@ -73,8 +101,18 @@ def ingest(reading: dict) -> dict:
             raw = live_lift.build_raw(ts, before, window, _utc(last[0]) if last else None, dict(comp))
             found += ml.check_lift(raw)
 
+        # edge node: proof of origin, and readings that waited in the board's offline buffer
+        if verified is False:
+            found.append({"type": "signature_invalid", "severity": "critical",
+                          "message": "Signature does not match: this reading was changed after the device sent it, "
+                                     "or the device key is wrong. Do not use it as evidence."})
+        if edge.get("from_buffer"):
+            late = (datetime.now(timezone.utc) - ts).total_seconds() / 60
+            found.append({"type": "edge_buffered", "severity": "info",
+                          "message": f"Delivered from the device's offline buffer, {late:.0f} min after it was measured"})
+
         reading_id = conn.execute(
-            insert(readings).values(compactor_id=comp["id"], ts=ts, **new)
+            insert(readings).values(compactor_id=comp["id"], ts=ts, verified=verified, **new)
         ).inserted_primary_key[0]
 
         # --- status ---

@@ -4,6 +4,7 @@ europress/
 # Secrets
 .env
 firmware/compactor_node/include/config.h
+firmware/edge_node/include/config.h
 firmware/**/.pio/
 
 # Python
