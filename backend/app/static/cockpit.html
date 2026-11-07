@@ -82,9 +82,15 @@ function render() {
         <div><span class="act">${esc(r.action.replaceAll("_", " ").toLowerCase())}</span>
           <span class="status ${r.status}">${r.status.toLowerCase()}</span><br>
           <span class="muted">${esc(r.customer_name)} · operator ${esc(r.operator_name)} · contract ${esc(r.contract_id)} · device ${esc(r.device_id)}</span></div>
-        <div class="eur" title="Sum of flagged invoice lines for this device (estimated)">${eur(r.flagged_invoice_eur)} flagged</div>
+        ${r.expected_value_eur != null
+          ? `<div class="eur" title="Expected value of this action (estimate). Proposal values overlap: do not add them up as savings.">EV ${eur(r.expected_value_eur)}<br><span class="muted">range ${eur(r.ev_low_eur)} … ${eur(r.ev_high_eur)}</span></div>`
+          : `<div class="eur" title="Sum of flagged invoice lines for this device (estimated)">${eur(r.flagged_invoice_eur)} flagged</div>`}
       </div>
       <div style="margin-top:6px">${esc(r.rationale)}</div>
+      ${r.calculation ? `<div style="margin-top:4px"><b>Calculation:</b> ${esc(r.calculation)}</div>` : ""}
+      ${r.evidence ? `<div class="muted">Evidence: ${esc(r.evidence)}${r.snapshot_date ? " · data known on " + esc(r.snapshot_date) : ""}</div>` : ""}
+      ${r.uncertainty ? `<div class="muted">${esc(r.uncertainty)}</div>` : ""}
+      ${r.evidence_tag ? `<div class="muted">Tag: ${esc(r.evidence_tag)}</div>` : ""}
       ${r.notice_period_days ? `<div class="muted">Notice period ${r.notice_period_days} days</div>` : ""}
       ${r.decided_by ? `<div class="muted">Last decision: ${esc(r.decision)} by ${esc(r.decided_by)}${r.decision_note ? " — " + esc(r.decision_note) : ""}</div>` : ""}
       <div class="actions">
@@ -115,9 +121,9 @@ async function showEvidence(id) {
   const box = document.getElementById("ev-" + id);
   if (box.innerHTML) { box.innerHTML = ""; return; }
   const d = await (await fetch(`${API}/actions/${encodeURIComponent(id)}/evidence`)).json();
-  box.innerHTML = `<table><tr><th>Date</th><th>Record</th><th>Finding</th><th>Evidence</th><th>€ at stake</th></tr>` +
+  box.innerHTML = `<table><tr><th>Date</th><th>Record</th><th>Finding</th><th>Evidence / calculation</th><th>Likely cause</th><th>€ at stake</th></tr>` +
     d.findings.map(f => `<tr><td>${esc((f.found_at || "").slice(0, 10))}</td><td>${esc(f.entity_type)}<br>${esc(f.entity_id)}</td>
-      <td>${esc(f.explanation)}</td><td>${esc(f.evidence)}</td><td>${eur(f.eur_at_stake)}</td></tr>`).join("") +
+      <td>${esc(f.explanation)}</td><td>${esc(f.calculation || f.evidence)}</td><td>${esc(f.likely_cause || "")}</td><td>${eur(f.eur_at_stake)}</td></tr>`).join("") +
     `</table>` + (d.decision_history.length ? `<div class="muted" style="margin-top:6px">History: ` +
     d.decision_history.map(h => `${esc(h.decision)} by ${esc(h.decided_by)} (${esc(String(h.decided_at).slice(0, 16))})`).join(" → ") + `</div>` : "");
 }

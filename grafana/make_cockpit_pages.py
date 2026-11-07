@@ -139,7 +139,7 @@ Customers **paid** the waste companies the amount on the left and **got money ba
 fw = "customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($problem)"
 findings = page("cockpit-findings", "2 Problems found",
 """### Issues: the same problem on the same compactor, counted once
-Pick a **customer**, **waste company** or **problem** at the top. **Times seen** = on how many lifts or invoice lines it happened. **Found by**: *AI model* (our live lift model) or *rules*.
+Pick a **customer**, **waste company** or **problem** at the top. **Times seen** = on how many lifts or invoice lines it happened. **Found by**: *AI model* or *rules*. **Likely cause**: operator, device, logistics, billing, data entry or normal noise.
 The lower table lists every single record. It is a **difference to check, not an accusation** — the cause can also be a sensor or missing data.""",
 [
     P("How many issues of each problem?", "bargauge",
@@ -148,12 +148,14 @@ The lower table lists every single record. It is a **difference to check, not an
     P("Issues — biggest euros first", "table",
       f"SELECT customer_name AS \"Customer\", site_name AS \"Site\", {PROB} AS \"Problem\", times_seen AS \"Times seen\", "
       f"to_char(last_seen, 'YYYY-MM-DD') AS \"Last seen\", eur_at_stake AS \"Euros\", "
-      f"CASE detected_by WHEN 'live lift model' THEN 'AI model' ELSE 'rules' END AS \"Found by\" "
+      f"CASE WHEN detected_by LIKE '%model%' OR detected_by LIKE '%(ML)%' THEN 'AI model' ELSE 'rules' END AS \"Found by\", "
+      f"initcap(replace(COALESCE(side, ''), '_', ' ')) AS \"Likely cause\" "
       f"FROM cp_issues WHERE {fw} ORDER BY eur_at_stake DESC, times_seen DESC LIMIT 1000",
       8, 3, 16, 13, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Euros", "currencyEUR"),
-          o_width("Times seen", 95), o_width("Last seen", 100), o_width("Euros", 90), o_width("Found by", 90)]}, options=TABLE),
+          o_width("Times seen", 95), o_width("Last seen", 100), o_width("Euros", 90), o_width("Found by", 90), o_width("Likely cause", 110)]}, options=TABLE),
     P("Every single record (one row per lift or invoice line)", "table",
-      f"SELECT to_char(found_at, 'YYYY-MM-DD') AS \"Date\", customer_name AS \"Customer\", {PROB} AS \"Problem\", evidence AS \"What the data shows\", "
+      f"SELECT to_char(found_at, 'YYYY-MM-DD') AS \"Date\", customer_name AS \"Customer\", {PROB} AS \"Problem\", "
+      f"COALESCE(NULLIF(calculation, ''), NULLIF(evidence, ''), explanation) AS \"What the data shows\", likely_cause AS \"Likely cause\", "
       f"eur_at_stake AS \"Euros\", entity_id AS \"Record\" FROM cp_flags WHERE {fw} AND $__timeFilter(found_at) "
       "ORDER BY eur_at_stake DESC NULLS LAST, found_at DESC LIMIT 1000",
       0, 16, 24, 12, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Euros", "currencyEUR"),
@@ -210,7 +212,9 @@ some differences come from sensors or missing data.""",
     P("Details per region", "table",
       "SELECT operator_name AS \"Waste company\", region_code AS \"Region\", round((100 * avg(on_time_rate))::numeric) AS \"On time %\", "
       "round((100 * avg(missed_visit_rate))::numeric, 1) AS \"Missed visits %\", round((100 * avg(weighbridge_shared_7d_rate))::numeric) AS \"Tickets shared %\", "
-      "round(avg(billing_overcharge_pct)::numeric, 1) AS \"Overcharged %\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"Invoice errors %\" "
+      "round(avg(billing_overcharge_pct)::numeric, 1) AS \"Overcharged %\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"Invoice errors %\", "
+      "round(avg(weight_bias_pct) FILTER (WHERE weight_bias_status = 'MEASURED')::numeric, 1) AS \"Weight vs our scale % (measured)\", "
+      "round((100.0 * count(*) FILTER (WHERE weight_bias_status = 'MEASURED') / count(*))::numeric) AS \"Months with weight evidence %\" "
       f"FROM cp_scorecard WHERE {ow} GROUP BY 1, 2 ORDER BY 1, 2", 0, 11, 24, 10, options=TABLE),
 ], [V_OP])
 
@@ -218,19 +222,22 @@ some differences come from sensors or missing data.""",
 aw = "a.customer_name IN ($customer) AND a.operator_name IN ($operator)"
 acts = page("cockpit-actions", "5 Decisions",
 """### What the system proposes — a person decides
-Each row is one proposal for a customer's contract. **Euros** = invoice amounts that differ from the contract. To decide, click **Approve decisions ↗** in the menu:
-open the evidence, then approve or reject with your name. Decisions are saved and can be undone.""",
+Each row is one proposal, decided **only with data known on its decision date**. **Expected €** = chance it works × money × time left − effort (an estimate, with a low–high range).
+Proposal values overlap, so **do not add them up as savings**. To decide, click **Approve decisions ↗** in the menu: open the evidence and calculation, then approve or reject with your name. Decisions are saved and can be undone.""",
 [
     P("Waiting", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND {OPEN}", 0, 3, 6, 4, options=STAT),
     P("Approved", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND d.decision = 'APPROVE'", 6, 3, 6, 4, options=STAT),
     P("Rejected", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND d.decision = 'REJECT'", 12, 3, 6, 4, options=STAT),
-    P("Euros behind waiting proposals", "stat", f"SELECT round(sum(a.flagged_invoice_eur)::numeric) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND {OPEN}",
+    P("Invoice euros behind waiting proposals", "stat", f"SELECT round(sum(a.flagged_invoice_eur)::numeric) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND {OPEN}",
       18, 3, 6, 4, field=EUR, options=STAT),
     P("All proposals (biggest euros first)", "table",
       "SELECT COALESCE(CASE d.decision WHEN 'APPROVE' THEN 'approved' WHEN 'REJECT' THEN 'rejected' END, 'waiting') AS \"Status\", "
-      f"{ACT} AS \"Proposal\", a.customer_name AS \"Customer\", a.operator_name AS \"Waste company\", a.flagged_invoice_eur AS \"Euros\", "
-      f"d.decided_by AS \"Decided by\" FROM cp_actions a {LATEST} WHERE {aw} ORDER BY a.flagged_invoice_eur DESC",
-      0, 7, 24, 18, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Euros", "currencyEUR"), o_width("Status", 100),
+      f"{ACT} AS \"Proposal\", a.customer_name AS \"Customer\", a.operator_name AS \"Waste company\", "
+      f"round(a.expected_value_eur::numeric) AS \"Expected €\", round(a.ev_low_eur::numeric) || ' … ' || round(a.ev_high_eur::numeric) AS \"Range €\", "
+      f"a.flagged_invoice_eur AS \"Invoice € flagged\", a.calculation AS \"Calculation\", "
+      f"d.decided_by AS \"Decided by\" FROM cp_actions a {LATEST} WHERE {aw} ORDER BY a.expected_value_eur DESC NULLS LAST, a.flagged_invoice_eur DESC",
+      0, 7, 24, 18, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Expected €", "currencyEUR"), o_unit("Invoice € flagged", "currencyEUR"), o_width("Status", 100),
+          o_width("Expected €", 100), o_width("Range €", 110), o_width("Invoice € flagged", 120),
           {"matcher": {"id": "byName", "options": "Status"}, "properties": [{"id": "custom.cellOptions", "value": {"type": "color-text"}},
            {"id": "mappings", "value": [{"type": "value", "options": {"waiting": {"color": "orange"}, "approved": {"color": "green"},
                                                                       "rejected": {"color": "red"}}}]}]}]}, options=TABLE),

@@ -1,0 +1,25 @@
+# TEAM PARAMETERS - SMART Service Audit (hypotheses, justified in the business-case doc; synthetic world)
+status: "TEAM HYPOTHESIS (OUTCOME PRICING) - not a Europress price, cost or forecast"
+pricing:
+  price_per_device_month_eur: []
+  price_per_site_month_eur: null
+  share_of_verified_savings_pct: 25
+costs:
+  onboarding_per_customer_eur: 800        # contract + invoice mapping, user set-up
+  onboarding_per_device_eur: 50
+  operating_cost_per_device_month_eur: 4  # cloud, data, model upkeep
+  customer_support_per_customer_month_eur: 40
+adoption:
+  adoption_share_of_eligible_pct: [10, 20, 35]
+  purchase_condition_value_multiple: 3    # a customer buys only if realisable value >= 3x the annual fee
+value_realisation:
+  billing_review: 0.6        # document-backed disputes; published recovery rate 0.9, discounted for false positives
+  over_servicing: 0.3        # hygiene, access and peaks limit fewer lifts
+  contamination: 0.2         # needs behaviour change on site
+  contract_review: 0.3       # needs the operator to agree
+  operator_performance: 0.3  # service-level charges a scorecard can contest
+  operator_tendering: 0.4    # published success 0.5 (renegotiate) / 0.8 (tender) minus notice periods
+future_models:
+  transport_procurement: {enabled: false, discount_on_logistics_pct: null, realisation: null}
+  tonne_based_full_service: {enabled: false, margin_on_customer_spend_pct: null}
+  materials_marketplace: {enabled: false, credit_uplift_eur_per_t: null, realisation: null}

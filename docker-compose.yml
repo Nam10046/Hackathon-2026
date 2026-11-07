@@ -117,7 +117,7 @@ services:
     restart: unless-stopped
 
   analytics:
-    # One-shot job, not started by "up". Run: docker compose run --rm analytics
+    # One-shot job, not started by "up". Run: docker compose run --rm analytics   (audit pipeline if needed + cockpit tables)
     build:
       context: .
       dockerfile: analytics/Dockerfile
@@ -130,6 +130,7 @@ services:
       - ./training:/work/training:ro        # lift features (shared with training)
       - ./backend:/work/backend:ro          # lift_features.py
       - ./models:/work/models:ro            # trained live lift model
+      - ./audit:/work/audit                 # team audit pipeline (Task B / B2 / C2); writes audit/outputs + .snapshots
     depends_on:
       backend:
         condition: service_healthy        # backend creates action_decisions first

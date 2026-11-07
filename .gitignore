@@ -34,3 +34,7 @@ Thumbs.db
 .vscode/
 .idea/
 node_modules/
+
+# team audit pipeline: generated from the dataset (python analytics/run_all.py)
+audit/outputs/
+audit/.snapshots/

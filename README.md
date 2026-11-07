@@ -113,3 +113,18 @@ More: [`CONTRIBUTING.md`](CONTRIBUTING.md) · [`CONTRACT.md`](CONTRACT.md) · [`
 - **Grafana empty:** send a few test readings; check time range (top right).
 - **Backend error:** `docker compose logs backend`
 - **ESP32 can't connect:** same Wi-Fi, correct laptop IP, firewall allows port 1883.
+
+## Team audit pipeline (`audit/`)
+
+Our teammate's analysis code for Task B (problems), B2 (waste-company scorecard) and C2 (contract actions). It works
+only with data known on each decision date (as-of snapshots, with a leakage test) and beats the organisers' baselines
+(B 0.82 vs 0.78, B2 96.3 vs 67.8, C2 regret €12 vs €240). The cockpit reads its outputs.
+
+```powershell
+docker compose run --rm analytics        # runs the audit (≈ 5 min, first time only) and builds the cockpit tables
+# or without Docker:
+pip install -r audit/requirements.txt
+python analytics/run_all.py               # add --refresh to recompute the audit
+python -m pytest audit/tests -q           # 14 tests incl. "no future data"
+```
+Details (Vietnamese): `audit/README.md`. Results: `submission/02_software_demo.md` §6.

@@ -19,7 +19,8 @@ Not legal advice — Europress legal should confirm before commercial use.
 | PyArrow | Parquet reading | Apache-2.0 | none |
 | DuckDB | used by the organisers' engine | MIT | none |
 | PyYAML, pytz, tabulate | engine dependencies | MIT | none |
-| scikit-learn (+ SciPy, joblib, threadpoolctl) | training our lift models and the optional anomaly model | BSD-3-Clause | training only, not shipped in the backend |
+| scikit-learn (+ SciPy, joblib, threadpoolctl) | training our lift models; team audit pipeline (Task B ML) | BSD-3-Clause | not shipped in the backend |
+| Streamlit, Vega-Altair | team audit's optional demo dashboard (`audit/app.py`) | Apache-2.0 · BSD-3-Clause | none |
 | skl2onnx, ONNX (+ protobuf) | exporting the models to ONNX | Apache-2.0 (protobuf: BSD-3-Clause) | training only |
 | ONNX Runtime (+ flatbuffers, sympy, coloredlogs) | running our models in the backend and cockpit build | MIT (flatbuffers: Apache-2.0; sympy: BSD) | none |
 | httpx, pytest | tests only | BSD-3-Clause / MIT | not shipped |

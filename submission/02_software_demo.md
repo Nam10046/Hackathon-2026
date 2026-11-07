@@ -22,7 +22,7 @@ The device's own data (weight, fill, status) plus the customer's own papers (con
  Operator data (if shared) ──► │                                               ▼
  (weighbridge, quality)        └── /cockpit approval page          Grafana "Customer Value Cockpit"
             ┌──────────── BATCH PATH (this demo, Europress dataset) ────────────┐
-            │ analytics/build_cockpit.py → organisers' calculators B1/B2/B5/B6   │
+            │ audit/ (Task B/B2/C2, as-of) + B1 → build_cockpit.py        │
             │ + evidence text + € at stake + evidence tags → cp_* tables         │
             └───────────────────────────────────────────────────────────────────┘
 ```
@@ -36,7 +36,7 @@ what the demo shows with the dataset.
 git clone https://github.com/Nam10046/Hackathon-2026.git ; cd Hackathon-2026
 # unzip the Europress participants package into .\europress\  (git-ignored)
 docker compose up -d --build
-docker compose run --rm analytics          # ≈ 1 min: builds the cockpit from the dataset
+docker compose run --rm analytics          # first time ≈ 5 min: team audit pipeline (Task B/B2/C2) + cockpit tables
 ```
 | Open | What |
 |---|---|
@@ -83,38 +83,59 @@ The cockpit's **Source record** column and the approval page's **Show evidence**
 
 ## 6. Analytical core and honest scores
 
-We **reuse the organisers' transparent calculators** as the core (they are rule-based, explainable and auditable) and add
-the evidence layer, € impact, evidence tags and the human-approval workflow. Scores on the **public validation period**
-(`python baselines/run_all.py competition`):
+Two parts, both reproducible:
+- **Team audit pipeline** (`audit/`, built by our teammate): Task B problems, Task B2 waste-company scorecard and Task C2
+  proposals. Everything is recomputed from **as-of snapshots**: only data published before the decision or report date.
+- **Our live lift model** (`models/lift_*`) for early and late lifts. It uses only what the compactor knows at that
+  moment, so the same model runs live in the backend.
+- Lift costs (Task A) come from the organisers' contract calculator B1.
 
-| Task | Method | Validation result |
-|---|---|---|
-| A — € reconstruction | B1 contract calculator | 96.4 % of net amounts exact to the cent; €/t within 5 % on 97.6 % |
-| B — irregularities | B2 rules (macro-F1) | 0.73 (hybrid ML + rules 0.78) |
-| B2 — operator scorecard | B5 from customer records | 67.8 / 100 |
-| C2 — operator/contract actions | B6 rules | value captured 77 %, mean regret €240 per case (vs €1,064 doing nothing) |
+We re-ran the audit pipeline from scratch on both datasets (7 Nov 2026): every score below came out identical to the
+team's reported numbers. Official evaluator, public labels:
 
-**Our own model — the LIVE LIFT MODEL** (`training/train_lift_model.py`, `models/lift_*`): trained on the dataset's
-train months, threshold chosen on train only, scored on validation with the organisers' scorer:
+| Task | Organisers' baseline | **Ours** | Notes |
+|---|---:|---:|---|
+| A — € per lift, exact to the cent (validation) | 96.4 % (B1) | 96.4 % | we use B1 |
+| **B — problems, macro-F1 (validation)** competition | 0.782 (hybrid ML + rules) | **0.8205** | audit picks ML or rules per problem type (on train months only) + our lift model for early/late lifts (audit alone 0.8201) |
+| B — quickstart | 0.753 (hybrid) · 0.856 (rules) | **0.856** | equal to the rule baseline here: the per-type choice picked rules |
+| **B2 — scorecard 0–100** competition | 67.75 (B5) | **96.28** | final report = month end + 45 days, Helsinki calendar days (DST-safe); preliminary (+15 d): 94.36 |
+| B2 — quickstart | 78.3 | **94.28** | |
+| **C2 — mean regret per case** competition (207 cases) | €240.07, 77.4 % captured (B6) | **€11.82, 98.9 % captured** | decided only with data known on the decision date |
+| C2 — quickstart (7 cases) | €0 (B6) | €17.73, 0 % captured | one renegotiation missed: the July invoice was not issued yet on the decision date. **B6 gets 0 by using later data.** Too few cases to conclude |
 
-| Family | Rule baseline B2 | ML baseline B4 | **Our live model** | Inputs |
-|---|---:|---:|---:|---|
-| PREMATURE_UNJUSTIFIED (F1) | 0.716 | 0.925 | **0.927** | ours: live device data only |
-| — justified lifts wrongly flagged (traps) | 0 | 13 | **8** | |
-| DELAYED_COLLECTION (F1) | 0.773 | 0.919 | **0.922** | |
+**No future data (leakage test).** For every decision date we cut the data the way the dataset's own as-of rules do
+(tickets published, invoices issued, lifts done, contract versions in force), then recompute everything. The test
+corrupts all data published after the cut-off; the decision must not change. On the competition data the earlier
+full-sample method changed **72 of 639** evidence rows (5 decisions); the snapshot method changes **0 of 639**.
+Honest cost: C2 regret rose from €2.31 (leaky) to €11.82, and dispute precision is 0.59, because whether an invoice was
+already disputed is not known on the decision date.
 
-B4 needs the weighbridge weight, cost per tonne and the fill level after the lift — known only after the operator
-weighs and bills. Our model reaches the same accuracy with **only what the compactor knows at the moment of the lift**
-(fill, weight, hours full, fill speed, time since last lift, hygiene limit, weekday, material), so it runs **live**
-in the backend (ONNX) and warns before the invoice arrives. Tested end-to-end: an early lift and a late lift sent as
-live readings each raise the right alert.
+**Label use.** Task B: train-period labels only (to fit the ML and to choose ML vs rules per type, on a 2/3–1/3 time split
+of train). B2 and C2: fixed rules, nothing fitted on labels. Validation/dev labels: scoring only.
 
-**Why rules first:** every proposal can be explained in one sentence and checked against a row. The ML option
-(`models/` folder, ONNX) is plugged in as a *second opinion* (`ml_anomaly`), never as the only reason for an action.
+**Bugs found and fixed along the way** (team audit): future data in tare/B1/flags; "any invoice that day" cleared
+forgotten-invoice flags (now one-to-one typo match, ambiguous → NEEDS_REVIEW); weight bias shown as 0 % without evidence
+(now MEASURED / MODEL_ESTIMATE / UNVERIFIABLE + coverage); €/t mixing in unknown-mass costs; report date off by one day,
+then a DST shift; approvals keyed by row index (now dataset + case + action); in-process snapshot cache; typo'd job
+references not resolved in the euro calculation (49/116 weight-basis lines counted in full).
+Merging into our cockpit we also fixed: invoice-line findings had no site or waste company (now via invoice → contract).
 
-**Known gaps we would close next** (organisers' failure list): precautionary customer orders before weekends and
-false-high fill sensors on on-call devices (missed by B2), drift vs outdated-tare separation, overflow risk when reducing
-frequency, and using weighbridge instead of invoice tonnage for repricing.
+**Our live lift model** (`training/train_lift_model.py`, `models/lift_*`): train months only, scored on validation:
+
+| Problem type | Rules B2 | ML B4 | Audit choice | **Our live model** |
+|---|---:|---:|---:|---:|
+| Emptied too early (F1) | 0.716 | 0.925 | 0.925 | **0.927** |
+| — justified lifts wrongly flagged | 0 | 13 | 13 | **8** |
+| Emptied too late (F1) | 0.773 | 0.919 | 0.919 | **0.922** |
+
+B4 needs the weighbridge weight and the invoice, which arrive days later. Our model gets the same accuracy from
+**only what the compactor knows at the lift**, so it runs live (accuracy on live data: Part 6).
+
+**Every number carries a tag** (observed / estimated / hypothetical), every finding a plain-language calculation and a
+likely cause (operator, device, logistics, billing, data entry or normal noise; checked on **train** labels: 82 % right
+cause, 85 % right side), and every proposal an expected value with a low–high range, e.g.
+*EV = acceptance chance 0.5 × annual gap to peer-median terms €465 − effort €150 = €82.59 (range −€10 … €176)*.
+**Proposal values overlap: they are not savings to add up.**
 
 ## 7. SMART integration pathway
 

@@ -241,7 +241,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT operator_name AS \"Waste company\", region_code AS \"Region\", round((100 * avg(on_time_rate))::numeric) AS \"On time %\", round((100 * avg(missed_visit_rate))::numeric, 1) AS \"Missed visits %\", round((100 * avg(weighbridge_shared_7d_rate))::numeric) AS \"Tickets shared %\", round(avg(billing_overcharge_pct)::numeric, 1) AS \"Overcharged %\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"Invoice errors %\" FROM cp_scorecard WHERE operator_name IN ($operator) GROUP BY 1, 2 ORDER BY 1, 2"
+          "rawSql": "SELECT operator_name AS \"Waste company\", region_code AS \"Region\", round((100 * avg(on_time_rate))::numeric) AS \"On time %\", round((100 * avg(missed_visit_rate))::numeric, 1) AS \"Missed visits %\", round((100 * avg(weighbridge_shared_7d_rate))::numeric) AS \"Tickets shared %\", round(avg(billing_overcharge_pct)::numeric, 1) AS \"Overcharged %\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"Invoice errors %\", round(avg(weight_bias_pct) FILTER (WHERE weight_bias_status = 'MEASURED')::numeric, 1) AS \"Weight vs our scale % (measured)\", round((100.0 * count(*) FILTER (WHERE weight_bias_status = 'MEASURED') / count(*))::numeric) AS \"Months with weight evidence %\" FROM cp_scorecard WHERE operator_name IN ($operator) GROUP BY 1, 2 ORDER BY 1, 2"
         }
       ],
       "fieldConfig": {

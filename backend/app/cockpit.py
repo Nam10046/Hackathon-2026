@@ -32,6 +32,10 @@ def _ready() -> bool:
     return inspect(get_engine()).has_table("cp_actions")
 
 
+def _has_col(col: str, table: str = "cp_actions") -> bool:
+    return col in {c["name"] for c in inspect(get_engine()).get_columns(table)}
+
+
 class DecisionIn(BaseModel):
     decision: Literal["APPROVE", "REJECT", "REVERT"]
     decided_by: str = Field(min_length=1, max_length=80)
@@ -48,7 +52,9 @@ def list_actions(status: str | None = None, limit: int = 300):
     if not _ready():
         return []
     with get_engine().connect() as conn:
-        rows = [dict(r) for r in conn.execute(text(LATEST + " ORDER BY a.flagged_invoice_eur DESC")).mappings()]
+        order = " ORDER BY COALESCE(a.expected_value_eur, 0) DESC, a.flagged_invoice_eur DESC" if _has_col("expected_value_eur") \
+            else " ORDER BY a.flagged_invoice_eur DESC"
+        rows = [dict(r) for r in conn.execute(text(LATEST + order)).mappings()]
     for r in rows:
         r["status"] = _status(r)
     if status:
@@ -65,8 +71,9 @@ def evidence(action_id: str, limit: int = 25):
         act = conn.execute(text("SELECT * FROM cp_actions WHERE action_id = :a"), {"a": action_id}).mappings().first()
         if act is None:
             raise HTTPException(404, f"Unknown action '{action_id}'")
+        extra = ", calculation, likely_cause" if _has_col("likely_cause", "cp_flags") else ""
         flags = conn.execute(text(
-            "SELECT entity_type, entity_id, label_family, found_at, explanation, evidence, eur_at_stake, evidence_tag "
+            "SELECT entity_type, entity_id, label_family, found_at, explanation, evidence, eur_at_stake, evidence_tag" + extra + " "
             "FROM cp_flags WHERE device_id = :d "
             # invoice findings first for invoice actions, then the biggest euro impact
             "ORDER BY CASE WHEN :inv AND entity_type = 'invoice_line' THEN 0 ELSE 1 END, eur_at_stake DESC, found_at DESC LIMIT :n"),

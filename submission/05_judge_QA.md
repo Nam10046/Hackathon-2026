@@ -55,25 +55,34 @@ It is a **test world** built on purpose with 38 types of problems so teams have 
 calibrated to real life (Europress's documentation says so). Also, one wrong setting repeats on every lift, so we group:
 **12,313 single records → 1,896 issues** (same problem on the same compactor counted once).
 
-**9. Is your AI better than Europress's baseline?**
-For early and late lifts, on 2 months the model never saw, scored with **their** scorer:
+**9. Is your analysis better than Europress's baselines?**
+Yes, on every scored task, with **their** evaluator (we re-ran everything and got identical numbers):
 
-| | Their rules | Their ML | **Our model** |
-|---|---|---|---|
-| Emptied too early (F1) | 0.72 | 0.93 | **0.93** |
-| Justified lifts wrongly flagged | 0 | 13 | **8** |
-| Emptied too late (F1) | 0.77 | 0.92 | **0.92** |
+| | Their baseline | **Ours** |
+|---|---:|---:|
+| Finding problems (Task B, F1) | 0.782 | **0.82** |
+| Waste-company scorecard (B2, 0–100) | 67.75 | **96.28** |
+| Contract actions (C2, money lost per case) | €240 | **€12** (98.9 % of the possible value) |
 
-Much better than their rules, **as good as their ML** — but their ML needs the truck weight and the invoice, which
-arrive days later. **Ours uses only what the compactor knows at that moment**, so it can warn **live**.
+For early/late lifts our live model is as good as their ML, but it needs only what the compactor knows at that moment,
+so it can warn **live**, before the invoice. On the small quickstart dataset we beat the hybrid baseline but only
+**equal** the simple rules (0.856), and C2 has only 7 cases there, so we do not claim it works equally everywhere.
 
 **10. How many of your alarms are wrong?**
-On the validation months: about **6 % of "too early" and 10 % of "too late" alarms are wrong** (precision 0.94 / 0.90).
-That is why nothing happens automatically — a person checks the evidence first.
+Early/late lifts: about **6 % and 10 %** of alarms are wrong (precision 0.94 / 0.90). "Dispute this invoice" proposals:
+**41 %** are not confirmed (precision 0.59), because on the decision date you cannot yet see whether an invoice was
+already disputed. That is why nothing happens automatically: a person checks the evidence first.
 
-**11. Did you cheat by training on the test data?**
-No. Trained on the training months only, alarm threshold also chosen on training months, scored on the validation
-months. The organisers' test months were never used.
+**11. Did you cheat by using the answers or the future?**
+No, and we test it. **Answers:** only train-month labels are used, to fit the ML and to choose ML or rules per problem type.
+Validation labels are only for scoring. **Future:** every decision and every monthly report is computed from a snapshot
+of the data known on that date. A test deliberately corrupts everything published later, and the outputs do not change:
+**0 of 639** evidence rows change (an earlier version changed 72). Being honest cost us: the regret rose from €2.31 to €11.82.
+
+**11b. Why is a difference not an accusation?**
+Every finding gets a likely cause: **operator** (e.g. a stale stored truck tare), **device** (sensor), **logistics** (side
+waste, shared truck), **billing**, **data entry** (typo'd job reference) or **normal noise**. Checked on train labels it picks
+the right side 85 % of the time. Example: **238 of 313** "never invoiced" alarms (76 %) were really invoice lines with a typo in the job reference.
 
 **12. How do you compute € per tonne when the weight is missing?**
 Weight source order: truck ticket → invoice tonnes → our device → **none**. If there is no weight, we show **no €/t**

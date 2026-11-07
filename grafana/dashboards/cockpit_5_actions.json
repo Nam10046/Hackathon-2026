@@ -46,7 +46,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### What the system proposes — a person decides\nEach row is one proposal for a customer's contract. **Euros** = invoice amounts that differ from the contract. To decide, click **Approve decisions ↗** in the menu:\nopen the evidence, then approve or reject with your name. Decisions are saved and can be undone."
+        "content": "### What the system proposes — a person decides\nEach row is one proposal, decided **only with data known on its decision date**. **Expected €** = chance it works × money × time left − effort (an estimate, with a low–high range).\nProposal values overlap, so **do not add them up as savings**. To decide, click **Approve decisions ↗** in the menu: open the evidence and calculation, then approve or reject with your name. Decisions are saved and can be undone."
       }
     },
     {
@@ -191,7 +191,7 @@
       "id": 3
     },
     {
-      "title": "Euros behind waiting proposals",
+      "title": "Invoice euros behind waiting proposals",
       "description": "",
       "type": "stat",
       "datasource": {
@@ -268,7 +268,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT COALESCE(CASE d.decision WHEN 'APPROVE' THEN 'approved' WHEN 'REJECT' THEN 'rejected' END, 'waiting') AS \"Status\", CASE a.action WHEN 'DISPUTE_INVOICE' THEN 'Ask the operator to correct the invoice' WHEN 'REQUEST_WEIGHBRIDGE_DATA' THEN 'Ask for the weight tickets' WHEN 'RENEGOTIATE_CONTRACT' THEN 'Renegotiate the price' WHEN 'TENDER_OR_SWITCH_OPERATOR' THEN 'Get offers from other waste companies' ELSE a.action END AS \"Proposal\", a.customer_name AS \"Customer\", a.operator_name AS \"Waste company\", a.flagged_invoice_eur AS \"Euros\", d.decided_by AS \"Decided by\" FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE a.customer_name IN ($customer) AND a.operator_name IN ($operator) ORDER BY a.flagged_invoice_eur DESC"
+          "rawSql": "SELECT COALESCE(CASE d.decision WHEN 'APPROVE' THEN 'approved' WHEN 'REJECT' THEN 'rejected' END, 'waiting') AS \"Status\", CASE a.action WHEN 'DISPUTE_INVOICE' THEN 'Ask the operator to correct the invoice' WHEN 'REQUEST_WEIGHBRIDGE_DATA' THEN 'Ask for the weight tickets' WHEN 'RENEGOTIATE_CONTRACT' THEN 'Renegotiate the price' WHEN 'TENDER_OR_SWITCH_OPERATOR' THEN 'Get offers from other waste companies' ELSE a.action END AS \"Proposal\", a.customer_name AS \"Customer\", a.operator_name AS \"Waste company\", round(a.expected_value_eur::numeric) AS \"Expected €\", round(a.ev_low_eur::numeric) || ' … ' || round(a.ev_high_eur::numeric) AS \"Range €\", a.flagged_invoice_eur AS \"Invoice € flagged\", a.calculation AS \"Calculation\", d.decided_by AS \"Decided by\" FROM cp_actions a LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id WHERE a.customer_name IN ($customer) AND a.operator_name IN ($operator) ORDER BY a.expected_value_eur DESC NULLS LAST, a.flagged_invoice_eur DESC"
         }
       ],
       "fieldConfig": {
@@ -281,7 +281,19 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Euros"
+              "options": "Expected €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Invoice € flagged"
             },
             "properties": [
               {
@@ -299,6 +311,42 @@
               {
                 "id": "custom.width",
                 "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Expected €"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Range €"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 110
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Invoice € flagged"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 120
               }
             ]
           },

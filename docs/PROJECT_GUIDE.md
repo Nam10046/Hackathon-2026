@@ -102,24 +102,25 @@ A **fake but realistic world**: ~500 compactors, 52 customers, 5 waste companies
 | `invoices`, `invoice_lines` | the bills the customer received |
 | `labels_dev` | the "answers" for learning and self-testing |
 
-### 2.3 The analytics job (`analytics/build_cockpit.py`)
-**What it does:** reads the whole dataset, finds problems, and writes the results into our database. Takes ~30 seconds.
-Run: `docker compose run --rm analytics`.
+### 2.3 The analytics job (`analytics/run_all.py`)
+**What it does:** reads the whole dataset, finds problems, and writes the results into our database.
+Run: `docker compose run --rm analytics` (first time ≈ 5 min, then ≈ 1 min).
 
-It uses Europress's own calculators (called **baselines**) and adds our layer on top:
+Two steps:
+1. **Team audit pipeline** (`audit/`, our teammate's code): answers the three scored questions, using **only data that was
+   already known on each date** (no "peeking at tomorrow's newspaper").
+2. **`analytics/build_cockpit.py`**: adds our live lift model, cost per lift, names and euros, and writes the cockpit tables.
 
-| Step | Calculator | In simple words | Output table |
+| Question | Who answers it | Score (ours vs Europress's example answer) | Output table |
 |---|---|---|---|
-| 1 | B1 | "What *should* each lift cost under the contract?" + cost per tonne | `cp_collections` |
-| 2 | B2 | "Which lifts or bill lines look wrong?" (13 kinds of problems) | `cp_flags` |
-| 3 | B5 | "How well does each waste company perform?" | `cp_scorecard` |
-| 4 | B6 | "What should the customer do?" (dispute, ask for data, renegotiate, change company) | `cp_actions` |
-| **Ours** | — | plain-language explanation, evidence, **€ at stake**, evidence tag | all tables |
+| "What *should* each lift cost?" (Task A) | B1 (Europress's calculator) | 96.4 % exact to the cent | `cp_collections` |
+| "Which lifts or bill lines look wrong?" (Task B) | audit + our lift model | **0.82** vs 0.78 | `cp_flags`, `cp_issues` |
+| "How good is each waste company?" (Task B2) | audit | **96.3** vs 67.8 / 100 | `cp_scorecard` |
+| "What should the customer do?" (Task C2) | audit | **€12** vs €240 lost per case | `cp_actions` |
 
-**Evidence tags** (the judges' rubric asks for this): every number is marked
-**OBSERVED** (from a real record), **ESTIMATED** (our calculation or the device), or **HYPOTHETICAL** (an assumed price).
-
-👉 *Honest note:* most problem-finding is still Europress's baseline — **except lift problems**, where we trained our own model (next section).
+Every finding has a **plain-language calculation**, a **likely cause** (operator, device, logistics, billing, data entry,
+normal noise) and an **evidence tag** (observed / estimated / hypothetical). Every proposal has an **expected value with a
+low–high range**. If `audit/outputs/` is missing, the job falls back to Europress's example answers (B2/B5/B6) and says so.
 
 ### 2.3b Our own AI model — the live lift model (`training/train_lift_model.py`)
 - **What it learns:** from ~10,700 lifts in the training months, it learns what an **unnecessary early lift** and a
@@ -227,7 +228,8 @@ Important ones to know:
 ## 5. How to run everything (cheat sheet)
 ```powershell
 docker compose up -d --build            # start the server
-docker compose run --rm analytics       # load the Europress year into the cockpit
+docker compose run --rm analytics       # audit pipeline (first time ≈ 5 min) + load the Europress year into the cockpit
+python -m pytest audit/tests -q          # teammate's tests, incl. "no future data"
 ```
 | Open | What |
 |---|---|

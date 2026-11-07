@@ -1,0 +1,4 @@
+price_per_device_month_eur,price_per_site_month_eur,adoption_pct_of_eligible,eligible_customers,adopting_customers_expected,devices_expected,annual_revenue_eur,annual_operating_cost_eur,one_off_onboarding_eur,year1_contribution_eur
+,,10,52,5.2,44.7,0.0,4642.0,6395.0,-11037.0
+,,20,52,10.4,89.4,0.0,9283.0,12790.0,-22073.0
+,,35,52,18.2,156.4,0.0,16246.0,22382.0,-38628.0
