@@ -16,16 +16,23 @@ belong to the customer's compactor, so the weight is **independent**.
 
 **2. How accurate is it? How do you know?**
 We did not guess. We used Europress's own tool on 10,342 real-looking loads: we need **σ ≤ 1.5 % of the load**
-(about ±45 kg on 3 t). Then 98 % of loads are within ±100 kg and we catch 95 % of invoices that charge 10 % too much.
-**Not yet proven on real hardware** — that is what our bench test and 8-week pilot are for (Part 1 §6).
+(about ±45 kg on 3 t). Then 98 % of loads are within ±100 kg and we catch 95 % of invoices that charge 10 % too much. Our error budget gives
+**σ ≈ 1.1 % in normal conditions, but 2.2 % in a pessimistic case — then only 87.5 % of loads are within ±100 kg, below
+the 95 % target.** We say so openly; the pilot must show the mechanics and the tare register are good enough (Part 1 §6, §11).
 
 **3. What does it cost? Can old compactors get it?**
-Estimated **€370–920 hardware per compactor** (target under €500 at volume), 2–3 hours to install, bolt-on, and it uses
-the SMART connection that is already there. These are catalogue-level estimates, not supplier quotes.
+**Factory-fit ≈ €1,360–3,350**, **retrofit ≈ €3,070–7,160 installed** (1 day, 2 technicians) — from public list prices,
+not quotes. That is ≈ €22–43 (factory) or €40–83 (retrofit) per device per month over 8 years. It uses 4 × 10 t
+industrial load cells with overload stops, because a hooklift pick-up loads each rear cell to about 10 t.
+
+**3b. DUO containers are swapped — how do you know the empty weight?**
+Every container has an **RFID tag**; its empty weight is in a **tare register**. We only update it when a known container
+comes back **verified empty** (emptying done, fill < 5 %, weight within ±30 kg). Heavier → "residue" flag, no update.
+Unknown container → the weight is marked **estimate**, never "measured". The scale is zeroed only when the frame is empty.
 
 **4. What about snow, rain, ice or frozen waste?**
-We weigh only at rest. After every emptying the scale must read about zero — if not, we raise a warning (residue, ice,
-drift). The press's oil pressure and the fill level are a second opinion: if the weight goes up but they don't, it is
+We weigh only at rest. When the frame is empty the scale must read about zero; if not, we raise a warning (ice, debris,
+damaged cell) instead of re-zeroing. A returned container heavier than its registered empty weight → "residue" flag. The press's oil pressure and the fill level are a second opinion: if the weight goes up but they don't, it is
 probably snow on the lid, not waste.
 
 **5. What if the waste company never shares its weighbridge tickets?**
@@ -99,6 +106,12 @@ early-lift F1 from 0.84 to 0.90 in our test.
 ---
 
 ## C. Customer and business value (25 % + 10 %)
+
+**C0. Does the weighing hardware pay for itself?**
+Not everywhere, and we show where. Median value is ≈ **€40 per device per month**; hardware is €22–43 (factory-fit) or
+€40–83 (retrofit) per month. So: factory-fit pays back in **2.5–6 years for 16+ device fleets**, not for small fleets.
+Our plan: start everyone on the **invoice/contract check without hardware**, offer weighing as a **factory option**
+for large fleets, and retrofit only the devices with the highest value (the cockpit ranks them). Part 3 §4b.
 
 **14. Why would a customer pay?**
 In the test world, realistic savings are about **€787 per compactor per year** (6.8 % of what customers spend).

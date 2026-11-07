@@ -58,9 +58,11 @@ loads from the dataset with different accuracies and tells us what each accuracy
 Our choice: **A + C + smart software.**
 
 ### 1.3 Where it goes and what it costs
-- 4 sensors under the container rails (DUO type) or under the feet (COMBI type). Picture: `submission/img/weighing_concept.png`.
+- 4 × 10 t industrial load cells under the docking frame (DUO) or in a ground weigh frame (COMBI), with overload stops. Picture: `submission/img/weighing_concept.png`.
+- Each container has an RFID tag; its empty weight comes from a tare register (no blind re-zeroing).
 - Data goes through the **SMART controller that is already in the compactor** → no new modem.
-- Hardware ≈ **€370–920** per compactor (target under €500), installation ≈ 2–3 hours. *These are estimates.*
+- Hardware ≈ **€1,360–3,350 factory-fit** or **€3,070–7,160 retrofit installed** (1 day). *Estimates from list prices; numbers in `submission/weighing_calc.py`.*
+- Accuracy: ≈ 1.1 % normally, 2.2 % in a bad case (then it misses the ±100 kg target — we say so).
 
 ### 1.4 Calibration = keeping the scale honest (3 layers)
 1. **At installation:** put known weights on it (e.g. a 1,000 kg water tank).

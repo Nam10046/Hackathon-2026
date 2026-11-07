@@ -48,15 +48,15 @@ Annualised, summed over the 52 customers — **estimated** from observed records
 ## 4. Pricing — derived from customer value, with sensitivity
 
 Rule: a customer buys only if realisable value ≥ **3 ×** the yearly fee (hypothetical buying rule).
-Costs (hypothetical): kit amortised over 60 months + cloud + calibration checks = €9 / device / month; onboarding
-€600 / customer + €200 / device; support €40 / customer / month.
+Costs (hypothetical): the weighing hardware is **bought separately** (§4b). The subscription covers data/cloud ≈ €2 +
+a yearly scale check ≈ €8 = **€10 / device / month**; onboarding €600 / customer + €200 / device; support €40 / customer / month.
 
 | Price € / device / month | Eligible customers (value ≥ 3× fee) | Adoption | Devices | Revenue € / yr | Op. cost € / yr | Year-1 contribution € |
 |---:|---:|---:|---:|---:|---:|---:|
-| 15 | 24 | 25 % | 67 | 31,054 | 10,116 | 3,938 |
-| **25** | **17** | **25 %** | **41** | **26,095** | **6,441** | **8,954** |
-| 25 | 17 | 40 % | 65 | 41,751 | 10,306 | 14,326 |
-| 39 | 9 | 25 % | 18 | 16,262 | 3,051 | 8,211 |
+| 15 | 24 | 25 % | 67 | 31,054 | 10,920 | 3,134 |
+| **25** | **17** | **25 %** | **41** | **26,095** | **6,930** | **8,465** |
+| 25 | 17 | 40 % | 65 | 41,751 | 11,088 | 13,543 |
+| 39 | 9 | 25 % | 18 | 16,262 | 3,270 | 7,992 |
 
 *(Full grid: 3 prices × 3 adoption levels in `business_case_out/business_case_scenarios.csv`.)*
 
@@ -70,11 +70,41 @@ Costs (hypothetical): kit amortised over 60 months + cloud + calibration checks 
 human approved *and* the operator confirmed (e.g. a credited invoice line). The fee aligns Europress with the
 customer and keeps the entry price low.
 
+## 4b. Who pays for the weighing hardware? (checked against Part 1 §7)
+
+Real weighing hardware costs **€1,360–3,350 factory-fit** or **€3,070–7,160 retrofit installed**, i.e. ≈ €22–43 or
+€40–83 per device per month over 8 years. The median **realisable value is ≈ €40 per device per month** (€485 / year),
+so hardware cannot simply be hidden in a €25 fee:
+
+| If the hardware is inside the monthly fee (all-in) | €30 | €45 | €60 |
+|---|---:|---:|---:|
+| Eligible customers (value ≥ 3× fee) | 14 | 6 | 2 |
+| Year-1 contribution at 25 % adoption | €291 | €3,260 | €2,398 |
+
+**Customer payback if the customer buys the kit** (median value per device, after the €25 / month fee):
+
+| Fleet | Value / device / year | Factory-fit payback | Retrofit payback |
+|---|---:|---:|---:|
+| 16+ devices | €838 | **2.5–6 years** | 6–13 years |
+| 6–15 devices | €482 | 7–18 years | 17–39 years |
+| 2–5 devices | €410 | 12–30 years | 28–65 years |
+
+*(From `business_case_out/business_case_customers.csv`: realisable value ÷ devices, median per segment. Synthetic data.)*
+
+**What this changes in our proposal**
+1. **Start without hardware.** The invoice and contract check (the €15 tier) works on contracts and invoices alone.
+   It is the entry product for everyone.
+2. **Weighing as a factory option on new units**, offered first to large fleets (16+ devices), where it pays back in a
+   few years.
+3. **Retrofit only for the top devices.** Some devices carry €1,500–2,600 of value per year. The cockpit ranks devices by
+   value, so Europress can retrofit exactly those, as a project sale.
+4. **Not for small fleets yet.** For 2–5 devices the hardware does not pay back at today's estimated prices.
+
 ## 5. Commercial model for Europress
 
 | Model | Status | Note |
 |---|---|---|
-| Weighing kit sold with new compactors / as a retrofit | near-term | hardware margin + installation |
+| Weighing kit: **factory option** on new units; **retrofit project** for the highest-value devices (§4b) | near-term | hardware margin + installation; not for small fleets |
 | **SMART Weight Verified subscription** (above) | **near-term, our main proposal** | recurring software revenue on the installed base |
 | Success fee on confirmed savings | near-term option | only with human approval + operator confirmation |
 | Operator tendering as a service | mid-term **hypothesis** | uses the neutral scorecard |

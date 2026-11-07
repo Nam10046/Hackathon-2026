@@ -61,12 +61,14 @@ The Europress package itself has no separate licence file; we use it under the h
 | Assumption | Type | Where |
 |---|---|---|
 | Accuracy target σ ≤ 1.5 % of load | derived from simulated value analysis | Part 1 §1 |
-| Component costs (€370–920 hardware) | estimate, catalogue-level ranges | Part 1 §3 |
+| Hardware cost: factory-fit €1,360–3,350, retrofit €3,070–7,160 installed | estimate from public list prices (not quotes) | Part 1 §7, `weighing_calc.py` |
+| Container 4.5 t empty, ≤ 10 t material, 20 t hooklift, 65/35 end and 55/45 side load share | values from similar units + dataset p95 | Part 1 §4 |
+| Error terms (mechanics 0.35–0.6 % of gross, tare register 15–35 kg, …) | engineering estimates | Part 1 §6 |
 | Weighbridge tickets are shared by some operators | dataset assumption | self-calibration layer 3 |
 | Prices, tariffs, credits | **hypothetical** customer–operator terms (synthetic) | whole dataset |
 | Realisation shares 20–60 %, buying rule value ≥ 3× fee | **hypothetical** team parameters | Part 3 §3–4 |
 | Service price €15 / €25 / €39 per device per month, success fee 20 % | **hypothetical** | Part 3 §4 |
-| Operating cost €9 / device / month, onboarding €600 + €200 / device | estimate | Part 3 §4 |
+| Subscription cost €10 / device / month (cloud + yearly scale check; hardware bought separately), onboarding €600 + €200 / device | estimate | Part 3 §4, §4b |
 
 ## What remains untested
 

@@ -1,6 +1,6 @@
 # Business case (team parameters)
 
-Data: `data/competition/public` (Europress engine v1.0.1). Parameters: `submission/business_case_params.yaml` (status: TEAM HYPOTHESIS - synthetic-world estimate).
+Data: `/sessions/rcw-01qux2kpzhukrkrupwbv4jfq/mnt/hackathon-2026/europress/Europress_SMART_Material_Value_Engine_v1.0.1/data/competition/public`. Parameters: `/tmp/bc/params_A.yaml` (status: TEAM HYPOTHESIS - synthetic-world estimate).
 **Every number is a synthetic-world estimate under the team's own hypothetical parameters; it is not market evidence, not a Europress price or cost and not a demonstrated saving.** Europress is currently not a party to waste transport or treatment; tariffs, processing fees and material credits are agreed between the customer and the waste operator.
 
 ## Identified value by lever (sum over customers, annualised, before realisation)
@@ -26,15 +26,15 @@ Data: `data/competition/public` (Europress engine v1.0.1). Parameters: `submissi
 
 |   price_per_device_month_eur | price_per_site_month_eur   |   adoption_pct_of_eligible |   eligible_customers |   adopting_customers_expected |   devices_expected |   annual_revenue_eur |   annual_operating_cost_eur |   one_off_onboarding_eur |   year1_contribution_eur |
 |-----------------------------:|:---------------------------|---------------------------:|---------------------:|------------------------------:|-------------------:|---------------------:|----------------------------:|-------------------------:|-------------------------:|
-|                           15 |                            |                         10 |                   24 |                           2.4 |               26.8 |                12422 |                        4046 |                     6800 |                     1575 |
-|                           15 |                            |                         25 |                   24 |                           6   |               67   |                31054 |                       10116 |                    17000 |                     3938 |
-|                           15 |                            |                         40 |                   24 |                           9.6 |              107.2 |                49687 |                       16186 |                    27200 |                     6301 |
-|                           25 |                            |                         10 |                   17 |                           1.7 |               16.3 |                10438 |                        2576 |                     4280 |                     3581 |
-|                           25 |                            |                         25 |                   17 |                           4.2 |               40.8 |                26095 |                        6441 |                    10700 |                     8954 |
-|                           25 |                            |                         40 |                   17 |                           6.8 |               65.2 |                41751 |                       10306 |                    17120 |                    14326 |
-|                           39 |                            |                         10 |                    9 |                           0.9 |                7.3 |                 6505 |                        1220 |                     2000 |                     3284 |
-|                           39 |                            |                         25 |                    9 |                           2.2 |               18.2 |                16262 |                        3051 |                     5000 |                     8211 |
-|                           39 |                            |                         40 |                    9 |                           3.6 |               29.2 |                26020 |                        4882 |                     8000 |                    13138 |
+|                           15 |                            |                         10 |                   24 |                           2.4 |               26.8 |                12422 |                        4368 |                     6800 |                     1254 |
+|                           15 |                            |                         25 |                   24 |                           6   |               67   |                31054 |                       10920 |                    17000 |                     3134 |
+|                           15 |                            |                         40 |                   24 |                           9.6 |              107.2 |                49687 |                       17472 |                    27200 |                     5015 |
+|                           25 |                            |                         10 |                   17 |                           1.7 |               16.3 |                10438 |                        2772 |                     4280 |                     3386 |
+|                           25 |                            |                         25 |                   17 |                           4.2 |               40.8 |                26095 |                        6930 |                    10700 |                     8465 |
+|                           25 |                            |                         40 |                   17 |                           6.8 |               65.2 |                41751 |                       11088 |                    17120 |                    13543 |
+|                           39 |                            |                         10 |                    9 |                           0.9 |                7.3 |                 6505 |                        1308 |                     2000 |                     3197 |
+|                           39 |                            |                         25 |                    9 |                           2.2 |               18.2 |                16262 |                        3270 |                     5000 |                     7992 |
+|                           39 |                            |                         40 |                    9 |                           3.6 |               29.2 |                26020 |                        5232 |                     8000 |                    12788 |
 
 ## What remains unproven
 

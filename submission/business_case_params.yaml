@@ -9,8 +9,8 @@ pricing:
   share_of_verified_savings_pct: 20     # optional success fee, only on savings a human approved and the operator confirmed
 costs:
   onboarding_per_customer_eur: 600      # contract + invoice upload, approval workflow setup (≈1 day)
-  onboarding_per_device_eur: 200        # weighing kit install + 2-point calibration (≈2 h on site)
-  operating_cost_per_device_month_eur: 9  # kit amortised over 60 months (~5 EUR) + data/cloud (~2) + calibration checks (~2)
+  onboarding_per_device_eur: 200        # software setup, contract/invoice upload per device, RFID tare register (hardware itself is bought separately, Part 1 §7)
+  operating_cost_per_device_month_eur: 10  # data/cloud (~2) + yearly scale check/service (~8, €100/yr). Weighing hardware NOT included: sold as a factory option or retrofit project (Part 1 §7)
   customer_support_per_customer_month_eur: 40
 adoption:
   adoption_share_of_eligible_pct: [10, 25, 40]
