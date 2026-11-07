@@ -202,14 +202,23 @@ p["options"] = {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "value
 p["fieldConfig"]["overrides"] = [{"matcher": {"id": "byName", "options": k}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": v}}]}
                                  for k, v in LABEL_COLORS.items()]
 pg.y += 9
+pg._add({"type": "text", "title": "Rate the waste company — a person answers: truck on time? weighbridge ticket on time?",
+         "gridPos": {"x": 0, "y": pg.y, "w": 24, "h": 13},
+         "options": {"mode": "html", "content": f'<iframe src="{API_URL}/rate" title="Rate the waste company" '
+                                                f'style="width:100%;height:440px;border:0;display:block"></iframe>'}}, 24, 13)
+pg.y += 13
+YES_NO = "CASE {} WHEN TRUE THEN 'yes' WHEN FALSE THEN 'no' ELSE '–' END"
 p = pg.panel("table", "All pickups", 0, pg.y, 24, 11,
              f"SELECT p.id AS \"#\", p.done_at AS \"Emptied\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", "
              f"p.kind AS \"Who\", p.load_before_pct AS \"Load %\", p.kg_collected AS \"kg\", p.wait_hours AS \"Wait (site h)\", "
              f"p.full_hours AS \"Full for (site h)\", {LABEL_SQL.replace('verdict', 'p.verdict')} AS \"Verdict\", p.verdict_reason AS \"Why\", "
-             f"round((-{TOTAL})::numeric, 2) AS \"Net €\" "
+             f"round((-{TOTAL})::numeric, 2) AS \"Net €\", {YES_NO.format('p.truck_on_time')} AS \"Truck on time\", "
+             f"{YES_NO.format('p.weighbridge_on_time')} AS \"Weighbridge on time\" "
              f"FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material "
              f"WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY p.done_at DESC")
 p["fieldConfig"]["overrides"] = [color_col("Verdict", LABEL_COLORS),
+                                 color_col("Truck on time", {"yes": "green", "no": "red"}),
+                                 color_col("Weighbridge on time", {"yes": "green", "no": "red"}),
                                  {"matcher": {"id": "byName", "options": "Why"}, "properties": [{"id": "custom.width", "value": 330}]}]
 pg.y += 11
 pg.text("**Rules:** Full 2h+ (too late) = full (≥ 98 %) for 2+ site hours before the lift · <60% (too early) = emptied more than 20 points "

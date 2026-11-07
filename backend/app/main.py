@@ -10,7 +10,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
-from app import analysis, auth, booking, cockpit, model_health, prices, service, tenants
+from app import analysis, auth, booking, cockpit, model_health, prices, rating, service, tenants
 from app.auth import allowed_devices, current_user, require_device
 from app.security import require_key
 from app.ai import ml
@@ -43,6 +43,7 @@ app.include_router(cockpit.router)
 app.include_router(model_health.router)
 app.include_router(booking.router)
 app.include_router(prices.router)
+app.include_router(rating.router)
 app.include_router(analysis.router)
 app.include_router(auth.router)
 app.include_router(tenants.router)

@@ -92,6 +92,12 @@ pickups = Table(
     Column("invoice_net_eur", Float),
     Column("invoice_check", String),                     # OK | WEIGHT_MISMATCH | WRONG_FEE | both
     Column("claim_eur", Float),
+    # a PERSON rates the waste company after the lift (the sensor cannot know these): NULL = not rated yet
+    Column("truck_on_time", Boolean),                    # did the truck come when it was booked?
+    Column("weighbridge_on_time", Boolean),              # did the waste company send the weighbridge ticket on time?
+    Column("rated_by", String),
+    Column("rated_at", DateTime(timezone=True)),
+    Column("rating_note", String),
 )
 
 compactor_status = Table(
@@ -294,6 +300,13 @@ def init_db():
         if col not in have:
             with engine.begin() as conn:
                 conn.execute(text(f"ALTER TABLE readings ADD COLUMN {col} {typ}"))
+    have_p = {c["name"] for c in inspect(engine).get_columns("pickups")}
+    for col, typ in [("truck_on_time", "BOOLEAN"), ("weighbridge_on_time", "BOOLEAN"), ("rated_by", "VARCHAR"),
+                     ("rated_at", "TIMESTAMP WITH TIME ZONE" if engine.dialect.name == "postgresql" else "TIMESTAMP"),
+                     ("rating_note", "VARCHAR")]:
+        if col not in have_p:          # older databases: the person's rating of each lift
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE pickups ADD COLUMN {col} {typ}"))
     with engine.begin() as conn:
         if conn.execute(select(materials.c.name)).first() is None:
             conn.execute(insert(materials), SEED_MATERIALS)

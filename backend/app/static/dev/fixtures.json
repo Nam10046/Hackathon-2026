@@ -104,7 +104,12 @@
     "invoice_fee_eur": null,
     "invoice_net_eur": null,
     "invoice_check": null,
-    "claim_eur": null
+    "claim_eur": null,
+    "truck_on_time": null,
+    "weighbridge_on_time": null,
+    "rated_by": null,
+    "rated_at": null,
+    "rating_note": null
    },
    {
     "id": 1,
@@ -133,7 +138,12 @@
     "invoice_fee_eur": null,
     "invoice_net_eur": null,
     "invoice_check": null,
-    "claim_eur": null
+    "claim_eur": null,
+    "truck_on_time": null,
+    "weighbridge_on_time": null,
+    "rated_by": null,
+    "rated_at": null,
+    "rating_note": null
    }
   ],
   "registrations": [

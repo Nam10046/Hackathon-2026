@@ -56,6 +56,8 @@ Node-RED forwards the same JSON to the backend.
 | GET | `/pickups?limit=100` | Every lift: booked / done, verdict, kg, money, CO2, invoice check |
 | GET | `/pickups/board` | Per compactor: `load_pct`, `on_call_pct`, `needs_truck`, open `truck` (for the booking panel) |
 | POST | `/pickups/book` | `{"compactor_id": "C1"}` — a **person** books a truck (API key). 409 if one is already booked. Page with buttons: `GET /book` (not under `/api`) |
+| GET | `/pickups/ratings?limit=20` | Latest finished lifts with the person's rating: `truck_on_time`, `weighbridge_on_time` (`true`/`false`/`null` = not rated), `rating_note`, `rated_by`, `rated_at`, plus `operator_name`. Page: `GET /rate` (not under `/api`) |
+| PUT | `/pickups/{id}/rating` | `{"truck_on_time": true, "weighbridge_on_time": false, "note": "..."}` — a **person** rates the waste company after a lift. Send only what you rate; `null` clears it. `rated_by` = the signed-in user. A customer rates only their own lifts (others: 404) |
 | POST | `/alerts/{id}/feedback` | `{"verdict": "CORRECT"\|"FALSE_ALARM", "decided_by", "note"}` — was this alert right? (API key) |
 
 **Reads need a session:** `/compactors*`, `/alerts` and `/pickups` need a signed-in user and return only that customer's devices.
@@ -176,4 +178,5 @@ label (`1` normal, `-1` unusual) + score.
 | 2026-11-07 | Analysis on live data: the ESP32 site is a customer (`compactors.customer_name`, `operator_name`); invoices typed in and checked against the measurement (`invoices`, `invoice_lines`, `/analysis/*`, customer-scoped); invoice decisions | — |
 | 2026-11-07 | Live prices: `PUT /materials/{name}` (cost per lift, price per tonne), `materials.lift_fee_eur`; material plastic → biowaste | — |
 | 2026-11-07 | Manual truck booking: `/pickups/board`, `/pickups/book`, `pickup_needed` alert (no automatic booking) | — |
+| 2026-11-08 | Pickup ratings by a person: `pickups.truck_on_time`, `weighbridge_on_time`, `rated_by`, `rated_at`, `rating_note`; `/pickups/ratings`, `/pickups/{id}/rating` | — |
 | 2026-11-07 | Login, tenants, `/auth` + `/admin` endpoints, reads scoped per customer, `tenant_api` views | — |

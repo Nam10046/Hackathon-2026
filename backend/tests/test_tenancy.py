@@ -142,6 +142,19 @@ def test_pickups_are_scoped(world):
     assert {p["compactor_id"] for p in c.get("/api/pickups", headers=a).json()} == {"X1"}
 
 
+
+def test_customer_rates_only_own_lifts(world):
+    """Ratings: a customer sees and rates only their own lifts; another customer's lift answers 404."""
+    c, _, a, _ = world
+    with db.get_engine().begin() as conn:
+        mine = conn.execute(insert(db.pickups).values(compactor_id="X1", status="done", kind="manual")).inserted_primary_key[0]
+        other = conn.execute(insert(db.pickups).values(compactor_id="Y1", status="done", kind="manual")).inserted_primary_key[0]
+    assert [p["id"] for p in c.get("/api/pickups/ratings", headers=a).json()] == [mine]
+    r = c.put(f"/api/pickups/{mine}/rating", headers=a, json={"truck_on_time": True})
+    assert r.status_code == 200 and r.json()["rated_by"] == "a@one.example"
+    assert c.put(f"/api/pickups/{other}/rating", headers=a, json={"truck_on_time": False}).status_code == 404
+    assert c.get("/api/pickups/ratings").status_code == 401
+
 def test_customer_cannot_use_admin_or_analysis_endpoints(world):
     c, _, a, _ = world
     for method, path in (("get", "/api/admin/tenants"), ("get", "/api/admin/registrations"), ("get", "/api/cockpit/actions"),

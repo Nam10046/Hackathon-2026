@@ -256,6 +256,25 @@ def test_book_page_is_served(client):
     assert r.status_code == 200 and "Book truck" in r.text
 
 
+
+def test_person_rates_truck_and_weighbridge(client):
+    """After a lift a PERSON answers 2 questions: truck on time? weighbridge ticket on time? One at a time, null clears."""
+    start = datetime.now(timezone.utc) - timedelta(minutes=10)
+    _feed(client, "C2", [600, 610, 620], start)
+    _feed(client, "C2", [10], start + timedelta(seconds=30))
+    p = client.get("/api/pickups/ratings").json()[0]
+    assert p["compactor_id"] == "C2" and p["operator_name"] == "Hauler Beta"
+    assert p["truck_on_time"] is None and p["weighbridge_on_time"] is None and p["rated_by"] is None
+    r = client.put(f"/api/pickups/{p['id']}/rating", json={"truck_on_time": True})
+    assert r.status_code == 200 and r.json()["truck_on_time"] is True and r.json()["weighbridge_on_time"] is None
+    r = client.put(f"/api/pickups/{p['id']}/rating", json={"weighbridge_on_time": False, "note": "ticket 3 days late"})
+    assert r.json()["truck_on_time"] is True and r.json()["weighbridge_on_time"] is False   # the first answer is kept
+    assert r.json()["rating_note"] == "ticket 3 days late" and r.json()["rated_at"]
+    assert client.put(f"/api/pickups/{p['id']}/rating", json={"truck_on_time": None}).json()["truck_on_time"] is None
+    assert client.put(f"/api/pickups/{p['id']}/rating", json={}).status_code == 422
+    assert client.put("/api/pickups/99999/rating", json={"truck_on_time": True}).status_code == 404
+    assert "Weighbridge ticket on time?" in client.get("/rate").text
+
 def test_early_lift_is_judged_too_early(client):
     start = datetime.now(timezone.utc) - timedelta(minutes=10)
     _feed(client, "C2", [600, 610, 620], start)                                   # 40 % of 1500 kg

@@ -1,0 +1,116 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Rate the waste company</title>
+<!-- Shown inside Grafana (Pickups page) as an embedded panel. A PERSON rates each lift; colours match Grafana's dark theme. -->
+<style>
+  :root { --bg: #181b1f; --card: #22252b; --line: #2f333a; --text: #d8d9da; --muted: #8e9196;
+          --green: #73bf69; --red: #f2495c; --blue: #5794f2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 8px; background: var(--bg); color: var(--text);
+         font: 16px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif; }
+  .wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; min-width: 760px; }
+  th { text-align: left; font-size: 14px; font-weight: 600; color: var(--muted); padding: 6px 10px; border-bottom: 1px solid var(--line); }
+  td { padding: 7px 10px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+  td.num { font-variant-numeric: tabular-nums; }
+  .sub { color: var(--muted); font-size: 14px; }
+  .pair { display: inline-flex; gap: 6px; }
+  button { font: inherit; font-size: 15px; font-weight: 600; padding: 5px 12px; border-radius: 4px; cursor: pointer;
+           border: 1px solid var(--line); background: transparent; color: var(--muted); }
+  button.yes.on { background: var(--green); border-color: var(--green); color: #111; }
+  button.no.on { background: var(--red); border-color: var(--red); color: #111; }
+  button:hover { border-color: var(--blue); }
+  input { font: inherit; font-size: 15px; width: 100%; min-width: 140px; padding: 5px 8px; border-radius: 4px;
+          border: 1px solid var(--line); background: var(--card); color: var(--text); }
+  .msg { color: var(--muted); font-size: 14px; margin-top: 8px; }
+  .err { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="wrap"><table>
+  <thead><tr><th>Lift</th><th>Waste company</th><th>Truck on time?</th><th>Weighbridge ticket on time?</th><th>Note</th><th>Rated by</th></tr></thead>
+  <tbody id="rows"></tbody>
+</table></div>
+<div class="msg" id="msg">Loading…</div>
+<script>
+// Data from the backend this page is served by: GET /api/pickups/ratings, PUT /api/pickups/{id}/rating
+const rows = document.getElementById("rows"), msg = document.getElementById("msg");
+let busy = false;
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+function pair(p, field) {
+  const v = p[field];
+  return `<span class="pair"><button class="yes${v === true ? " on" : ""}" data-id="${p.id}" data-f="${field}" data-v="true">Yes</button>` +
+         `<button class="no${v === false ? " on" : ""}" data-id="${p.id}" data-f="${field}" data-v="false">No</button></span>`;
+}
+
+function row(p) {
+  const when = p.done_at ? new Date(p.done_at).toLocaleString([], { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" }) : "";
+  return `<tr>
+    <td class="num">#${p.id} · ${esc(p.compactor_id)} <span class="sub">${esc(p.material)} · ${when}</span></td>
+    <td>${esc(p.operator_name || "–")}</td>
+    <td>${pair(p, "truck_on_time")}</td>
+    <td>${pair(p, "weighbridge_on_time")}</td>
+    <td><input data-id="${p.id}" value="${esc(p.rating_note)}" placeholder="optional" maxlength="300"></td>
+    <td class="sub">${esc(p.rated_by || "not rated")}</td>
+  </tr>`;
+}
+
+function signedOut() {
+  rows.innerHTML = "";
+  msg.className = "msg err";
+  msg.innerHTML = 'Not signed in. Sign in to Grafana, or <a href="/portal" target="_blank" rel="noopener" style="color:var(--blue)">on the Portal</a>.';
+}
+
+async function refresh() {
+  if (busy || document.activeElement?.tagName === "INPUT") return;   // never overwrite a note while it is typed
+  try {
+    const r = await fetch("/api/pickups/ratings?limit=8", { cache: "no-store" });
+    if (r.status === 401) return signedOut();
+    if (!r.ok) throw new Error(r.status);
+    const list = await r.json();
+    rows.innerHTML = list.map(row).join("");
+    if (!msg.classList.contains("keep")) {
+      msg.className = "msg";
+      msg.textContent = list.length ? "A person rates each lift — the sensor cannot know these. Scores per waste company: Analysis › 3 Waste companies."
+                                    : "No finished lifts yet.";
+    }
+  } catch (e) {
+    rows.innerHTML = "";
+    msg.className = "msg err"; msg.textContent = "Backend not reachable (" + e.message + ")";
+  }
+}
+
+async function save(id, body) {
+  busy = true;
+  try {
+    const r = await fetch(`/api/pickups/${id}/rating`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (r.status === 401) { busy = false; return signedOut(); }
+    const b = await r.json().catch(() => ({}));
+    msg.className = r.ok ? "msg keep" : "msg err keep";
+    msg.textContent = r.ok ? `Lift #${id} rated — saved.` : (b.detail || "Saving failed: " + r.status);
+    setTimeout(() => msg.classList.remove("keep"), 4000);
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = "Saving failed: " + e.message;
+  }
+  busy = false; refresh();
+}
+
+rows.addEventListener("click", (ev) => {
+  const b = ev.target.closest("button[data-id]");
+  if (!b || busy) return;
+  const on = b.classList.contains("on");          // pressing the chosen answer again clears it
+  save(b.dataset.id, { [b.dataset.f]: on ? null : b.dataset.v === "true" });
+});
+rows.addEventListener("change", (ev) => {
+  if (ev.target.matches("input[data-id]")) save(ev.target.dataset.id, { note: ev.target.value });
+});
+
+refresh();
+setInterval(refresh, 10000);
+</script>
+</body>
+</html>

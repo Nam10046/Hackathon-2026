@@ -46,7 +46,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### Which waste company performs best?\n**Lifts at ≥60 %** = emptied when the container was worth it and not left full. **Invoice lines correct** = lines that match the board's measurement and the customer's prices. Facts for contract talks, not blame — a sensor can be wrong too."
+        "content": "### Which waste company performs best?\n**Lifts at ≥60 %** = emptied when the container was worth it and not left full. **Truck / weighbridge on time** = rated by a person after each lift (Pickups page). **Invoice lines correct** = lines that match the board's measurement and the customer's prices. Facts for contract talks, not blame — a sensor can be wrong too."
       }
     },
     {
@@ -73,7 +73,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT op AS \"Waste company\", round(on_time::numeric) AS \"%\" FROM (SELECT c.operator_name AS op, count(*) AS lifts, avg(CASE WHEN p.verdict = 'ON_TIME' THEN 100.0 ELSE 0 END) AS on_time, avg(p.load_before_pct) AS load, sum(CASE WHEN p.verdict = 'TOO_EARLY' THEN 1 ELSE 0 END) AS early, sum(CASE WHEN p.verdict = 'TOO_LATE' THEN 1 ELSE 0 END) AS late FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) GROUP BY 1) x ORDER BY 2 DESC"
+          "rawSql": "SELECT op AS \"Waste company\", round(on_time::numeric) AS \"%\" FROM (SELECT c.operator_name AS op, count(*) AS lifts, avg(CASE WHEN p.verdict = 'ON_TIME' THEN 100.0 ELSE 0 END) AS on_time, avg(p.load_before_pct) AS load, sum(CASE WHEN p.verdict = 'TOO_EARLY' THEN 1 ELSE 0 END) AS early, sum(CASE WHEN p.verdict = 'TOO_LATE' THEN 1 ELSE 0 END) AS late, 100.0 * sum(CASE WHEN p.truck_on_time THEN 1 ELSE 0 END) / NULLIF(count(p.truck_on_time), 0) AS truck_ok, count(p.truck_on_time) AS truck_n, 100.0 * sum(CASE WHEN p.weighbridge_on_time THEN 1 ELSE 0 END) / NULLIF(count(p.weighbridge_on_time), 0) AS wb_ok, count(p.weighbridge_on_time) AS wb_n FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) GROUP BY 1) x ORDER BY 2 DESC"
         }
       ],
       "fieldConfig": {
@@ -217,6 +217,120 @@
       "id": 3
     },
     {
+      "title": "Truck came on time (rated by a person)",
+      "description": "Share of rated lifts where the truck came when it was booked (Pickups page > Rate the waste company)",
+      "type": "bargauge",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT op AS \"Waste company\", round(truck_ok::numeric) AS \"%\" FROM (SELECT c.operator_name AS op, count(*) AS lifts, avg(CASE WHEN p.verdict = 'ON_TIME' THEN 100.0 ELSE 0 END) AS on_time, avg(p.load_before_pct) AS load, sum(CASE WHEN p.verdict = 'TOO_EARLY' THEN 1 ELSE 0 END) AS early, sum(CASE WHEN p.verdict = 'TOO_LATE' THEN 1 ELSE 0 END) AS late, 100.0 * sum(CASE WHEN p.truck_on_time THEN 1 ELSE 0 END) / NULLIF(count(p.truck_on_time), 0) AS truck_ok, count(p.truck_on_time) AS truck_n, 100.0 * sum(CASE WHEN p.weighbridge_on_time THEN 1 ELSE 0 END) / NULLIF(count(p.weighbridge_on_time), 0) AS wb_ok, count(p.weighbridge_on_time) AS wb_n FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) GROUP BY 1) x WHERE truck_n > 0 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "noValue": "not rated yet",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "text",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "sizing": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/%/",
+          "values": true
+        }
+      },
+      "id": 4
+    },
+    {
+      "title": "Weighbridge ticket on time (rated by a person)",
+      "description": "Share of rated lifts where the waste company sent its weighbridge ticket on time",
+      "type": "bargauge",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 12,
+        "w": 12,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT op AS \"Waste company\", round(wb_ok::numeric) AS \"%\" FROM (SELECT c.operator_name AS op, count(*) AS lifts, avg(CASE WHEN p.verdict = 'ON_TIME' THEN 100.0 ELSE 0 END) AS on_time, avg(p.load_before_pct) AS load, sum(CASE WHEN p.verdict = 'TOO_EARLY' THEN 1 ELSE 0 END) AS early, sum(CASE WHEN p.verdict = 'TOO_LATE' THEN 1 ELSE 0 END) AS late, 100.0 * sum(CASE WHEN p.truck_on_time THEN 1 ELSE 0 END) / NULLIF(count(p.truck_on_time), 0) AS truck_ok, count(p.truck_on_time) AS truck_n, 100.0 * sum(CASE WHEN p.weighbridge_on_time THEN 1 ELSE 0 END) / NULLIF(count(p.weighbridge_on_time), 0) AS wb_ok, count(p.weighbridge_on_time) AS wb_n FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) GROUP BY 1) x WHERE wb_n > 0 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "noValue": "not rated yet",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "text",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "sizing": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/%/",
+          "values": true
+        }
+      },
+      "id": 5
+    },
+    {
       "title": "Scorecard",
       "description": "",
       "type": "table",
@@ -226,7 +340,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 12,
+        "y": 18,
         "w": 24,
         "h": 8
       },
@@ -240,7 +354,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT coalesce(a.op, b.op) AS \"Waste company\", a.lifts AS \"Lifts\", round(a.on_time::numeric) AS \"At ≥60 % %\", round(a.load::numeric) AS \"Avg load at lift %\", a.early AS \"Too early\", a.late AS \"Left full 2h+\", b.invoices AS \"Invoices\", round(b.lines_ok::numeric) AS \"Lines correct %\", round(b.over::numeric, 2) AS \"Charged too much €\", round(b.proof::numeric, 2) AS \"Needs proof €\" FROM (SELECT c.operator_name AS op, count(*) AS lifts, avg(CASE WHEN p.verdict = 'ON_TIME' THEN 100.0 ELSE 0 END) AS on_time, avg(p.load_before_pct) AS load, sum(CASE WHEN p.verdict = 'TOO_EARLY' THEN 1 ELSE 0 END) AS early, sum(CASE WHEN p.verdict = 'TOO_LATE' THEN 1 ELSE 0 END) AS late FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) GROUP BY 1) a FULL JOIN (SELECT i.operator_name AS op, count(*) AS invoices, 100.0 * sum(i.lines_ok) / NULLIF(sum(i.lines_total), 0) AS lines_ok, sum(i.overcharged_eur) AS over, sum(i.unverified_eur) AS proof FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) GROUP BY 1) b ON b.op = a.op ORDER BY 1"
+          "rawSql": "SELECT coalesce(a.op, b.op) AS \"Waste company\", a.lifts AS \"Lifts\", round(a.on_time::numeric) AS \"At ≥60 % %\", round(a.load::numeric) AS \"Avg load at lift %\", a.early AS \"Too early\", a.late AS \"Left full 2h+\", round(a.truck_ok::numeric) AS \"Truck on time %\", round(a.wb_ok::numeric) AS \"Weighbridge on time %\", a.truck_n AS \"Rated\", b.invoices AS \"Invoices\", round(b.lines_ok::numeric) AS \"Lines correct %\", round(b.over::numeric, 2) AS \"Charged too much €\", round(b.proof::numeric, 2) AS \"Needs proof €\" FROM (SELECT c.operator_name AS op, count(*) AS lifts, avg(CASE WHEN p.verdict = 'ON_TIME' THEN 100.0 ELSE 0 END) AS on_time, avg(p.load_before_pct) AS load, sum(CASE WHEN p.verdict = 'TOO_EARLY' THEN 1 ELSE 0 END) AS early, sum(CASE WHEN p.verdict = 'TOO_LATE' THEN 1 ELSE 0 END) AS late, 100.0 * sum(CASE WHEN p.truck_on_time THEN 1 ELSE 0 END) / NULLIF(count(p.truck_on_time), 0) AS truck_ok, count(p.truck_on_time) AS truck_n, 100.0 * sum(CASE WHEN p.weighbridge_on_time THEN 1 ELSE 0 END) / NULLIF(count(p.weighbridge_on_time), 0) AS wb_ok, count(p.weighbridge_on_time) AS wb_n FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) GROUP BY 1) a FULL JOIN (SELECT i.operator_name AS op, count(*) AS invoices, 100.0 * sum(i.lines_ok) / NULLIF(sum(i.lines_total), 0) AS lines_ok, sum(i.overcharged_eur) AS over, sum(i.unverified_eur) AS proof FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) GROUP BY 1) b ON b.op = a.op ORDER BY 1"
         }
       ],
       "fieldConfig": {
@@ -279,7 +393,7 @@
           "show": false
         }
       },
-      "id": 4
+      "id": 6
     }
   ],
   "templating": {

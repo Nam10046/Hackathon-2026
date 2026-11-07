@@ -601,6 +601,21 @@
       "id": 110
     },
     {
+      "type": "text",
+      "title": "Rate the waste company — a person answers: truck on time? weighbridge ticket on time?",
+      "gridPos": {
+        "x": 0,
+        "y": 17,
+        "w": 24,
+        "h": 13
+      },
+      "options": {
+        "mode": "html",
+        "content": "<iframe src=\"http://localhost:8000/rate\" title=\"Rate the waste company\" style=\"width:100%;height:440px;border:0;display:block\"></iframe>"
+      },
+      "id": 111
+    },
+    {
       "type": "table",
       "title": "All pickups",
       "datasource": {
@@ -610,7 +625,7 @@
       "description": "",
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 30,
         "w": 24,
         "h": 11
       },
@@ -624,7 +639,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT p.id AS \"#\", p.done_at AS \"Emptied\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", p.kind AS \"Who\", p.load_before_pct AS \"Load %\", p.kg_collected AS \"kg\", p.wait_hours AS \"Wait (site h)\", p.full_hours AS \"Full for (site h)\", CASE p.verdict WHEN 'ON_TIME' THEN '≥60%' WHEN 'TOO_EARLY' THEN '<60%' WHEN 'TOO_LATE' THEN 'Full 2h+' ELSE p.verdict END AS \"Verdict\", p.verdict_reason AS \"Why\", round((-(coalesce(m.lift_fee_eur, p.fee_eur, 0) - (p.kg_collected * m.price_eur_per_kg)))::numeric, 2) AS \"Net €\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY p.done_at DESC"
+          "rawSql": "SELECT p.id AS \"#\", p.done_at AS \"Emptied\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", p.kind AS \"Who\", p.load_before_pct AS \"Load %\", p.kg_collected AS \"kg\", p.wait_hours AS \"Wait (site h)\", p.full_hours AS \"Full for (site h)\", CASE p.verdict WHEN 'ON_TIME' THEN '≥60%' WHEN 'TOO_EARLY' THEN '<60%' WHEN 'TOO_LATE' THEN 'Full 2h+' ELSE p.verdict END AS \"Verdict\", p.verdict_reason AS \"Why\", round((-(coalesce(m.lift_fee_eur, p.fee_eur, 0) - (p.kg_collected * m.price_eur_per_kg)))::numeric, 2) AS \"Net €\", CASE p.truck_on_time WHEN TRUE THEN 'yes' WHEN FALSE THEN 'no' ELSE '–' END AS \"Truck on time\", CASE p.weighbridge_on_time WHEN TRUE THEN 'yes' WHEN FALSE THEN 'no' ELSE '–' END AS \"Weighbridge on time\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY p.done_at DESC"
         }
       ],
       "fieldConfig": {
@@ -670,6 +685,72 @@
           {
             "matcher": {
               "id": "byName",
+              "options": "Truck on time"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "yes": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "no": {
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Weighbridge on time"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background",
+                  "mode": "basic"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "yes": {
+                        "color": "green",
+                        "index": 0
+                      },
+                      "no": {
+                        "color": "red",
+                        "index": 1
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
               "options": "Why"
             },
             "properties": [
@@ -682,7 +763,7 @@
         ]
       },
       "options": {},
-      "id": 111
+      "id": 112
     },
     {
       "type": "text",
@@ -690,7 +771,7 @@
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 41,
         "w": 24,
         "h": 2
       },
@@ -698,7 +779,7 @@
         "mode": "markdown",
         "content": "**Rules:** Full 2h+ (too late) = full (≥ 98 %) for 2+ site hours before the lift · <60% (too early) = emptied more than 20 points below the on-call level (80 %) · otherwise ≥60% (on time). The lift-model verdicts (trained on the Europress history) are shown as a second opinion on the *Site now* page."
       },
-      "id": 112
+      "id": 113
     }
   ],
   "templating": {

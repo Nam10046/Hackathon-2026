@@ -216,13 +216,18 @@ cost = page("cockpit-cost", "2 Cost & weight",
 # ------------------------------------------------------------------ 3 WASTE COMPANIES
 OP_PICK = ("SELECT c.operator_name AS op, count(*) AS lifts, avg(CASE WHEN p.verdict = 'ON_TIME' THEN 100.0 ELSE 0 END) AS on_time, "
            "avg(p.load_before_pct) AS load, sum(CASE WHEN p.verdict = 'TOO_EARLY' THEN 1 ELSE 0 END) AS early, "
-           "sum(CASE WHEN p.verdict = 'TOO_LATE' THEN 1 ELSE 0 END) AS late FROM pickups p JOIN compactors c ON c.id = p.compactor_id "
+           "sum(CASE WHEN p.verdict = 'TOO_LATE' THEN 1 ELSE 0 END) AS late, "
+           # rated by a person after the lift (NULL = not rated, left out of the %)
+           "100.0 * sum(CASE WHEN p.truck_on_time THEN 1 ELSE 0 END) / NULLIF(count(p.truck_on_time), 0) AS truck_ok, "
+           "count(p.truck_on_time) AS truck_n, "
+           "100.0 * sum(CASE WHEN p.weighbridge_on_time THEN 1 ELSE 0 END) / NULLIF(count(p.weighbridge_on_time), 0) AS wb_ok, "
+           "count(p.weighbridge_on_time) AS wb_n FROM pickups p JOIN compactors c ON c.id = p.compactor_id "
            f"WHERE p.status = 'done' AND {CW} AND $__timeFilter(p.done_at) GROUP BY 1")
 OP_INV = ("SELECT i.operator_name AS op, count(*) AS invoices, 100.0 * sum(i.lines_ok) / NULLIF(sum(i.lines_total), 0) AS lines_ok, "
           f"sum(i.overcharged_eur) AS over, sum(i.unverified_eur) AS proof FROM invoices i {INV_LATEST} WHERE {IW} GROUP BY 1")
 operators = page("cockpit-operators", "3 Waste companies",
 """### Which waste company performs best?
-**Lifts at ≥60 %** = emptied when the container was worth it and not left full. **Invoice lines correct** = lines that match the board's measurement and the customer's prices. Facts for contract talks, not blame — a sensor can be wrong too.""",
+**Lifts at ≥60 %** = emptied when the container was worth it and not left full. **Truck / weighbridge on time** = rated by a person after each lift (Pickups page). **Invoice lines correct** = lines that match the board's measurement and the customer's prices. Facts for contract talks, not blame — a sensor can be wrong too.""",
 [
     P("Lifts at ≥60 % (on time)", "bargauge", f"SELECT op AS \"Waste company\", round(on_time::numeric) AS \"%\" FROM ({OP_PICK}) x ORDER BY 2 DESC",
       0, 3, 8, 7, field={"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []}, options=BAR("/%/")),
@@ -230,11 +235,21 @@ operators = page("cockpit-operators", "3 Waste companies",
       8, 3, 8, 7, field={"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []}, options=BAR("/%/")),
     P("Charged too much", "bargauge", f"SELECT op AS \"Waste company\", round(over::numeric) AS \"EUR\" FROM ({OP_INV}) x ORDER BY 2 DESC",
       16, 3, 8, 7, field={"defaults": {"unit": "currencyEUR", "decimals": 0}, "overrides": []}, options=BAR("/EUR/")),
+    P("Truck came on time (rated by a person)", "bargauge",
+      f"SELECT op AS \"Waste company\", round(truck_ok::numeric) AS \"%\" FROM ({OP_PICK}) x WHERE truck_n > 0 ORDER BY 2 DESC",
+      0, 10, 12, 6, field={"defaults": {"unit": "percent", "min": 0, "max": 100, "noValue": "not rated yet"}, "overrides": []},
+      options=BAR("/%/"), desc="Share of rated lifts where the truck came when it was booked (Pickups page > Rate the waste company)"),
+    P("Weighbridge ticket on time (rated by a person)", "bargauge",
+      f"SELECT op AS \"Waste company\", round(wb_ok::numeric) AS \"%\" FROM ({OP_PICK}) x WHERE wb_n > 0 ORDER BY 2 DESC",
+      12, 10, 12, 6, field={"defaults": {"unit": "percent", "min": 0, "max": 100, "noValue": "not rated yet"}, "overrides": []},
+      options=BAR("/%/"), desc="Share of rated lifts where the waste company sent its weighbridge ticket on time"),
     P("Scorecard", "table",
       "SELECT coalesce(a.op, b.op) AS \"Waste company\", a.lifts AS \"Lifts\", round(a.on_time::numeric) AS \"At ≥60 % %\", "
-      "round(a.load::numeric) AS \"Avg load at lift %\", a.early AS \"Too early\", a.late AS \"Left full 2h+\", b.invoices AS \"Invoices\", "
+      "round(a.load::numeric) AS \"Avg load at lift %\", a.early AS \"Too early\", a.late AS \"Left full 2h+\", "
+      "round(a.truck_ok::numeric) AS \"Truck on time %\", round(a.wb_ok::numeric) AS \"Weighbridge on time %\", a.truck_n AS \"Rated\", "
+      "b.invoices AS \"Invoices\", "
       "round(b.lines_ok::numeric) AS \"Lines correct %\", round(b.over::numeric, 2) AS \"Charged too much €\", round(b.proof::numeric, 2) AS \"Needs proof €\" "
-      f"FROM ({OP_PICK}) a FULL JOIN ({OP_INV}) b ON b.op = a.op ORDER BY 1", 0, 10, 24, 8,
+      f"FROM ({OP_PICK}) a FULL JOIN ({OP_INV}) b ON b.op = a.op ORDER BY 1", 0, 16, 24, 8,
       field={"defaults": {}, "overrides": [o_unit("Charged too much €", "currencyEUR"), o_unit("Needs proof €", "currencyEUR")]}, options=TABLE),
 ], [V_CUST, V_OP])
 
