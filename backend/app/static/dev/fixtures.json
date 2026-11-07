@@ -1,0 +1,542 @@
+{
+ "_note": "Made-up data for frontend development only. Shapes follow the real API; backend/tests/test_frontend.py checks that.",
+ "now": "2026-11-07T12:00:00+00:00",
+ "customer_me": {
+  "email": "mock.customer@example.com",
+  "role": "customer",
+  "tenant": "Mock Customer Oy",
+  "devices": [
+   "M-101",
+   "M-102"
+  ],
+  "grafana_url": "http://localhost:3000"
+ },
+ "defaults": {
+  "me": {
+   "email": "mock.customer@example.com",
+   "role": "customer",
+   "tenant": "Mock Customer Oy",
+   "devices": [
+    "M-101",
+    "M-102"
+   ],
+   "grafana_url": "http://localhost:3000"
+  },
+  "compactors": [
+   {
+    "compactor_id": "M-101",
+    "name": "Mock cardboard press",
+    "material": "cardboard",
+    "weight_kg": 1180.5,
+    "fill_pct": 59.0,
+    "load_pct": 59.0,
+    "density_kg_m3": 240.0,
+    "value_eur": 94.44,
+    "co2_saved_kg": 1062.5,
+    "hours_to_full": 31.5,
+    "last_ts": "2026-11-07T11:55:00+00:00"
+   },
+   {
+    "compactor_id": "M-102",
+    "name": "Mock plastic press",
+    "material": "plastic",
+    "weight_kg": 1290.0,
+    "fill_pct": 86.0,
+    "load_pct": 86.0,
+    "density_kg_m3": 240.0,
+    "value_eur": 64.5,
+    "co2_saved_kg": 1935.0,
+    "hours_to_full": 6.2,
+    "last_ts": "2026-11-07T11:52:00+00:00"
+   }
+  ],
+  "alerts": [
+   {
+    "id": 3,
+    "compactor_id": "M-102",
+    "ts": "2026-11-07T09:30:00+00:00",
+    "type": "ml_delayed_collection",
+    "severity": "warning",
+    "message": "Simulated demo: example of an AI finding, lift too late (99% full)"
+   },
+   {
+    "id": 2,
+    "compactor_id": "M-101",
+    "ts": "2026-11-07T09:30:00+00:00",
+    "type": "contamination",
+    "severity": "warning",
+    "message": "Simulated demo: example of a rule finding, density above normal for cardboard"
+   },
+   {
+    "id": 1,
+    "compactor_id": "M-102",
+    "ts": "2026-11-07T09:30:00+00:00",
+    "type": "sensor_stuck",
+    "severity": "critical",
+    "message": "Simulated demo: example of a rule finding, sensor stuck"
+   }
+  ],
+  "pickups": [
+   {
+    "id": 2,
+    "compactor_id": "M-102",
+    "status": "booked",
+    "kind": "booked",
+    "created_at": "2026-11-07T08:00:00+00:00",
+    "trigger_load_pct": null,
+    "booked_at": "2026-11-07T08:00:00+00:00",
+    "booked_load_pct": 80.0,
+    "truck_due": "2026-11-07T15:00:00+00:00",
+    "truck_late": false,
+    "cmd_sent_at": null,
+    "done_at": null,
+    "load_before_pct": null,
+    "kg_collected": null,
+    "full_hours": null,
+    "wait_hours": null,
+    "verdict": null,
+    "verdict_reason": null,
+    "value_eur": null,
+    "fee_eur": null,
+    "net_eur": null,
+    "co2_kg": null,
+    "invoice_kg": null,
+    "invoice_fee_eur": null,
+    "invoice_net_eur": null,
+    "invoice_check": null,
+    "claim_eur": null
+   },
+   {
+    "id": 1,
+    "compactor_id": "M-101",
+    "status": "done",
+    "kind": "booked",
+    "created_at": "2026-11-07T08:00:00+00:00",
+    "trigger_load_pct": null,
+    "booked_at": "2026-11-07T08:00:00+00:00",
+    "booked_load_pct": 80.0,
+    "truck_due": "2026-11-07T15:00:00+00:00",
+    "truck_late": false,
+    "cmd_sent_at": null,
+    "done_at": "2026-11-06T10:00:00+00:00",
+    "load_before_pct": 82.0,
+    "kg_collected": 1640.0,
+    "full_hours": null,
+    "wait_hours": null,
+    "verdict": "ON_TIME",
+    "verdict_reason": "emptied at 82%, not overflowing",
+    "value_eur": null,
+    "fee_eur": null,
+    "net_eur": 86.2,
+    "co2_kg": 1476.0,
+    "invoice_kg": null,
+    "invoice_fee_eur": null,
+    "invoice_net_eur": null,
+    "invoice_check": null,
+    "claim_eur": null
+   }
+  ],
+  "registrations": [
+   {
+    "id": 901,
+    "email": "new.user@example.com",
+    "company_requested": "Mock Applicant Oy",
+    "status": "pending",
+    "created_at": "2026-11-07T08:30:00+00:00"
+   },
+   {
+    "id": 902,
+    "email": "rejected.user@example.com",
+    "company_requested": "Rejected Oy",
+    "status": "rejected",
+    "created_at": "2026-11-05T08:30:00+00:00"
+   }
+  ],
+  "tenants": [
+   {
+    "id": 1,
+    "slug": "mock-customer-oy",
+    "name": "Mock Customer Oy",
+    "status": "active",
+    "grafana_org_id": 2,
+    "devices": [
+     "M-101",
+     "M-102"
+    ],
+    "users": 2
+   },
+   {
+    "id": 2,
+    "slug": "mock-suspended-oy",
+    "name": "Mock Suspended Oy",
+    "status": "suspended",
+    "grafana_org_id": 3,
+    "devices": [],
+    "users": 1
+   }
+  ],
+  "devices": [
+   {
+    "id": "M-101",
+    "name": "Mock cardboard press",
+    "material": "cardboard",
+    "tenant_id": 1,
+    "tenant": "Mock Customer Oy"
+   },
+   {
+    "id": "M-102",
+    "name": "Mock plastic press",
+    "material": "plastic",
+    "tenant_id": 1,
+    "tenant": "Mock Customer Oy"
+   },
+   {
+    "id": "M-103",
+    "name": "Mock mixed press",
+    "material": "mixed",
+    "tenant_id": null,
+    "tenant": null
+   }
+  ],
+  "actions": [
+   {
+    "action_id": "MOCK1-DISPUTE_INVOICE",
+    "case_id": "MOCK1",
+    "action": "DISPUTE_INVOICE",
+    "contract_id": "MOCK-CTR-1",
+    "device_id": "M-101",
+    "customer_name": "Mock Customer Oy",
+    "operator_name": "Mock Operator Oy",
+    "notice_period_days": 30,
+    "flagged_invoice_eur": 1200.0,
+    "rationale": "MOCK TEXT: invoice lines differ from the contract calculation. Ask the operator to review them.",
+    "expected_value_eur": 640.0,
+    "ev_low_eur": 300.0,
+    "ev_high_eur": 900.0,
+    "evidence": "MOCK TEXT: 3 invoice lines",
+    "calculation": "MOCK TEXT: billed minus contract price",
+    "uncertainty": "MOCK TEXT: weights come from a device estimate",
+    "evidence_tag": "ESTIMATED",
+    "snapshot_date": "2026-10-31",
+    "decision": null,
+    "decided_by": null,
+    "decision_note": null,
+    "decided_at": null,
+    "status": "PENDING"
+   },
+   {
+    "action_id": "MOCK2-REQUEST_WEIGHBRIDGE_DATA",
+    "case_id": "MOCK2",
+    "action": "REQUEST_WEIGHBRIDGE_DATA",
+    "contract_id": "MOCK-CTR-1",
+    "device_id": "M-101",
+    "customer_name": "Mock Customer Oy",
+    "operator_name": "Mock Operator Oy",
+    "notice_period_days": 0,
+    "flagged_invoice_eur": 310.0,
+    "rationale": "MOCK TEXT: invoice lines differ from the contract calculation. Ask the operator to review them.",
+    "expected_value_eur": null,
+    "ev_low_eur": null,
+    "ev_high_eur": null,
+    "evidence": "MOCK TEXT: 3 invoice lines",
+    "calculation": null,
+    "uncertainty": null,
+    "evidence_tag": "OBSERVED",
+    "snapshot_date": "2026-10-31",
+    "decision": null,
+    "decided_by": null,
+    "decision_note": null,
+    "decided_at": null,
+    "status": "PENDING"
+   }
+  ],
+  "evidence": {
+   "findings": [
+    {
+     "entity_type": "invoice_line",
+     "entity_id": "MOCK-INV-1",
+     "label_family": "WRONG_SURCHARGE",
+     "found_at": "2026-10-20",
+     "explanation": "MOCK TEXT: surcharge does not match the contract",
+     "evidence": "MOCK TEXT",
+     "eur_at_stake": 420.0,
+     "evidence_tag": "ESTIMATED",
+     "calculation": "MOCK TEXT: 420 = billed - contract",
+     "likely_cause": "MOCK TEXT: old price list"
+    }
+   ],
+   "decision_history": [
+    {
+     "id": 1,
+     "action_id": "MOCK3",
+     "decision": "APPROVE",
+     "decided_by": "mock.admin@example.com",
+     "note": null,
+     "decided_at": "2026-11-06T09:00:00+00:00"
+    }
+   ]
+  }
+ },
+ "scenarios": {
+  "signed-out": {
+   "me": null
+  },
+  "device-connected": {},
+  "device-offline": {
+   "compactors": [
+    {
+     "compactor_id": "M-101",
+     "name": "Mock cardboard press",
+     "material": "cardboard",
+     "weight_kg": 1180.5,
+     "fill_pct": 59.0,
+     "load_pct": 59.0,
+     "density_kg_m3": 240.0,
+     "value_eur": 94.44,
+     "co2_saved_kg": 1062.5,
+     "hours_to_full": 31.5,
+     "last_ts": "2026-11-07T11:55:00+00:00"
+    },
+    {
+     "compactor_id": "M-102",
+     "name": "Mock plastic press",
+     "material": "plastic",
+     "weight_kg": 620.0,
+     "fill_pct": 41.3,
+     "load_pct": 41.3,
+     "density_kg_m3": 240.0,
+     "value_eur": 31.0,
+     "co2_saved_kg": 930.0,
+     "hours_to_full": null,
+     "last_ts": "2026-11-06T22:10:00+00:00"
+    }
+   ]
+  },
+  "missing-measurements": {
+   "compactors": [
+    {
+     "compactor_id": "M-101",
+     "name": "Mock cardboard press",
+     "material": "cardboard",
+     "weight_kg": 1180.5,
+     "fill_pct": null,
+     "load_pct": 59.0,
+     "density_kg_m3": 240.0,
+     "value_eur": 94.44,
+     "co2_saved_kg": 1062.5,
+     "hours_to_full": null,
+     "last_ts": "2026-11-07T11:55:00+00:00"
+    },
+    {
+     "compactor_id": "M-103",
+     "name": "Mock mixed press",
+     "material": "mixed",
+     "weight_kg": null,
+     "fill_pct": null,
+     "load_pct": null,
+     "density_kg_m3": null,
+     "value_eur": null,
+     "co2_saved_kg": null,
+     "hours_to_full": null,
+     "last_ts": null
+    }
+   ]
+  },
+  "no-devices": {
+   "me": {
+    "email": "mock.customer@example.com",
+    "role": "customer",
+    "tenant": "Mock Customer Oy",
+    "devices": [],
+    "grafana_url": "http://localhost:3000"
+   },
+   "compactors": [],
+   "alerts": [],
+   "pickups": []
+  },
+  "admin": {
+   "me": {
+    "email": "mock.admin@example.com",
+    "role": "admin",
+    "tenant": null,
+    "devices": null,
+    "grafana_url": "http://localhost:3000"
+   },
+   "compactors": [
+    {
+     "compactor_id": "M-101",
+     "name": "Mock cardboard press",
+     "material": "cardboard",
+     "weight_kg": 1180.5,
+     "fill_pct": 59.0,
+     "load_pct": 59.0,
+     "density_kg_m3": 240.0,
+     "value_eur": 94.44,
+     "co2_saved_kg": 1062.5,
+     "hours_to_full": 31.5,
+     "last_ts": "2026-11-07T11:55:00+00:00"
+    },
+    {
+     "compactor_id": "M-102",
+     "name": "Mock plastic press",
+     "material": "plastic",
+     "weight_kg": 1290.0,
+     "fill_pct": 86.0,
+     "load_pct": 86.0,
+     "density_kg_m3": 240.0,
+     "value_eur": 64.5,
+     "co2_saved_kg": 1935.0,
+     "hours_to_full": 6.2,
+     "last_ts": "2026-11-07T11:52:00+00:00"
+    }
+   ]
+  },
+  "cockpit-pending": {
+   "me": {
+    "email": "mock.admin@example.com",
+    "role": "admin",
+    "tenant": null,
+    "devices": null,
+    "grafana_url": "http://localhost:3000"
+   }
+  },
+  "cockpit-decided": {
+   "me": {
+    "email": "mock.admin@example.com",
+    "role": "admin",
+    "tenant": null,
+    "devices": null,
+    "grafana_url": "http://localhost:3000"
+   },
+   "actions": [
+    {
+     "action_id": "MOCK1-DISPUTE_INVOICE",
+     "case_id": "MOCK1",
+     "action": "DISPUTE_INVOICE",
+     "contract_id": "MOCK-CTR-1",
+     "device_id": "M-101",
+     "customer_name": "Mock Customer Oy",
+     "operator_name": "Mock Operator Oy",
+     "notice_period_days": 30,
+     "flagged_invoice_eur": 1200.0,
+     "rationale": "MOCK TEXT: invoice lines differ from the contract calculation. Ask the operator to review them.",
+     "expected_value_eur": 640.0,
+     "ev_low_eur": 300.0,
+     "ev_high_eur": 900.0,
+     "evidence": "MOCK TEXT: 3 invoice lines",
+     "calculation": "MOCK TEXT: billed minus contract price",
+     "uncertainty": "MOCK TEXT: weights come from a device estimate",
+     "evidence_tag": "ESTIMATED",
+     "snapshot_date": "2026-10-31",
+     "decision": null,
+     "decided_by": null,
+     "decision_note": null,
+     "decided_at": null,
+     "status": "PENDING"
+    },
+    {
+     "action_id": "MOCK3-RENEGOTIATE_CONTRACT",
+     "case_id": "MOCK3",
+     "action": "RENEGOTIATE_CONTRACT",
+     "contract_id": "MOCK-CTR-1",
+     "device_id": "M-101",
+     "customer_name": "Mock Customer Oy",
+     "operator_name": "Mock Operator Oy",
+     "notice_period_days": 30,
+     "flagged_invoice_eur": 1200.0,
+     "rationale": "MOCK TEXT: invoice lines differ from the contract calculation. Ask the operator to review them.",
+     "expected_value_eur": 640.0,
+     "ev_low_eur": 300.0,
+     "ev_high_eur": 900.0,
+     "evidence": "MOCK TEXT: 3 invoice lines",
+     "calculation": "MOCK TEXT: billed minus contract price",
+     "uncertainty": "MOCK TEXT: weights come from a device estimate",
+     "evidence_tag": "ESTIMATED",
+     "snapshot_date": "2026-10-31",
+     "decision": "APPROVE",
+     "decided_by": "mock.admin@example.com",
+     "decision_note": "MOCK TEXT: agreed",
+     "decided_at": "2026-11-06T09:00:00+00:00",
+     "status": "APPROVED"
+    },
+    {
+     "action_id": "MOCK4-TENDER_OR_SWITCH_OPERATOR",
+     "case_id": "MOCK4",
+     "action": "TENDER_OR_SWITCH_OPERATOR",
+     "contract_id": "MOCK-CTR-1",
+     "device_id": "M-101",
+     "customer_name": "Mock Customer Oy",
+     "operator_name": "Mock Operator Oy",
+     "notice_period_days": 30,
+     "flagged_invoice_eur": 1200.0,
+     "rationale": "MOCK TEXT: invoice lines differ from the contract calculation. Ask the operator to review them.",
+     "expected_value_eur": 640.0,
+     "ev_low_eur": 300.0,
+     "ev_high_eur": 900.0,
+     "evidence": "MOCK TEXT: 3 invoice lines",
+     "calculation": "MOCK TEXT: billed minus contract price",
+     "uncertainty": "MOCK TEXT: weights come from a device estimate",
+     "evidence_tag": "ESTIMATED",
+     "snapshot_date": "2026-10-31",
+     "decision": "REJECT",
+     "decided_by": "mock.admin@example.com",
+     "decision_note": null,
+     "decided_at": "2026-11-06T09:30:00+00:00",
+     "status": "REJECTED"
+    }
+   ]
+  },
+  "cockpit-no-analysis": {
+   "me": {
+    "email": "mock.admin@example.com",
+    "role": "admin",
+    "tenant": null,
+    "devices": null,
+    "grafana_url": "http://localhost:3000"
+   },
+   "actions": []
+  },
+  "api-error": {
+   "fail": {
+    "status": 500,
+    "detail": "Internal Server Error",
+    "only": [
+     "compactors",
+     "alerts",
+     "pickups",
+     "registrations",
+     "tenants",
+     "adminDevices",
+     "actions"
+    ]
+   }
+  },
+  "network-error": {
+   "fail": {
+    "status": 0,
+    "detail": "Cannot reach the server",
+    "only": [
+     "compactors",
+     "alerts",
+     "pickups",
+     "registrations",
+     "tenants",
+     "adminDevices",
+     "actions"
+    ]
+   }
+  },
+  "forbidden": {
+   "fail": {
+    "status": 403,
+    "detail": "Admins only",
+    "only": [
+     "actions"
+    ]
+   }
+  },
+  "loading": {
+   "hang": true
+  }
+ }
+}

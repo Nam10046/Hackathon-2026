@@ -67,6 +67,7 @@ services:
       - GRAFANA_ADMIN_PASSWORD=${GRAFANA_PASS:-admin}
       - PUBLIC_GRAFANA_URL=${PUBLIC_GRAFANA_URL:-http://localhost:3000}
       - COOKIE_SECURE=${COOKIE_SECURE:-false}        # true when served over HTTPS
+      - FRONTEND_MOCK=${FRONTEND_MOCK:-false}        # dev only: allows ?mock=<scenario>, see docs/FRONTEND_HANDOFF_NAM.md
       - DEMO_CUSTOMER1_PASSWORD=${DEMO_CUSTOMER1_PASSWORD:-}
       - DEMO_CUSTOMER2_PASSWORD=${DEMO_CUSTOMER2_PASSWORD:-}
       - TZ=${TIMEZONE:-Europe/Helsinki}

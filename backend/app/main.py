@@ -6,7 +6,8 @@ from pathlib import Path
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import select
 
 from app import auth, cockpit, model_health, service, tenants
@@ -42,7 +43,22 @@ app.include_router(cockpit.router)
 app.include_router(model_health.router)
 app.include_router(auth.router)
 app.include_router(tenants.router)
-PORTAL = Path(__file__).parent / "static" / "portal.html"
+STATIC = Path(__file__).parent / "static"
+PORTAL = STATIC / "portal.html"
+DEV_FILES = {"mock.js", "fixtures.json"}
+app.mount("/assets", StaticFiles(directory=STATIC / "assets"), name="assets")   # public design files, no data
+
+
+def mock_enabled() -> bool:
+    """Frontend mock mode: off unless asked for, and never on an HTTPS deployment."""
+    return os.getenv("FRONTEND_MOCK", "false").lower() == "true" and os.getenv("COOKIE_SECURE", "false").lower() != "true"
+
+
+@app.api_route("/dev/{name}", methods=["GET", "HEAD"], include_in_schema=False)
+def dev_file(name: str):
+    if not mock_enabled() or name not in DEV_FILES:
+        raise HTTPException(404)
+    return FileResponse(STATIC / "dev" / name)
 
 
 @app.get("/portal", response_class=HTMLResponse, include_in_schema=False)
