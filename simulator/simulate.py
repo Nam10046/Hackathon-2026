@@ -406,7 +406,7 @@ def main():
     g.add_argument("--seed", type=int, default=1)
     g.add_argument("--out", default=str(ROOT / "simulator" / "scorecard.json"))
     l = sub.add_parser("live")
-    l.add_argument("--api", default="http://localhost:8000")
+    l.add_argument("--api", default="http://127.0.0.1:8000")   # not "localhost": on Windows that tries IPv6 first and every request waits
     l.add_argument("--key", default=os.getenv("INGEST_API_KEY", ""))
     l.add_argument("--hours", type=int, default=72)
     l.add_argument("--speed", type=float, default=60, help="simulated hours sent per real second (0 = as fast as possible)")
