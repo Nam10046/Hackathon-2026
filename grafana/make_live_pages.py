@@ -43,10 +43,11 @@ class Page:
              "fieldConfig": {"defaults": {}, "overrides": []}, "options": {}}
         return self._add(p, w, h)
 
-    def text(self, md, h=3, title=""):
-        self._add({"type": "text", "title": title, "transparent": not title, "gridPos": {"x": 0, "y": self.y, "w": 24, "h": h},
-                   "options": {"mode": "markdown", "content": md}}, 24, h)
-        self.y += h
+    def text(self, md, h=3, title="", x=0, w=24, move=True):
+        self._add({"type": "text", "title": title, "transparent": not title, "gridPos": {"x": x, "y": self.y, "w": w, "h": h},
+                   "options": {"mode": "markdown", "content": md}}, w, h)
+        if move:
+            self.y += h
 
     def stats(self, items, h=4, color_mode="background", no_value="–"):
         w = 24 // len(items)
@@ -151,7 +152,9 @@ pg.text("**How it works:** the board measures (stable weight, spikes removed, si
 site = pg.dash()
 
 # ======================================================================== 2. PICKUPS
-SITE_TIME = (" In fast demo mode 1 real minute is {:.0f} site minutes.".format(SCALE)) if SCALE != 1 else ""
+# Written when the page is built, so it is true for that DEMO_TIME_SCALE only. Rebuild on the machine that will show it.
+SITE_TIME = (f" Site time runs at real speed (DEMO_TIME_SCALE={SCALE:g})." if SCALE == 1 else
+             f" In site time, 1 real minute is {SCALE:g} site minutes (DEMO_TIME_SCALE={SCALE:g}).")
 NO_EVENTS = "Nothing to show here. See the status line above."   # also appears when a query fails, so it must not claim "no pickups"
 pg = Page("live-pickups", "Live 2 · Pickups",
           "### Pickups: did each truck come at the right moment?\n"
@@ -180,40 +183,51 @@ pg.status("Device readings", """SELECT CASE
   END AS "Readings"
 FROM (SELECT max(ts) AS last_ts FROM readings) t""", 10, 6,
           desc="Latest reading from any compactor. Silent means no reading for 2 hours or more, so new pickups cannot be detected.")
-pg.status("Source of these pickups", f"""SELECT CASE
-  WHEN count(*) = 0 THEN 'No pickups to describe'
-  WHEN bool_and(demo) THEN 'SIMULATED: demo seed, no device'
-  WHEN bool_and(board AND NOT demo) THEN 'SIMULATED load cell on real ESP32'
-  WHEN bool_or(demo) THEN 'SIMULATED: demo seed and ESP32 mixed'
-  ELSE 'NOT VERIFIED: no device counter' END AS "Source"
-FROM (SELECT p.compactor_id,
-        coalesce(bool_or(r.edge_quality = 'simulated'), false) AS demo, coalesce(bool_or(r.seq IS NOT NULL), false) AS board
-      FROM pickups p LEFT JOIN readings r ON r.compactor_id = p.compactor_id
-      WHERE p.status = 'done' AND $__timeFilter(p.done_at) GROUP BY 1) s""", 16, 8, warn="^(SIMULATED|NOT VERIFIED).*",
-          desc="No physical load cell is connected yet, so no weight on this page is a real measurement. The ESP32 edge processing is real.")
+# One reading per pickup: pickups.close() stores the reading's ts as done_at. Do not join on compactor_id alone: on 5 million
+# readings that took 13 s (216 million joined rows), on a page refreshing every 10 s. A pickup with no such reading stays NOT VERIFIED.
+pg.status("Source of these pickups", """SELECT CASE
+  WHEN n = 0 THEN 'No pickups to describe'
+  WHEN seeded = n THEN 'SIMULATED: ' || n || ' demo seed, not from a board'
+  WHEN board = n THEN 'SIMULATED load cell: ' || n || ' from the ESP32'
+  WHEN seeded + board = n THEN 'SIMULATED: ' || seeded || ' demo seed, ' || board || ' from the ESP32'
+  ELSE 'NOT VERIFIED: ' || (n - seeded - board) || ' of ' || n || ' have no known source' END AS "Source"
+FROM (SELECT count(*) AS n, count(*) FILTER (WHERE r.edge_quality = 'simulated') AS seeded,
+        count(*) FILTER (WHERE r.seq IS NOT NULL AND coalesce(r.edge_quality, '') <> 'simulated') AS board
+      FROM pickups p LEFT JOIN readings r ON r.compactor_id = p.compactor_id AND r.ts = p.done_at
+      WHERE p.status = 'done' AND $__timeFilter(p.done_at)) s""", 16, 8, warn="^(SIMULATED|NOT VERIFIED).*",
+          desc="Demo seed rows were never produced by a board. ESP32 pickups run through real edge processing, but on a simulated load cell. No weight here is a real measurement.")
 pg.y += 3
 
-# --- KPIs: coloured numbers on a calm background. Green = fine, orange = worth a look, red = a problem
+# --- KPIs: coloured numbers on a calm background. Green = fine, orange = worth a look, red = a problem.
+# A failed query has no value, and Grafana then uses the first threshold step. So that step is the "unavailable" colour and the
+# real scale starts at 0. Otherwise a broken database looks like a calm green tile.
+UNAVAILABLE = {"color": "#F2495C", "value": None}
+NO_VALUE = -1      # sentinel only for display: avg() and sum() of nothing give NULL, which Grafana cannot tell from a failed query
+def steps(*rest):
+    return [UNAVAILABLE, *[{"color": c, "value": v} for c, v in rest]]
 pg.stats([
-    ("Pickups", f"SELECT count(*) FROM pickups WHERE {done}", "short", [{"color": "text", "value": None}], "Completed in this time range. 0 means none were recorded."),
-    ("On time", f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'ON_TIME'", "short", GOOD, "Neither too early nor too late"),
-    ("Too early", f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'TOO_EARLY'", "short",
-     [{"color": "green", "value": None}, {"color": "orange", "value": 1}], "Emptied well below the on-call level"),
-    ("Too late", f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'TOO_LATE'", "short",
-     [{"color": "green", "value": None}, {"color": "red", "value": 1}], "Full for 2+ site hours before the truck came"),
-    ("Avg load at pickup", f"SELECT round(avg(load_before_pct)) FROM pickups WHERE {done}", "percent",
-     [{"color": "red", "value": None}, {"color": "orange", "value": 60}, {"color": "green", "value": 80}], "Higher means fewer trucks for the same waste. A dash means there is nothing to average, or the data is unavailable."),
-    ("Wasted fees (est.)", f"SELECT round(sum(fee_eur * greatest(0, 1 - load_before_pct / 100))) FROM pickups WHERE {done}",
-     "currencyEUR", [{"color": "green", "value": None}, {"color": "orange", "value": 20}],
-     "Fees paid for empty space. Estimate: placeholder lift fee × the empty part of the container"),
-], h=3, color_mode="value")
-for tile in pg.panels[-2:]:   # nothing to average is neither good nor bad. A failed query lands here too, so only a neutral dash is true
-    tile["fieldConfig"]["defaults"]["mappings"] = [{"type": "special", "options": {"match": "null+nan", "result": {"text": "–", "color": "text", "index": 0}}}]
+    ("Pickups", f"SELECT count(*) FROM pickups WHERE {done}", "short", steps(("text", 0)), "Completed in this time range. 0 means none were recorded."),
+    ("On time", f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'ON_TIME'", "short", steps(("green", 0)), "Neither too early nor too late"),
+    ("Too early", f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'TOO_EARLY'", "short", steps(("green", 0), ("orange", 1)),
+     "Emptied well below the on-call level"),
+    ("Too late", f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'TOO_LATE'", "short", steps(("green", 0), ("red", 1)),
+     "Full for 2+ site hours before the truck came"),
+    ("Avg load at pickup", f"SELECT coalesce(v, {NO_VALUE}) AS v FROM (SELECT round(avg(load_before_pct)) AS v FROM pickups WHERE {done}) q", "percent",
+     steps(("red", 0), ("orange", 60), ("green", 80)), "Higher means fewer trucks for the same waste. No value means there was nothing to average."),
+    ("Wasted fees (estimate)", f"SELECT coalesce(v, {NO_VALUE}) AS v FROM (SELECT round(sum(fee_eur * greatest(0, 1 - load_before_pct / 100))) AS v FROM pickups WHERE {done}) q",
+     "currencyEUR", steps(("green", 0), ("orange", 20)), "Fees paid for empty space. Estimate: placeholder lift fee × the empty part of the container"),
+], h=3, color_mode="value", no_value="Unavailable")
+x = 0
+for tile, w in zip(pg.panels[-6:], (3, 3, 4, 4, 5, 5)):     # sized so each title fits even beside Grafana's error icon
+    tile["gridPos"].update(x=x, w=w)
+    x += w
+for tile in pg.panels[-2:]:
+    tile["fieldConfig"]["defaults"]["mappings"] = [{"type": "value", "options": {str(NO_VALUE): {"text": "No value", "color": "text", "index": 0}}}]
 
-pg.text("- **Too late:** full (98 % or more) for 2 site hours or longer before the lift. Overflow and side-waste risk. Checked first.\n"
+pg.text("- **Too late:** full (98 % or more) for 2 site hours or longer before the lift. Overflow risk.\n"
         "- **Too early:** emptied more than 20 points below that compactor's on-call level. A paid lift for a part-full container.\n"
-        "- **On time:** neither of the above.\n\n"
-        "The on-call level is the fill at which a truck is ordered: 80 % for C1 and C2, 85 % for C3." + SITE_TIME, h=7, title="How each pickup is judged")
+        "- **On time:** neither of the above.", h=6, title="How each pickup is judged, in this order", w=14, move=False)
+pg.text("**On-call level:** the fill that orders a truck. 80 % for C1 and C2, 85 % for C3.\n\n**Speed:**" + SITE_TIME, h=6, title="Terms used here", x=14, w=10)
 
 # --- analysis
 p = pg.panel("barchart", "Verdict per compactor", 0, pg.y, 10, 9,
@@ -245,16 +259,25 @@ p = pg.panel("table", "Pickup history", 0, pg.y, 24, 11,
              f"SELECT p.id AS \"#\", p.done_at AS \"Emptied\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", "
              f"p.kind AS \"Who\", p.load_before_pct AS \"Load %\", p.kg_collected AS \"kg\", p.wait_hours AS \"Wait (site h)\", "
              f"p.full_hours AS \"Full for (site h)\", p.verdict AS \"Verdict\", p.verdict_reason AS \"Why\", p.net_eur AS \"Net € (estimate)\", "
-             f"p.invoice_check AS \"Simulated invoice\", p.claim_eur AS \"Simulated claim €\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id "
+             f"p.invoice_check AS \"Simulated invoice\", p.claim_eur AS \"Simulated claim €\", "
+             f"CASE WHEN r.edge_quality = 'simulated' THEN 'Demo seed' WHEN r.seq IS NOT NULL THEN 'ESP32, simulated load cell' ELSE 'Not verified' END AS \"Source\" "
+             f"FROM pickups p JOIN compactors c ON c.id = p.compactor_id LEFT JOIN readings r ON r.compactor_id = p.compactor_id AND r.ts = p.done_at "
              f"WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY p.done_at DESC",
-             desc="Newest first. A dash means the value was not recorded. Weights are simulated, net is an estimate with placeholder prices, and invoices are simulated.")
+             desc="Newest first. Source says where each pickup came from. A dash means the value was not recorded. Weights are simulated, net is an estimate with placeholder prices, and invoices are simulated.")
+p["transformations"] = [{"id": "organize", "options": {"indexByName": {k: i for i, k in enumerate(
+    ["Emptied", "Compactor", "Verdict", "Source", "Why", "Load %", "kg", "Net € (estimate)", "Simulated invoice", "Simulated claim €",
+     "Who", "Material", "Wait (site h)", "Full for (site h)", "#"])}, "excludeByName": {}, "renameByName": {}}}]
 p["fieldConfig"]["defaults"] = {"noValue": NO_EVENTS}     # whole table empty
 p["options"] = {"showHeader": True, "cellHeight": "sm"}
 p["fieldConfig"]["overrides"] = [*[{"matcher": {"id": "byType", "options": t}, "properties": [{"id": "noValue", "value": "–"}]}   # one value missing
                                    for t in ("number", "string", "time")],
                                  text_col("Verdict", {"ON_TIME": ("green", "On time"), "TOO_EARLY": ("orange", "Too early"), "TOO_LATE": ("red", "Too late")}),
                                  text_col("Simulated invoice", {"OK": ("green", "OK")}),
-                                 {"matcher": {"id": "byName", "options": "Why"}, "properties": [{"id": "custom.width", "value": 330}]}]
+                                 text_col("Source", {"Demo seed": ("#D79A32", "Demo seed"), "ESP32, simulated load cell": ("#D79A32", "ESP32, simulated load cell"),
+                                                     "Not verified": ("red", "Not verified")}),
+                                 *[{"matcher": {"id": "byName", "options": k}, "properties": [{"id": "custom.width", "value": w}]}
+                                   for k, w in [("Emptied", 160), ("Compactor", 100), ("Verdict", 85), ("Source", 195), ("Why", 230), ("Load %", 75), ("kg", 70),
+                                                ("Net € (estimate)", 125), ("Simulated invoice", 170), ("Simulated claim €", 140)]]]
 pg.y += 11
 pg.text("The lift model's second opinion, trained on the Europress history, is on the *Site now* page.", h=2)
 pickups_page = pg.dash()
@@ -363,4 +386,4 @@ out.mkdir(parents=True, exist_ok=True)
 for name, d in [("compactor", site), ("live_pickups", pickups_page), ("live_money", money), ("edge_live", devices)]:
     if args.only in (None, name):
         (out / f"{name}.json").write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
-print(f"written to {out}: " + (args.only or "compactor, live_pickups, live_money, edge_live"))
+print(f"written to {out}: " + (args.only or "compactor, live_pickups, live_money, edge_live") + f" (DEMO_TIME_SCALE={SCALE:g})")

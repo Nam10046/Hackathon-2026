@@ -220,6 +220,11 @@ Other limits:
 - **Regenerating Grafana:** `make_live_pages.py` reads `DEMO_TIME_SCALE` from `.env`. With 1 it rewrites `compactor.json` for real time. Keep 60 when regenerating.
 - Multi-tenant limits are in `docs/MULTI_TENANT.md`, including Rahti, which is not migrated.
 
+### Live 2 · Pickups candidate
+
+A redesigned page waits in `grafana/candidates`, and Grafana does not load it. Build it on your machine, so it states your
+`DEMO_TIME_SCALE`, and read `grafana/candidates/README.md` before applying it. Writing into `grafana/dashboards` goes live within seconds.
+
 ### Troubleshooting
 
 | Problem | Fix |
