@@ -287,3 +287,30 @@ def test_live_cost_estimate():
     assert c["collection_cost"] == 45 and c["material_value"] == 160 and c["total_customer_cost"] == -115
     assert c["total_cost_eur_per_t"] == -57.5
     assert costs(0, {"lift_fee_eur": 45, "price_eur_per_kg": 0.08})["total_cost_eur_per_t"] is None
+
+
+def test_truck_on_almost_empty_container_closes_the_pickup(client):
+    """Booked at 6 %: the board empties 170 kg -> 25 kg. That is the emptying (no endless re-sending, no 'unexpected drop')."""
+    now = datetime.now(timezone.utc)
+    _feed(client, "C3", [150, 160, 170], now - timedelta(seconds=40))            # C3 = 4000 kg, about 4 %
+    pid = client.post("/api/pickups/book", json={"compactor_id": "C3"}).json()["pickup_id"]
+    r = _feed(client, "C3", [172], now + timedelta(seconds=2))[0]
+    assert r["commands"] and r["commands"][0]["compactor_id"] == "C3"
+    r = _feed(client, "C3", [25], now + timedelta(seconds=12))[0]               # the truck emptied it
+    types = [a["type"] for a in r["alerts"]]
+    assert "emptied" in types and "pickup_too_early" in types and "unexpected_drop" not in types
+    p = next(x for x in client.get("/api/pickups").json() if x["id"] == pid)
+    assert p["status"] == "done" and p["verdict"] == "TOO_EARLY"
+    assert _feed(client, "C3", [40], now + timedelta(seconds=22))[0]["commands"] == []   # no more re-sending
+
+
+def test_truck_command_gives_up_after_5_minutes(client, monkeypatch):
+    from app import pickups
+    monkeypatch.setattr(pickups, "GIVE_UP_S", 0)                              # 'later than 5 min' right away
+    now = datetime.now(timezone.utc)
+    _feed(client, "C1", [1700, 1710], now - timedelta(seconds=30))
+    pid = client.post("/api/pickups/book", json={"compactor_id": "C1"}).json()["pickup_id"]
+    assert _feed(client, "C1", [1712], now + timedelta(seconds=2))[0]["commands"]   # command sent
+    r = _feed(client, "C1", [1715], now + timedelta(seconds=12))[0]              # board never emptied
+    assert "truck_failed" in {a["type"] for a in r["alerts"]} and r["commands"] == []
+    assert next(x for x in client.get("/api/pickups").json() if x["id"] == pid)["status"] == "cancelled"

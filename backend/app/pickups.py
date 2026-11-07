@@ -28,11 +28,23 @@ FEE_EUR = {"cardboard": 45.0, "biowaste": 60.0, "mixed": 85.0}   # fallback only
 FULL_PCT = 98            # counts as full
 LATE_FULL_H = 2.0        # full this long before the lift -> TOO_LATE
 EARLY_MARGIN = 20        # emptied more than this below the on-call threshold -> TOO_EARLY
-P_TRUCK_LATE = float(os.getenv("DEMO_P_TRUCK_LATE", "0.12"))
-P_FIXED_ROUTE = float(os.getenv("DEMO_P_FIXED_ROUTE", "0.15"))
-P_INVOICE_KG = float(os.getenv("DEMO_P_INVOICE_KG", "0.15"))
-P_INVOICE_FEE = float(os.getenv("DEMO_P_INVOICE_FEE", "0.10"))
+# old demo simulations, OFF by default (set the env var > 0 to switch one back on):
+#   fixed route = a truck that comes by itself (only a person books now) · invoice = a simulated operator invoice
+#   (customers type in the real invoices on the Analysis page) · truck late = unused since a booking sends the truck now
+P_TRUCK_LATE = float(os.getenv("DEMO_P_TRUCK_LATE", "0"))
+P_FIXED_ROUTE = float(os.getenv("DEMO_P_FIXED_ROUTE", "0"))
+P_INVOICE_KG = float(os.getenv("DEMO_P_INVOICE_KG", "0"))
+P_INVOICE_FEE = float(os.getenv("DEMO_P_INVOICE_FEE", "0"))
 RESEND_S = 90            # board did not empty after a command -> send it again
+GIVE_UP_S = 300          # still no emptying 5 min after the truck command -> cancel the pickup and warn
+
+
+def truck_emptied(conn, cid, prev_kg, new_kg, cap) -> bool:
+    """We sent a truck and the weight now dropped to about empty: that IS the emptying, even when the container was
+    almost empty already (the normal rule needs >= 10 % before, so a lift at 6 % would never close)."""
+    p = _open(conn, cid)
+    return (p is not None and p["status"] == "booked" and p["cmd_sent_at"] is not None and prev_kg is not None
+            and new_kg < cap * 0.05 and prev_kg - new_kg >= max(30.0, cap * 0.005))
 
 
 def site_h(td: timedelta) -> float:
@@ -84,7 +96,12 @@ def tick(conn, comp, mat, ts, load, emptied, before, rng=random):
         cmds.append(_cmd(p))
     elif p is not None and p["status"] == "booked" and p["truck_due"] is not None and ts >= _utc(p["truck_due"]):
         sent = p["cmd_sent_at"]
-        if sent is None or (now - _utc(sent)).total_seconds() > RESEND_S:  # 2. the truck is here
+        if sent is not None and (now - _utc(p["truck_due"])).total_seconds() > GIVE_UP_S:   # never loop forever
+            conn.execute(update(pickups).where(pickups.c.id == p["id"]).values(status="cancelled", done_at=ts))
+            out_alerts.append({"type": "truck_failed", "severity": "warning",
+                               "message": f"No emptying reported {GIVE_UP_S // 60} min after the truck command — pickup "
+                                          f"#{p['id']} cancelled. Check the board, then book again"})
+        elif sent is None or (now - _utc(sent)).total_seconds() > RESEND_S:  # 2. the truck is here
             conn.execute(update(pickups).where(pickups.c.id == p["id"]).values(cmd_sent_at=now))
             if sent is None:
                 out_alerts.append({"type": "truck_arrived", "severity": "info",

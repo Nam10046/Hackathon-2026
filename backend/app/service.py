@@ -155,6 +155,10 @@ def ingest(reading: dict) -> dict:
         # --- pickups: book trucks, send them to the board, judge every lift, price it, check the invoice ---
         emptied = any(a["type"] == "emptied" for a in found) or bool(edge.get("emptied"))
         before = ({**plausible[-1], "after_kg": new["weight_kg"]} if plausible else None)
+        if not emptied and before and pickups.truck_emptied(conn, comp["id"], before["weight_kg"], new["weight_kg"], comp["capacity_kg"]):
+            emptied = True     # our truck emptied an almost-empty container: close the pickup, it was no "unexpected" drop
+            found = [a for a in found if a["type"] != "unexpected_drop"]
+            found.append({"type": "emptied", "severity": "info", "message": f"Emptied by the truck: {before['weight_kg']:.0f} kg collected"})
         p_alerts, commands = pickups.tick(conn, dict(comp), dict(mat), ts, load, emptied, before)
         found += p_alerts
         # the AI lift model is a SECOND OPINION: where it contradicts the board's measurement (e.g. "came late" for a
