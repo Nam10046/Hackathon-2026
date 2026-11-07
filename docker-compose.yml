@@ -97,6 +97,7 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS:-admin}
       - GF_AUTH_ANONYMOUS_ENABLED=true        # judges can view without login
       - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_PANELS_DISABLE_SANITIZE_HTML=true  # lets "Site now" embed the Book truck buttons (backend /book); only editors can change panels
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/compactor.json
       - DB_HOST=${DB_HOST:-postgres}
       - DB_PORT=${DB_PORT:-5432}

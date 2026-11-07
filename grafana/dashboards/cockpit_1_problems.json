@@ -1,0 +1,667 @@
+{
+  "uid": "value-cockpit",
+  "title": "1 Problems",
+  "tags": [
+    "analysis"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 4,
+  "refresh": "30s",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "graphTooltip": 1,
+  "editable": true,
+  "links": [],
+  "description": "Analysis of our customers' live data. The system only suggests; a person decides.",
+  "panels": [
+    {
+      "id": 99,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "🟢 **Live (ESP32):** [Site now](/d/smart-compactor) · [Pickups](/d/live-pickups) · [Money & CO₂](/d/live-money) · [Devices](/d/edge-live) &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (all customers):** **● 1 Problems** · [2 Cost & weight](/d/cockpit-cost) · [3 Waste companies](/d/cockpit-operators) · [4 Invoices](/d/cockpit-actions)"
+      }
+    },
+    {
+      "id": 100,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### What went wrong — from the board's own measurements and the checked invoices\nPick a **customer** or **waste company** at the top. An **issue** is counted once: one per lift that was emptied too early or left full too long, and a device fault once per compactor per hour. The AI's opinion on each lift is shown in the event log, not counted again. **Charged too much** is proven by our measurement; **needs proof** = a surcharge or penalty the sensor cannot check."
+      }
+    },
+    {
+      "title": "Lifts measured",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 1
+    },
+    {
+      "title": "Collected",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum(p.kg_collected)) AS v FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "masskg",
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 2
+    },
+    {
+      "title": "Issues",
+      "description": "One per lift judged too early / too late, plus device faults (same fault, same compactor, same hour = one).",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM (SELECT p.done_at AS ts, c.customer_name, p.compactor_id, c.operator_name, CASE p.verdict WHEN 'TOO_EARLY' THEN 'Emptied too early (<60%)' ELSE 'Left full 2h+' END AS problem, p.verdict_reason AS what, 1 AS times FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND p.verdict IN ('TOO_EARLY', 'TOO_LATE') AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) UNION ALL SELECT min(a.ts), c.customer_name, a.compactor_id, c.operator_name, CASE a.type WHEN 'pickup_too_early' THEN 'Emptied too early (<60%)' WHEN 'pickup_too_late' THEN 'Left full 2h+' WHEN 'ml_premature_unjustified' THEN 'AI: lift not needed' WHEN 'ml_delayed_collection' THEN 'AI: lift came late' WHEN 'ml_anomaly' THEN 'AI: unusual reading' WHEN 'contamination' THEN 'Wrong material (density)' WHEN 'spike' THEN 'Sensor spike' WHEN 'sensor_stuck' THEN 'Sensor stuck' WHEN 'sensor_fault' THEN 'Sensor fault' WHEN 'data_gap' THEN 'No data' WHEN 'zero_shift' THEN 'Scale not zero after emptying' WHEN 'overload' THEN 'Overloaded' WHEN 'unexpected_drop' THEN 'Weight dropped without emptying' WHEN 'signature_invalid' THEN 'Reading tampered / wrong key' ELSE a.type END, min(a.message), count(*) FROM alerts a JOIN compactors c ON c.id = a.compactor_id WHERE a.type IN ('spike', 'sensor_stuck', 'sensor_fault', 'data_gap', 'zero_shift', 'overload', 'unexpected_drop', 'signature_invalid', 'contamination') AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(a.ts) GROUP BY c.customer_name, a.compactor_id, c.operator_name, a.type, date_trunc('hour', a.ts)) x"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 3
+    },
+    {
+      "title": "Invoices to check",
+      "description": "Invoices where a line differs from the measurement and nobody decided yet.",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) AND i.suggestion = 'CHECK' AND d.decision IS NULL"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 4
+    },
+    {
+      "title": "Charged too much",
+      "description": "Billed more than the board measured or than the customer's prices.",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum(i.overcharged_eur)::numeric) AS v FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0,
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 5
+    },
+    {
+      "title": "Needs proof",
+      "description": "Surcharges and penalties the sensor cannot prove or disprove: ask for evidence.",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum(i.unverified_eur)::numeric) AS v FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0,
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 6
+    },
+    {
+      "title": "Issues by type",
+      "description": "",
+      "type": "bargauge",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 8,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT problem AS \"Problem\", count(*) AS \"Issues\" FROM (SELECT p.done_at AS ts, c.customer_name, p.compactor_id, c.operator_name, CASE p.verdict WHEN 'TOO_EARLY' THEN 'Emptied too early (<60%)' ELSE 'Left full 2h+' END AS problem, p.verdict_reason AS what, 1 AS times FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND p.verdict IN ('TOO_EARLY', 'TOO_LATE') AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) UNION ALL SELECT min(a.ts), c.customer_name, a.compactor_id, c.operator_name, CASE a.type WHEN 'pickup_too_early' THEN 'Emptied too early (<60%)' WHEN 'pickup_too_late' THEN 'Left full 2h+' WHEN 'ml_premature_unjustified' THEN 'AI: lift not needed' WHEN 'ml_delayed_collection' THEN 'AI: lift came late' WHEN 'ml_anomaly' THEN 'AI: unusual reading' WHEN 'contamination' THEN 'Wrong material (density)' WHEN 'spike' THEN 'Sensor spike' WHEN 'sensor_stuck' THEN 'Sensor stuck' WHEN 'sensor_fault' THEN 'Sensor fault' WHEN 'data_gap' THEN 'No data' WHEN 'zero_shift' THEN 'Scale not zero after emptying' WHEN 'overload' THEN 'Overloaded' WHEN 'unexpected_drop' THEN 'Weight dropped without emptying' WHEN 'signature_invalid' THEN 'Reading tampered / wrong key' ELSE a.type END, min(a.message), count(*) FROM alerts a JOIN compactors c ON c.id = a.compactor_id WHERE a.type IN ('spike', 'sensor_stuck', 'sensor_fault', 'data_gap', 'zero_shift', 'overload', 'unexpected_drop', 'signature_invalid', 'contamination') AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(a.ts) GROUP BY c.customer_name, a.compactor_id, c.operator_name, a.type, date_trunc('hour', a.ts)) x GROUP BY 1 ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "text",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "sizing": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/Issues/",
+          "values": true
+        }
+      },
+      "id": 7
+    },
+    {
+      "title": "Issues — newest first (times = how often the same fault repeated within the hour)",
+      "description": "",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 9,
+        "w": 16,
+        "h": 11
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT ts AS \"Time\", customer_name AS \"Customer\", compactor_id AS \"Compactor\", operator_name AS \"Waste company\", problem AS \"Problem\", what AS \"What the data shows\", times AS \"Times\" FROM (SELECT p.done_at AS ts, c.customer_name, p.compactor_id, c.operator_name, CASE p.verdict WHEN 'TOO_EARLY' THEN 'Emptied too early (<60%)' ELSE 'Left full 2h+' END AS problem, p.verdict_reason AS what, 1 AS times FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND p.verdict IN ('TOO_EARLY', 'TOO_LATE') AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) UNION ALL SELECT min(a.ts), c.customer_name, a.compactor_id, c.operator_name, CASE a.type WHEN 'pickup_too_early' THEN 'Emptied too early (<60%)' WHEN 'pickup_too_late' THEN 'Left full 2h+' WHEN 'ml_premature_unjustified' THEN 'AI: lift not needed' WHEN 'ml_delayed_collection' THEN 'AI: lift came late' WHEN 'ml_anomaly' THEN 'AI: unusual reading' WHEN 'contamination' THEN 'Wrong material (density)' WHEN 'spike' THEN 'Sensor spike' WHEN 'sensor_stuck' THEN 'Sensor stuck' WHEN 'sensor_fault' THEN 'Sensor fault' WHEN 'data_gap' THEN 'No data' WHEN 'zero_shift' THEN 'Scale not zero after emptying' WHEN 'overload' THEN 'Overloaded' WHEN 'unexpected_drop' THEN 'Weight dropped without emptying' WHEN 'signature_invalid' THEN 'Reading tampered / wrong key' ELSE a.type END, min(a.message), count(*) FROM alerts a JOIN compactors c ON c.id = a.compactor_id WHERE a.type IN ('spike', 'sensor_stuck', 'sensor_fault', 'data_gap', 'zero_shift', 'overload', 'unexpected_drop', 'signature_invalid', 'contamination') AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(a.ts) GROUP BY c.customer_name, a.compactor_id, c.operator_name, a.type, date_trunc('hour', a.ts)) x ORDER BY ts DESC LIMIT 500"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Time"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 150
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compactor"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Problem"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 200
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 8
+    },
+    {
+      "title": "Invoice lines that do not match the measurement",
+      "description": "",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 20,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT i.invoice_id AS \"Invoice\", i.operator_name AS \"Waste company\", CASE l.line_type WHEN 'LIFT_FEE' THEN 'Lift fee' WHEN 'MATERIAL_CREDIT' THEN 'Material credit' WHEN 'PROCESSING' THEN 'Processing' WHEN 'HAULAGE' THEN 'Haulage' WHEN 'SURCHARGE' THEN 'Surcharge' WHEN 'PENALTY' THEN 'Penalty' WHEN 'OTHER' THEN 'Other' ELSE l.line_type END AS \"Line\", l.compactor_id AS \"Compactor\", l.service_date AS \"Date\", l.amount_eur AS \"Billed €\", l.expected_eur AS \"Should be €\", l.difference_eur AS \"Difference €\", CASE l.check_status WHEN 'OK' THEN 'ok' WHEN 'WRONG_PRICE' THEN 'wrong price' WHEN 'NO_LIFT' THEN 'no lift measured' WHEN 'DUPLICATE' THEN 'billed twice' WHEN 'WEIGHT_MISMATCH' THEN 'weight differs' WHEN 'NO_EVIDENCE' THEN 'needs proof' WHEN 'UNKNOWN_COMPACTOR' THEN 'not their compactor' ELSE l.check_status END AS \"Check\", l.check_reason AS \"Why\" FROM invoice_lines l JOIN invoices i ON i.invoice_id = l.invoice_id LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) AND l.check_status <> 'OK' ORDER BY l.difference_eur DESC NULLS LAST LIMIT 500"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Billed €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Should be €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Difference €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Check"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "needs proof": {
+                        "color": "orange",
+                        "index": 0
+                      },
+                      "wrong price": {
+                        "color": "red",
+                        "index": 1
+                      },
+                      "no lift measured": {
+                        "color": "red",
+                        "index": 2
+                      },
+                      "billed twice": {
+                        "color": "red",
+                        "index": 3
+                      },
+                      "weight differs": {
+                        "color": "red",
+                        "index": 4
+                      },
+                      "not their compactor": {
+                        "color": "red",
+                        "index": 5
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 9
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "customer",
+        "label": "Customer",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT customer_name FROM compactors WHERE customer_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT customer_name FROM compactors WHERE customer_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      },
+      {
+        "name": "operator",
+        "label": "Waste company",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT operator_name FROM compactors WHERE operator_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT operator_name FROM compactors WHERE operator_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      }
+    ]
+  }
+}

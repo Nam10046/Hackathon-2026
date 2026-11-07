@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Book a truck</title>
+<!-- Shown inside Grafana (Site now page) as an embedded panel. Colours match Grafana's dark theme. -->
+<style>
+  :root { --bg: #181b1f; --card: #22252b; --line: #2f333a; --text: #d8d9da; --muted: #8e9196;
+          --green: #73bf69; --orange: #ff9830; --red: #f2495c; --blue: #5794f2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 8px; background: var(--bg); color: var(--text);
+         font: 14px/1.4 Inter, "Helvetica Neue", Arial, sans-serif; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 8px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px;
+          display: flex; flex-direction: column; gap: 8px; }
+  .card.need { border-color: var(--orange); }
+  .head { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+  .name { font-weight: 600; }
+  .mat { color: var(--muted); font-size: 12px; }
+  .pct { font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .bar { position: relative; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+  .bar > i { position: absolute; inset: 0 auto 0 0; border-radius: 4px; }
+  .bar > b { position: absolute; top: -2px; bottom: -2px; width: 2px; background: var(--text); opacity: .6; }
+  .state { font-size: 13px; min-height: 18px; }
+  button { font: inherit; font-weight: 600; padding: 7px 10px; border-radius: 4px; cursor: pointer;
+           border: 1px solid var(--blue); background: transparent; color: var(--blue); }
+  button.need { background: var(--orange); border-color: var(--orange); color: #111; }
+  button:disabled { cursor: default; opacity: .45; border-color: var(--line); background: transparent; color: var(--muted); }
+  .msg { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .err { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<div class="msg" id="msg">Loading…</div>
+<script>
+// Data comes from the backend this page is served by: GET /api/pickups/board, POST /api/pickups/book
+const grid = document.getElementById("grid"), msg = document.getElementById("msg");
+let busy = false;
+
+function colour(load, thr) { return load >= 98 ? "var(--red)" : load >= thr ? "var(--orange)" : "var(--green)"; }
+
+function card(c) {
+  const load = c.load_pct ?? 0, t = c.truck;
+  // the button is always on: it empties THIS compactor only (pressing again while a truck is on its way re-sends it)
+  let state, label = "Book truck", disabled = false;
+  if (t && t.arrived) state = `<span style="color:var(--blue)">🚛 Truck sent — the board is emptying ${c.compactor_id}</span>`;
+  else if (t) state = `<span style="color:var(--blue)">🚛 Booked — goes to the board with its next reading (~10 s)</span>`;
+  else if (c.needs_truck) state = `<span style="color:var(--orange)">⚠ Over ${c.on_call_pct}% — needs a truck</span>`;
+  else if (c.load_pct == null) state = "No readings yet";
+  else state = `<span style="color:var(--muted)">OK — on-call at ${c.on_call_pct}%</span>`;
+  return `<div class="card${c.needs_truck ? " need" : ""}">
+    <div class="head"><div><div class="name">${c.compactor_id} · ${c.name}</div><div class="mat">${c.material}</div></div>
+      <div class="pct" style="color:${colour(load, c.on_call_pct)}">${c.load_pct == null ? "–" : Math.round(load) + "%"}</div></div>
+    <div class="bar"><i style="width:${Math.min(load, 100)}%;background:${colour(load, c.on_call_pct)}"></i><b style="left:${c.on_call_pct}%"></b></div>
+    <div class="state">${state}</div>
+    <button class="${c.needs_truck ? "need" : ""}" data-id="${c.compactor_id}" ${disabled ? "disabled" : ""}>${label}</button>
+  </div>`;
+}
+
+async function refresh() {
+  if (busy) return;
+  try {
+    const r = await fetch("/api/pickups/board");
+    if (!r.ok) throw new Error(r.status);
+    grid.innerHTML = (await r.json()).map(card).join("");
+    if (msg.dataset.offline || !msg.classList.contains("err")) { msg.className = "msg"; msg.textContent = "Only a person books a truck. Updates every 5 s."; }
+    delete msg.dataset.offline;
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = "Backend not reachable (" + e.message + ")"; msg.dataset.offline = 1;
+  }
+}
+
+grid.addEventListener("click", async (ev) => {
+  const b = ev.target.closest("button[data-id]");
+  if (!b || b.disabled) return;
+  busy = true; b.disabled = true; b.textContent = "Booking…";
+  try {
+    const r = await fetch("/api/pickups/book", { method: "POST", headers: { "Content-Type": "application/json" },
+                                                 body: JSON.stringify({ compactor_id: b.dataset.id }) });
+    const body = await r.json().catch(() => ({}));
+    msg.className = r.ok ? "msg" : "msg err";
+    msg.textContent = !r.ok ? (body.detail || "Booking failed: " + r.status)
+      : body.new ? `Truck booked for ${b.dataset.id} (pickup #${body.pickup_id}) — only ${b.dataset.id} is emptied.`
+      : `Truck for ${b.dataset.id} already on its way — empty command sent again (pickup #${body.pickup_id}).`;
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = "Booking failed: " + e.message;
+  }
+  busy = false; refresh();
+});
+
+refresh();
+setInterval(refresh, 5000);
+</script>
+</body>
+</html>

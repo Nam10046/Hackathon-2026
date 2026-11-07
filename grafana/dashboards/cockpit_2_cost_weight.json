@@ -1,0 +1,520 @@
+{
+  "uid": "cockpit-cost",
+  "title": "2 Cost & weight",
+  "tags": [
+    "analysis"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 4,
+  "refresh": "30s",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "graphTooltip": 1,
+  "editable": true,
+  "links": [],
+  "description": "Analysis of our customers' live data. The system only suggests; a person decides.",
+  "panels": [
+    {
+      "id": 99,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "🟢 **Live (ESP32):** [Site now](/d/smart-compactor) · [Pickups](/d/live-pickups) · [Money & CO₂](/d/live-money) · [Devices](/d/edge-live) &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (all customers):** [1 Problems](/d/value-cockpit) · **● 2 Cost & weight** · [3 Waste companies](/d/cockpit-operators) · [4 Invoices](/d/cockpit-actions)"
+      }
+    },
+    {
+      "id": 100,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### What the waste cost, per tonne — and does the invoice agree with our scale?\n**Estimated** = the live estimate with the customer's prices (cost per lift − kg × price per tonne). **Billed** = what the waste companies invoiced. The middle table puts the **lifts and tonnes we measured** next to what each invoice **billed**."
+      }
+    },
+    {
+      "title": "Tonnes measured",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round((sum(p.kg_collected) / 1000)::numeric, 2) AS v FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 1
+    },
+    {
+      "title": "Estimated cost",
+      "description": "Cost per lift − kg × price per tonne, with the prices on Money & CO₂.",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 5,
+        "y": 5,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum((coalesce(m.lift_fee_eur, p.fee_eur, 0) - p.kg_collected * m.price_eur_per_kg))::numeric) AS v FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0,
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 2
+    },
+    {
+      "title": "Estimated € per tonne",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round((sum((coalesce(m.lift_fee_eur, p.fee_eur, 0) - p.kg_collected * m.price_eur_per_kg)) / NULLIF(sum(p.kg_collected) / 1000, 0))::numeric, 1) AS v FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0,
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 3
+    },
+    {
+      "title": "Billed (invoices entered)",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 14,
+        "y": 5,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum(i.total_eur)::numeric) AS v FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0,
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 4
+    },
+    {
+      "title": "Charged too much",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 19,
+        "y": 5,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum(i.overcharged_eur)::numeric) AS v FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0,
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 5
+    },
+    {
+      "title": "Per compactor (measured)",
+      "description": "",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 6
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT c.customer_name AS \"Customer\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", c.operator_name AS \"Waste company\", count(*) AS \"Lifts\", round((sum(p.kg_collected) / 1000)::numeric, 2) AS \"Tonnes\", round(avg(p.load_before_pct)::numeric) AS \"Avg load at lift %\", round(sum((coalesce(m.lift_fee_eur, p.fee_eur, 0) - p.kg_collected * m.price_eur_per_kg))::numeric) AS \"Estimated €\", round((sum((coalesce(m.lift_fee_eur, p.fee_eur, 0) - p.kg_collected * m.price_eur_per_kg)) / NULLIF(sum(p.kg_collected) / 1000, 0))::numeric, 1) AS \"Estimated € / t\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) GROUP BY 1, 2, 3, 4 ORDER BY 1, 2"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 6
+    },
+    {
+      "title": "Invoice vs our measurement, per compactor",
+      "description": "",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT i.invoice_id AS \"Invoice\", i.operator_name AS \"Waste company\", l.compactor_id AS \"Compactor\", sum(CASE WHEN l.line_type = 'LIFT_FEE' THEN coalesce(l.quantity, 1) ELSE 0 END) AS \"Lifts billed\", (SELECT count(*) FROM pickups p WHERE p.compactor_id = l.compactor_id AND p.status = 'done' AND p.done_at >= i.period_from AND p.done_at < i.period_to + 1) AS \"Lifts measured\", round(sum(CASE WHEN l.line_type IN ('PROCESSING', 'MATERIAL_CREDIT') THEN CASE WHEN l.unit = 'kg' THEN l.quantity / 1000 ELSE l.quantity END ELSE 0 END)::numeric, 3) AS \"Tonnes billed\", (SELECT round((sum(p.kg_collected) / 1000)::numeric, 3) FROM pickups p WHERE p.compactor_id = l.compactor_id AND p.status = 'done' AND p.done_at >= i.period_from AND p.done_at < i.period_to + 1) AS \"Tonnes measured\", round(sum(l.amount_eur)::numeric, 2) AS \"Billed €\", round(sum(l.difference_eur)::numeric, 2) AS \"Difference €\" FROM invoice_lines l JOIN invoices i ON i.invoice_id = l.invoice_id LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) AND l.compactor_id IS NOT NULL GROUP BY i.invoice_id, i.operator_name, l.compactor_id, i.period_from, i.period_to ORDER BY i.invoice_id, l.compactor_id"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Billed €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Difference €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 7
+    },
+    {
+      "title": "Every lift the board measured",
+      "description": "",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 10
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT p.done_at AS \"Emptied\", c.customer_name AS \"Customer\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", c.operator_name AS \"Waste company\", p.load_before_pct AS \"Load %\", p.kg_collected AS \"kg\", round((coalesce(m.lift_fee_eur, p.fee_eur, 0) - p.kg_collected * m.price_eur_per_kg)::numeric, 2) AS \"Estimated €\", p.co2_kg AS \"CO₂ saved kg\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) ORDER BY p.done_at DESC LIMIT 1000"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Estimated €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 8
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "customer",
+        "label": "Customer",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT customer_name FROM compactors WHERE customer_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT customer_name FROM compactors WHERE customer_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      },
+      {
+        "name": "operator",
+        "label": "Waste company",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT operator_name FROM compactors WHERE operator_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT operator_name FROM compactors WHERE operator_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      }
+    ]
+  }
+}

@@ -27,7 +27,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "🟢 **Live (ESP32):** **● Site now** · [Pickups](/d/live-pickups) · [Money & CO₂](/d/live-money) · [Devices](/d/edge-live) &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (Europress history):** [1 Overview](/d/value-cockpit) · [2 Problems found](/d/cockpit-findings) · [3 Cost & weight](/d/cockpit-cost) · [4 Waste companies](/d/cockpit-operators) · [5 Decisions](/d/cockpit-actions) &nbsp;·&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
+        "content": "🟢 **Live (ESP32):** **● Site now** · [Pickups](/d/live-pickups) · [Money & CO₂](/d/live-money) · [Devices](/d/edge-live) &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (all customers):** [1 Problems](/d/value-cockpit) · [2 Cost & weight](/d/cockpit-cost) · [3 Waste companies](/d/cockpit-operators) · [4 Invoices](/d/cockpit-actions)"
       }
     },
     {
@@ -48,16 +48,82 @@
     },
     {
       "type": "stat",
+      "title": "Need a truck",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Over the on-call level and no truck booked yet: press Book truck below",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT count(*) FROM compactors c JOIN compactor_status s ON s.compactor_id = c.id WHERE s.load_pct >= coalesce(c.on_call_threshold_pct, 80) AND NOT EXISTS (SELECT 1 FROM pickups p WHERE p.compactor_id = c.id AND p.status = 'booked')"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 103
+    },
+    {
+      "type": "stat",
       "title": "Trucks on the way",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "Booked by the system, not arrived yet",
+      "description": "Booked by a person, not arrived yet",
       "gridPos": {
-        "x": 0,
+        "x": 5,
         "y": 4,
-        "w": 4,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -106,7 +172,7 @@
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 103
+      "id": 104
     },
     {
       "type": "stat",
@@ -117,9 +183,9 @@
       },
       "description": "Site hours until the next booked truck arrives",
       "gridPos": {
-        "x": 4,
+        "x": 10,
         "y": 4,
-        "w": 4,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -168,7 +234,7 @@
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 104
+      "id": 105
     },
     {
       "type": "stat",
@@ -179,9 +245,9 @@
       },
       "description": "",
       "gridPos": {
-        "x": 8,
+        "x": 15,
         "y": 4,
-        "w": 4,
+        "w": 5,
         "h": 4
       },
       "targets": [
@@ -230,18 +296,18 @@
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 105
+      "id": 106
     },
     {
       "type": "stat",
-      "title": "On time",
+      "title": "Pickups at ≥60%",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "Share of all lifts that were on time",
+      "description": "Share of all lifts emptied at 60 % or more and not left full for 2+ site h",
       "gridPos": {
-        "x": 12,
+        "x": 20,
         "y": 4,
         "w": 4,
         "h": 4
@@ -300,137 +366,20 @@
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 106
-    },
-    {
-      "type": "stat",
-      "title": "Net result €",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      },
-      "description": "Material value minus lift fees, all pickups",
-      "gridPos": {
-        "x": 16,
-        "y": 4,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "rawQuery": true,
-          "format": "table",
-          "rawSql": "SELECT round(sum(net_eur)) FROM pickups WHERE status = 'done'"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyEUR",
-          "decimals": null,
-          "color": {
-            "mode": "thresholds"
-          },
-          "noValue": "–",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "red",
-                "value": null
-              },
-              {
-                "color": "green",
-                "value": 0
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "value",
-        "justifyMode": "center"
-      },
       "id": 107
     },
     {
-      "type": "stat",
-      "title": "Invoice claims €",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      },
-      "description": "Money to claim back: invoices that do not match what we measured",
+      "type": "text",
+      "title": "Book a truck — the system only warns at the on-call level, a person decides",
       "gridPos": {
-        "x": 20,
-        "y": 4,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "rawQuery": true,
-          "format": "table",
-          "rawSql": "SELECT round(sum(claim_eur)) FROM pickups WHERE status = 'done'"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyEUR",
-          "decimals": null,
-          "color": {
-            "mode": "thresholds"
-          },
-          "noValue": "–",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              },
-              {
-                "color": "orange",
-                "value": 1
-              }
-            ]
-          }
-        },
-        "overrides": []
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 6
       },
       "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "value",
-        "justifyMode": "center"
+        "mode": "html",
+        "content": "<iframe src=\"http://localhost:8000/book\" title=\"Book a truck\" style=\"width:100%;height:165px;border:0;display:block\"></iframe>"
       },
       "id": 108
     },
@@ -444,7 +393,7 @@
       "description": "",
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 14,
         "w": 8,
         "h": 9
       },
@@ -511,7 +460,7 @@
       "description": "",
       "gridPos": {
         "x": 8,
-        "y": 8,
+        "y": 14,
         "w": 16,
         "h": 9
       },
@@ -574,7 +523,7 @@
       "description": "'scheduled' = the old fixed route will still come at a set load, without looking at the sensor",
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 23,
         "w": 10,
         "h": 8
       },
@@ -654,7 +603,7 @@
       "description": "",
       "gridPos": {
         "x": 10,
-        "y": 17,
+        "y": 23,
         "w": 14,
         "h": 8
       },
@@ -668,7 +617,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT ts AS \"Time\", compactor_id AS \"Compactor\", type AS \"Event\", message AS \"What\" FROM alerts WHERE $__timeFilter(ts) ORDER BY ts DESC, id DESC LIMIT 60"
+          "rawSql": "SELECT ts AS \"Time\", compactor_id AS \"Compactor\", type AS \"Event\", message AS \"What\" FROM alerts WHERE $__timeFilter(ts) AND type <> 'invoice_mismatch' ORDER BY ts DESC, id DESC LIMIT 60"
         }
       ],
       "fieldConfig": {
@@ -721,13 +670,13 @@
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 25,
+        "y": 31,
         "w": 24,
         "h": 3
       },
       "options": {
         "mode": "markdown",
-        "content": "**How it works:** the board measures (stable weight, spikes removed, signed). At the on-call % the system **books a truck**. When the truck arrives, the system tells the board over MQTT; the board **detects the emptying itself**. Every lift is then **judged** (on time / too early / too late), **priced** (material value − lift fee), its **CO₂** counted and the operator's **invoice checked** against our kg. Some trucks are late and the old fixed route sometimes comes early — on purpose, so you see every case."
+        "content": "**How it works:** the board measures (stable weight, spikes removed, signed). At the on-call % the system **warns** (*pickup_needed*) — it does not book. A **person presses Book truck**. When the truck arrives, the system tells the board over MQTT; the board **detects the emptying itself**. Every lift is then **judged** (≥60% / <60% / Full 2h+) and its **CO₂** counted. Some trucks are late and the old fixed route sometimes comes early — on purpose, so you see every case."
       },
       "id": 113
     }

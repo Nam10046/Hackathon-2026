@@ -1,0 +1,337 @@
+{
+  "uid": "cockpit-operators",
+  "title": "3 Waste companies",
+  "tags": [
+    "analysis"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 4,
+  "refresh": "30s",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "graphTooltip": 1,
+  "editable": true,
+  "links": [],
+  "description": "Analysis of our customers' live data. The system only suggests; a person decides.",
+  "panels": [
+    {
+      "id": 99,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "🟢 **Live (ESP32):** [Site now](/d/smart-compactor) · [Pickups](/d/live-pickups) · [Money & CO₂](/d/live-money) · [Devices](/d/edge-live) &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (all customers):** [1 Problems](/d/value-cockpit) · [2 Cost & weight](/d/cockpit-cost) · **● 3 Waste companies** · [4 Invoices](/d/cockpit-actions)"
+      }
+    },
+    {
+      "id": 100,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Which waste company performs best?\n**Lifts at ≥60 %** = emptied when the container was worth it and not left full. **Invoice lines correct** = lines that match the board's measurement and the customer's prices. Facts for contract talks, not blame — a sensor can be wrong too."
+      }
+    },
+    {
+      "title": "Lifts at ≥60 % (on time)",
+      "description": "",
+      "type": "bargauge",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT op AS \"Waste company\", round(on_time::numeric) AS \"%\" FROM (SELECT c.operator_name AS op, count(*) AS lifts, avg(CASE WHEN p.verdict = 'ON_TIME' THEN 100.0 ELSE 0 END) AS on_time, avg(p.load_before_pct) AS load, sum(CASE WHEN p.verdict = 'TOO_EARLY' THEN 1 ELSE 0 END) AS early, sum(CASE WHEN p.verdict = 'TOO_LATE' THEN 1 ELSE 0 END) AS late FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) GROUP BY 1) x ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "text",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "sizing": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/%/",
+          "values": true
+        }
+      },
+      "id": 1
+    },
+    {
+      "title": "Invoice lines correct",
+      "description": "",
+      "type": "bargauge",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 5,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT op AS \"Waste company\", round(lines_ok::numeric) AS \"%\" FROM (SELECT i.operator_name AS op, count(*) AS invoices, 100.0 * sum(i.lines_ok) / NULLIF(sum(i.lines_total), 0) AS lines_ok, sum(i.overcharged_eur) AS over, sum(i.unverified_eur) AS proof FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) GROUP BY 1) x ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "min": 0,
+          "max": 100,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "text",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "sizing": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/%/",
+          "values": true
+        }
+      },
+      "id": 2
+    },
+    {
+      "title": "Charged too much",
+      "description": "",
+      "type": "bargauge",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 5,
+        "w": 8,
+        "h": 7
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT op AS \"Waste company\", round(over::numeric) AS \"EUR\" FROM (SELECT i.operator_name AS op, count(*) AS invoices, 100.0 * sum(i.lines_ok) / NULLIF(sum(i.lines_total), 0) AS lines_ok, sum(i.overcharged_eur) AS over, sum(i.unverified_eur) AS proof FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) GROUP BY 1) x ORDER BY 2 DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "#5794F2"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "displayMode": "basic",
+        "valueMode": "text",
+        "showUnfilled": true,
+        "namePlacement": "left",
+        "sizing": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/EUR/",
+          "values": true
+        }
+      },
+      "id": 3
+    },
+    {
+      "title": "Scorecard",
+      "description": "",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 12,
+        "w": 24,
+        "h": 8
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT coalesce(a.op, b.op) AS \"Waste company\", a.lifts AS \"Lifts\", round(a.on_time::numeric) AS \"At ≥60 % %\", round(a.load::numeric) AS \"Avg load at lift %\", a.early AS \"Too early\", a.late AS \"Left full 2h+\", b.invoices AS \"Invoices\", round(b.lines_ok::numeric) AS \"Lines correct %\", round(b.over::numeric, 2) AS \"Charged too much €\", round(b.proof::numeric, 2) AS \"Needs proof €\" FROM (SELECT c.operator_name AS op, count(*) AS lifts, avg(CASE WHEN p.verdict = 'ON_TIME' THEN 100.0 ELSE 0 END) AS on_time, avg(p.load_before_pct) AS load, sum(CASE WHEN p.verdict = 'TOO_EARLY' THEN 1 ELSE 0 END) AS early, sum(CASE WHEN p.verdict = 'TOO_LATE' THEN 1 ELSE 0 END) AS late FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND c.customer_name IN ($customer) AND c.operator_name IN ($operator) AND $__timeFilter(p.done_at) GROUP BY 1) a FULL JOIN (SELECT i.operator_name AS op, count(*) AS invoices, 100.0 * sum(i.lines_ok) / NULLIF(sum(i.lines_total), 0) AS lines_ok, sum(i.overcharged_eur) AS over, sum(i.unverified_eur) AS proof FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) GROUP BY 1) b ON b.op = a.op ORDER BY 1"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Charged too much €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Needs proof €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 4
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "customer",
+        "label": "Customer",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT customer_name FROM compactors WHERE customer_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT customer_name FROM compactors WHERE customer_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      },
+      {
+        "name": "operator",
+        "label": "Waste company",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT operator_name FROM compactors WHERE operator_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT operator_name FROM compactors WHERE operator_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      }
+    ]
+  }
+}

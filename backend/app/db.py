@@ -6,7 +6,7 @@ Table layout must match CONTRACT.md section 3.
 import os
 
 from sqlalchemy import (
-    Boolean, Column, DateTime, Float, ForeignKey, Integer, MetaData, String, Table,
+    Boolean, Column, Date, DateTime, Float, ForeignKey, Integer, MetaData, String, Table,
     create_engine, insert, select,
 )
 
@@ -15,10 +15,11 @@ metadata = MetaData()
 materials = Table(
     "materials", metadata,
     Column("name", String, primary_key=True),
-    Column("price_eur_per_kg", Float, nullable=False),  # + earn, - pay
+    Column("price_eur_per_kg", Float, nullable=False),  # + earn, - pay (customer types it in as € per tonne)
     Column("density_min", Float, nullable=False),        # kg/m3, normal compacted range
     Column("density_max", Float, nullable=False),
     Column("co2_factor", Float, nullable=False),         # kg CO2 saved per kg recycled
+    Column("lift_fee_eur", Float),                       # cost per lift (lift fee + transport), customer types it in
 )
 
 compactors = Table(
@@ -30,6 +31,8 @@ compactors = Table(
     Column("volume_m3", Float, nullable=False),
     # SETTING from SMART: fill % at which a truck is ordered (on-call). Used by the live lift model. NULL = unknown
     Column("on_call_threshold_pct", Float),
+    Column("customer_name", String),       # who owns it (the customer sees only their own compactors on the user platform)
+    Column("operator_name", String),       # the waste company that empties it
 )
 
 readings = Table(
@@ -114,6 +117,57 @@ action_decisions = Table(
     Column("decided_at", DateTime(timezone=True), nullable=False),
 )
 
+# An invoice from a waste company, typed in by the customer (Analysis -> Invoices) and checked against what the board measured
+invoices = Table(
+    "invoices", metadata,
+    Column("invoice_id", String, primary_key=True),       # the waste company's invoice number
+    Column("customer_name", String, nullable=False, index=True),
+    Column("operator_name", String, nullable=False),
+    Column("period_from", Date, nullable=False),
+    Column("period_to", Date, nullable=False),
+    Column("total_eur", Float, nullable=False),            # the total printed on the invoice
+    Column("entered_by", String),
+    Column("entered_at", DateTime(timezone=True)),
+    # filled by app/invoice_check.py
+    Column("checked_at", DateTime(timezone=True)),
+    Column("suggestion", String),                          # APPROVE | CHECK  (a person decides)
+    Column("overcharged_eur", Float),                      # proven by our measurement: billed more than measured / contract
+    Column("unverified_eur", Float),                       # surcharges / penalties the sensor cannot prove: ask for evidence
+    Column("lines_ok", Integer),
+    Column("lines_total", Integer),
+    Column("summary", String),                             # plain-language result
+)
+invoice_lines = Table(
+    "invoice_lines", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("invoice_id", String, ForeignKey("invoices.invoice_id"), nullable=False, index=True),
+    Column("line_no", Integer, nullable=False),
+    Column("line_type", String, nullable=False),           # LIFT_FEE | PROCESSING | MATERIAL_CREDIT | HAULAGE | SURCHARGE | PENALTY | OTHER
+    Column("compactor_id", String),
+    Column("service_date", Date),
+    Column("quantity", Float),
+    Column("unit", String),                                # lift | t | kg | pcs
+    Column("unit_price_eur", Float),
+    Column("amount_eur", Float, nullable=False),           # + charge, - credit
+    # filled by app/invoice_check.py
+    Column("check_status", String),                        # OK | WRONG_PRICE | NO_LIFT | DUPLICATE | WEIGHT_MISMATCH | NO_EVIDENCE | UNKNOWN_COMPACTOR
+    Column("expected_eur", Float),                         # what it should be from our measurement + the contract
+    Column("difference_eur", Float),                       # amount - expected: + = charged too much
+    Column("check_reason", String),
+)
+
+# A person's decision on a whole invoice (Analysis page). Never updated: the newest row counts, the rest is the history.
+invoice_decisions = Table(
+    "invoice_decisions", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("invoice_id", String, nullable=False, index=True),
+    Column("decision", String, nullable=False),        # APPROVE | REJECT | HOLD
+    Column("decided_by", String, nullable=False),
+    Column("role", String, nullable=False),            # admin | customer
+    Column("note", String),
+    Column("decided_at", DateTime(timezone=True), nullable=False),
+)
+
 # Was a live alert right? Filled in by the person who checked it on site. Gives the model's LIVE precision.
 alert_feedback = Table(
     "alert_feedback", metadata,
@@ -127,14 +181,19 @@ alert_feedback = Table(
 
 # PLACEHOLDER numbers — replace with real prices/densities from Europress or recyclers
 SEED_MATERIALS = [
-    {"name": "cardboard", "price_eur_per_kg": 0.08, "density_min": 150, "density_max": 450, "co2_factor": 0.9},
-    {"name": "plastic", "price_eur_per_kg": 0.05, "density_min": 100, "density_max": 350, "co2_factor": 1.5},
-    {"name": "mixed", "price_eur_per_kg": -0.15, "density_min": 250, "density_max": 650, "co2_factor": 0.0},
+    {"name": "cardboard", "price_eur_per_kg": 0.08, "density_min": 150, "density_max": 450, "co2_factor": 0.9, "lift_fee_eur": 45},
+    {"name": "biowaste", "price_eur_per_kg": -0.06, "density_min": 250, "density_max": 700, "co2_factor": 0.3, "lift_fee_eur": 60},
+    {"name": "mixed", "price_eur_per_kg": -0.15, "density_min": 250, "density_max": 650, "co2_factor": 0.0, "lift_fee_eur": 85},
 ]
+DEMO_CUSTOMER = os.getenv("DEMO_CUSTOMER", "Demo Customer (site S1)")
 SEED_COMPACTORS = [
-    {"id": "C1", "name": "Warehouse cardboard", "material": "cardboard", "capacity_kg": 2000, "volume_m3": 8, "on_call_threshold_pct": 80},
-    {"id": "C2", "name": "Store plastic", "material": "plastic", "capacity_kg": 1500, "volume_m3": 8, "on_call_threshold_pct": 80},
-    {"id": "C3", "name": "Mixed waste", "material": "mixed", "capacity_kg": 4000, "volume_m3": 8, "on_call_threshold_pct": 85},
+    # the ESP32 edge node (site S1) is our demo CUSTOMER: its 3 compactors, emptied by 2 waste companies
+    {"id": "C1", "name": "Warehouse cardboard", "material": "cardboard", "capacity_kg": 2000, "volume_m3": 8, "on_call_threshold_pct": 80,
+     "customer_name": DEMO_CUSTOMER, "operator_name": "Hauler Alpha"},
+    {"id": "C2", "name": "Bio waste", "material": "biowaste", "capacity_kg": 3000, "volume_m3": 8, "on_call_threshold_pct": 80,
+     "customer_name": DEMO_CUSTOMER, "operator_name": "Hauler Beta"},
+    {"id": "C3", "name": "Mixed waste", "material": "mixed", "capacity_kg": 4000, "volume_m3": 8, "on_call_threshold_pct": 85,
+     "customer_name": DEMO_CUSTOMER, "operator_name": "Hauler Alpha"},
 ]
 
 _engine = None
@@ -172,6 +231,17 @@ def init_db():
     if "on_call_threshold_pct" not in {c["name"] for c in inspect(engine).get_columns("compactors")}:
         with engine.begin() as conn:
             conn.execute(text("ALTER TABLE compactors ADD COLUMN on_call_threshold_pct FLOAT"))
+    have_c = {c["name"] for c in inspect(engine).get_columns("compactors")}
+    for col in [c for c in ("customer_name", "operator_name") if c not in have_c]:
+        with engine.begin() as conn:   # older databases: who owns / empties each compactor
+            conn.execute(text(f"ALTER TABLE compactors ADD COLUMN {col} VARCHAR"))
+            for c in SEED_COMPACTORS:
+                conn.execute(compactors.update().where(compactors.c.id == c["id"]).values(**{col: c[col]}))
+    if "lift_fee_eur" not in {c["name"] for c in inspect(engine).get_columns("materials")}:
+        with engine.begin() as conn:   # older databases: add the column, start from the placeholder fees
+            conn.execute(text("ALTER TABLE materials ADD COLUMN lift_fee_eur FLOAT"))
+            for m in SEED_MATERIALS:
+                conn.execute(materials.update().where(materials.c.name == m["name"]).values(lift_fee_eur=m["lift_fee_eur"]))
     have = {c["name"] for c in inspect(engine).get_columns("readings")}
     for col, typ in [("verified", "BOOLEAN"), ("seq", "INTEGER"), ("edge_quality", "VARCHAR"),
                      ("spikes_filtered", "INTEGER"), ("from_buffer", "BOOLEAN")]:
@@ -181,6 +251,15 @@ def init_db():
     with engine.begin() as conn:
         if conn.execute(select(materials.c.name)).first() is None:
             conn.execute(insert(materials), SEED_MATERIALS)
+        # the site has cardboard, mixed waste and BIO waste (no plastic): move older databases over once
+        if conn.execute(select(materials.c.name).where(materials.c.name == "plastic")).first() is not None:
+            bio = next(m for m in SEED_MATERIALS if m["name"] == "biowaste")
+            if conn.execute(select(materials.c.name).where(materials.c.name == "biowaste")).first() is None:
+                conn.execute(insert(materials), [bio])
+            c2 = next(c for c in SEED_COMPACTORS if c["id"] == "C2")
+            conn.execute(compactors.update().where(compactors.c.material == "plastic")
+                         .values(material="biowaste", name=c2["name"], capacity_kg=c2["capacity_kg"]))
+            conn.execute(materials.delete().where(materials.c.name == "plastic"))
         have_ids = {r[0] for r in conn.execute(select(compactors.c.id))}
         missing = [c for c in SEED_COMPACTORS if c["id"] not in have_ids]
         if missing:   # also adds compactors that were added to the seed later

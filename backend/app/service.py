@@ -157,6 +157,14 @@ def ingest(reading: dict) -> dict:
         before = ({**plausible[-1], "after_kg": new["weight_kg"]} if plausible else None)
         p_alerts, commands = pickups.tick(conn, dict(comp), dict(mat), ts, load, emptied, before)
         found += p_alerts
+        # the AI lift model is a SECOND OPINION: where it contradicts the board's measurement (e.g. "came late" for a
+        # lift at 36 %), the measurement wins -> keep it (model monitoring counts it) but as info, never as a problem
+        verdict = next((a["type"] for a in p_alerts if a["type"] in ("pickup_on_time", "pickup_too_early", "pickup_too_late")), None)
+        agrees = {"ml_delayed_collection": "pickup_too_late", "ml_premature_unjustified": "pickup_too_early"}
+        for a in found:
+            if verdict and a["type"] in agrees and agrees[a["type"]] != verdict:
+                a["severity"] = "info"
+                a["message"] = "AI second opinion, the measurement disagrees: " + a["message"]
 
         conn.execute(delete(compactor_status).where(compactor_status.c.compactor_id == comp["id"]))
         conn.execute(insert(compactor_status).values(**status))

@@ -27,7 +27,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "🟢 **Live (ESP32):** [Site now](/d/smart-compactor) · [Pickups](/d/live-pickups) · [Money & CO₂](/d/live-money) · **● Devices** &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (Europress history):** [1 Overview](/d/value-cockpit) · [2 Problems found](/d/cockpit-findings) · [3 Cost & weight](/d/cockpit-cost) · [4 Waste companies](/d/cockpit-operators) · [5 Decisions](/d/cockpit-actions) &nbsp;·&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
+        "content": "🟢 **Live (ESP32):** [Site now](/d/smart-compactor) · [Pickups](/d/live-pickups) · [Money & CO₂](/d/live-money) · **● Devices** &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (all customers):** [1 Problems](/d/value-cockpit) · [2 Cost & weight](/d/cockpit-cost) · [3 Waste companies](/d/cockpit-operators) · [4 Invoices](/d/cockpit-actions)"
       }
     },
     {

@@ -4,7 +4,7 @@ Read this first, then README.md, CONTRACT.md, firmware/edge_node/README.md.
 
 ## What exists (commit deac81c on branch feature/compactor-framework, NOT pushed yet)
 - **Live product, fed only by the ESP32-C6 edge node** (firmware/edge_node): one board runs a site with 3 compactors
-  (C1 cardboard 2000 kg, C2 plastic 1500 kg, C3 mixed 4000 kg), fast mode TIME_SCALE=60 (1 real min = 1 site hour).
+  (C1 cardboard 2000 kg, C2 bio waste 3000 kg, C3 mixed 4000 kg), fast mode TIME_SCALE=60 (1 real min = 1 site hour).
   Per compactor: 10 Hz sampling, median spike filter, stable weighing, stuck detection, emptying detection, offline
   buffer, HMAC-signed readings. Listens for truck commands on MQTT `site/S1/cmd`.
 - **Backend pickups loop** (backend/app/pickups.py): book truck at on-call % -> command to board when due ->

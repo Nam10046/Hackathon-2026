@@ -7,7 +7,7 @@ from fastapi import Depends, FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import select
 
-from app import cockpit, model_health, service
+from app import analysis, booking, cockpit, model_health, prices, service
 from app.security import require_key
 from app.ai import ml
 from app.db import alerts, get_engine, init_db, materials, readings
@@ -36,6 +36,9 @@ app = FastAPI(title="Smart Compactor API", version=os.getenv("APP_VERSION", "0.2
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 app.include_router(cockpit.router)
 app.include_router(model_health.router)
+app.include_router(booking.router)
+app.include_router(prices.router)
+app.include_router(analysis.router)
 
 
 @app.get("/api/health", response_model=HealthResponse)

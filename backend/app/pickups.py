@@ -1,7 +1,8 @@
 """Pickups: the part of the product that turns ESP32 weights into decisions and money.
 
-Loop (all automatic, driven by the readings of the edge node):
-  1. load reaches the compactor's on-call threshold  -> a truck is BOOKED (alert pickup_booked)
+Loop (driven by the readings of the edge node; only a PERSON books a truck):
+  1. load reaches the compactor's on-call threshold  -> NOTICE only (alert pickup_needed, once per fill cycle)
+     a person presses "Book truck" (Grafana booking panel -> POST /api/pickups/book) -> BOOKED, truck goes now
   2. the booked time arrives                         -> a command goes to the board: "empty C2"  (Node-RED -> MQTT)
   3. the board itself detects the emptying           -> the pickup is CLOSED and JUDGED:
         ON_TIME    emptied near full, not overflowing
@@ -19,11 +20,11 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import insert, select, update
 
-from app.db import pickups, readings
+from app.db import alerts, compactor_status, pickups, readings
 
 SCALE = float(os.getenv("DEMO_TIME_SCALE", "1"))   # site hours per real hour
 SITE_ID = os.getenv("SITE_ID", "S1")
-FEE_EUR = {"cardboard": 45.0, "plastic": 45.0, "mixed": 85.0}   # PLACEHOLDER lift fee per material
+FEE_EUR = {"cardboard": 45.0, "biowaste": 60.0, "mixed": 85.0}   # fallback only: the customer types the fee in (materials.lift_fee_eur)
 FULL_PCT = 98            # counts as full
 LATE_FULL_H = 2.0        # full this long before the lift -> TOO_LATE
 EARLY_MARGIN = 20        # emptied more than this below the on-call threshold -> TOO_EARLY
@@ -71,17 +72,12 @@ def tick(conn, comp, mat, ts, load, emptied, before, rng=random):
                                                 trigger_load_pct=round(trig, 1), created_at=ts))
         return out_alerts, cmds
 
-    if p is None and load >= thr:                                    # 1. book a truck
-        late = rng.random() < P_TRUCK_LATE
-        lead = rng.uniform(9, 13) if late else rng.uniform(1.5, 3.5)    # site hours
-        due = ts + real(lead)
-        pid = conn.execute(insert(pickups).values(
-            compactor_id=cid, status="booked", kind="booked", booked_at=ts, booked_load_pct=round(load, 1),
-            truck_due=due, truck_late=late, created_at=ts)).inserted_primary_key[0]
-        out_alerts.append({"type": "pickup_booked", "severity": "info",
-                           "message": f"Truck booked automatically at {load:.0f}% (on-call {thr:.0f}%) — arrives in ~{lead:.0f} h "
-                                      f"(pickup #{pid})"})
-    elif p is not None and p["status"] == "scheduled" and load >= (p["trigger_load_pct"] or 0):
+    # 1. on-call level reached and no truck booked yet -> tell a person (once per fill cycle); we do NOT book
+    if load >= thr and (p is None or p["status"] == "scheduled") and not _noticed(conn, cid):
+        out_alerts.append({"type": "pickup_needed", "severity": "warning",
+                           "message": f"{load:.0f}% full (on-call {thr:.0f}%) — book a truck on the Site now page"})
+
+    if p is not None and p["status"] == "scheduled" and load >= (p["trigger_load_pct"] or 0):
         conn.execute(update(pickups).where(pickups.c.id == p["id"]).values(status="booked", truck_due=ts, cmd_sent_at=now))
         out_alerts.append({"type": "truck_arrived", "severity": "info",
                            "message": f"Old fixed-route truck arrived at only {load:.0f}% — not booked by us (pickup #{p['id']})"})
@@ -100,6 +96,54 @@ def tick(conn, comp, mat, ts, load, emptied, before, rng=random):
 
 def _utc(t):
     return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+
+
+def _noticed(conn, cid):
+    """Was a pickup_needed notice already sent since the last emptying?"""
+    last = conn.execute(select(pickups.c.done_at).where(pickups.c.compactor_id == cid, pickups.c.status == "done")
+                        .order_by(pickups.c.done_at.desc()).limit(1)).first()
+    q = select(alerts.c.id).where(alerts.c.compactor_id == cid, alerts.c.type == "pickup_needed")
+    if last and last[0]:
+        q = q.where(alerts.c.ts > last[0])
+    return conn.execute(q.limit(1)).first() is not None
+
+
+def book(conn, comp, ts, by="operator"):
+    """A person pressed "Book truck": the truck goes NOW. The empty command for THIS compactor only goes to the board
+    with the answer to its next reading (Node-RED -> MQTT site/<id>/cmd, same as the board's own "e" key).
+    Returns (pickup_id, new). Pressing again while a truck is on its way re-sends the command (new = False).
+    An open old fixed-route visit is replaced by this booking."""
+    cid = comp["id"]
+    p = _open(conn, cid)
+    if p is not None and p["status"] == "booked":
+        conn.execute(update(pickups).where(pickups.c.id == p["id"]).values(truck_due=ts, cmd_sent_at=None))
+        return p["id"], False
+    if p is not None:   # scheduled fixed-route visit -> the person's booking replaces it
+        conn.execute(update(pickups).where(pickups.c.id == p["id"]).values(status="cancelled"))
+    st = conn.execute(select(compactor_status.c.load_pct).where(compactor_status.c.compactor_id == cid)).first()
+    load = st[0] if st and st[0] is not None else None
+    pid = conn.execute(insert(pickups).values(
+        compactor_id=cid, status="booked", kind="booked", booked_at=ts, booked_load_pct=round(load, 1) if load is not None else None,
+        truck_due=ts, truck_late=False, created_at=ts)).inserted_primary_key[0]
+    at = f" at {load:.0f}%" if load is not None else ""
+    conn.execute(insert(alerts).values(compactor_id=cid, ts=ts, type="pickup_booked", severity="info",
+                                       message=f"Truck booked by {by}{at} — emptying {cid} now (pickup #{pid})"))
+    return pid, True
+
+
+def costs(kg, mat, material=None):
+    """LIVE estimate, kept simple on purpose: the customer types in 2 numbers per material.
+      collection_cost = cost per lift (lift fee + transport)
+      material_value  = kg x price (+ the waste company pays you, - you pay them)
+      total cost      = collection_cost - material_value          · € per t = total cost / (kg / 1000)
+    The full Europress formula (haulage, processing, surcharges, penalties, credits) needs the real invoice lines,
+    so it is on the Analysis pages (cp_collections), not here."""
+    t = max(kg, 0) / 1000
+    lift = mat.get("lift_fee_eur") if mat.get("lift_fee_eur") is not None else FEE_EUR.get(material, 50.0)
+    value = max(kg, 0) * (mat.get("price_eur_per_kg") or 0)
+    total = lift - value
+    return {"collection_cost": lift, "material_value": value, "total_customer_cost": total,
+            "total_cost_eur_per_t": total / t if t else None}
 
 
 def close(conn, comp, mat, p, ts, before, rng=random):
@@ -125,8 +169,10 @@ def close(conn, comp, mat, p, ts, before, rng=random):
     else:
         verdict, why = "ON_TIME", f"emptied at {lb:.0f}%, not overflowing"
 
-    price, fee = mat["price_eur_per_kg"], FEE_EUR.get(comp["material"], 50.0)
-    value = kg * price                       # + we earn (cardboard), - we pay to get rid of it (mixed)
+    price = mat["price_eur_per_kg"]
+    c = costs(kg, mat, comp["material"])
+    fee = c["collection_cost"]               # what the truck visit costs
+    value = c["material_value"]              # + we earn (cardboard), - we pay to get rid of it (mixed)
     co2 = kg * mat["co2_factor"]
 
     # the operator's invoice (simulated): usually right; sometimes the kg are "wrong in their favour"

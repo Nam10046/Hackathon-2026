@@ -1,0 +1,553 @@
+{
+  "uid": "cockpit-actions",
+  "title": "4 Invoices",
+  "tags": [
+    "analysis"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 4,
+  "refresh": "30s",
+  "time": {
+    "from": "now-7d",
+    "to": "now"
+  },
+  "graphTooltip": 1,
+  "editable": true,
+  "links": [],
+  "description": "Analysis of our customers' live data. The system only suggests; a person decides.",
+  "panels": [
+    {
+      "id": 99,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 2
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "🟢 **Live (ESP32):** [Site now](/d/smart-compactor) · [Pickups](/d/live-pickups) · [Money & CO₂](/d/live-money) · [Devices](/d/edge-live) &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (all customers):** [1 Problems](/d/value-cockpit) · [2 Cost & weight](/d/cockpit-cost) · [3 Waste companies](/d/cockpit-operators) · **● 4 Invoices**"
+      }
+    },
+    {
+      "id": 100,
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 2,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "### Enter an invoice, see it compared with what the board measured, then decide\n**Enter an invoice** tab: type in the waste company's invoice (or *Fill from measurement* and change a number). It is checked at once: lifts against the board's emptyings, tonnes against the measured weight, prices against the customer's prices. **Check & decide** tab: read every line, then **Approve**, **Reject** or **Hold** with your name — every decision is kept."
+      }
+    },
+    {
+      "title": "Waiting",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) AND d.decision IS NULL"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 1
+    },
+    {
+      "title": "To check",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 4,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) AND d.decision IS NULL AND i.suggestion = 'CHECK'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 2
+    },
+    {
+      "title": "Charged too much (waiting)",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 8,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT round(sum(i.overcharged_eur)::numeric) AS v FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) AND d.decision IS NULL"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": 0,
+          "noValue": "–"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 3
+    },
+    {
+      "title": "Approved",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) AND d.decision = 'APPROVE'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 4
+    },
+    {
+      "title": "Rejected",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 16,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) AND d.decision = 'REJECT'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 5
+    },
+    {
+      "title": "On hold",
+      "description": "",
+      "type": "stat",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 5,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT count(*) AS v FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) AND d.decision = 'HOLD'"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "0"
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "none",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center",
+        "wideLayout": true
+      },
+      "id": 6
+    },
+    {
+      "title": "Invoices — enter, compare, decide",
+      "type": "text",
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 18
+      },
+      "options": {
+        "mode": "html",
+        "content": "<iframe src=\"http://localhost:8000/invoices\" title=\"Invoices — enter, compare, decide\" style=\"width:100%;height:540px;border:0;display:block\"></iframe>"
+      },
+      "id": 7
+    },
+    {
+      "title": "All invoices",
+      "description": "",
+      "type": "table",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 27,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT COALESCE(CASE d.decision WHEN 'APPROVE' THEN 'approved' WHEN 'REJECT' THEN 'rejected' WHEN 'HOLD' THEN 'on hold' END, CASE WHEN i.suggestion = 'CHECK' THEN 'to check' ELSE 'matches' END) AS \"Status\", i.invoice_id AS \"Invoice\", i.customer_name AS \"Customer\", i.operator_name AS \"Waste company\", i.period_from AS \"From\", i.period_to AS \"To\", i.total_eur AS \"Billed €\", i.overcharged_eur AS \"Charged too much €\", i.unverified_eur AS \"Needs proof €\", i.lines_ok || ' / ' || i.lines_total AS \"Lines ok\", i.summary AS \"Check\", d.decided_by AS \"Decided by\" FROM invoices i LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id WHERE i.customer_name IN ($customer) AND i.operator_name IN ($operator) ORDER BY i.entered_at DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "filterable": true
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Billed €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Charged too much €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Needs proof €"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "currencyEUR"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 90
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "to check": {
+                        "color": "orange",
+                        "index": 0
+                      },
+                      "matches": {
+                        "color": "green",
+                        "index": 1
+                      },
+                      "approved": {
+                        "color": "green",
+                        "index": 2
+                      },
+                      "rejected": {
+                        "color": "red",
+                        "index": 3
+                      },
+                      "on hold": {
+                        "color": "orange",
+                        "index": 4
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "footer": {
+          "show": false
+        }
+      },
+      "id": 8
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "customer",
+        "label": "Customer",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT customer_name FROM compactors WHERE customer_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT customer_name FROM compactors WHERE customer_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      },
+      {
+        "name": "operator",
+        "label": "Waste company",
+        "type": "query",
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "compactor-pg"
+        },
+        "query": "SELECT DISTINCT operator_name FROM compactors WHERE operator_name IS NOT NULL ORDER BY 1",
+        "definition": "SELECT DISTINCT operator_name FROM compactors WHERE operator_name IS NOT NULL ORDER BY 1",
+        "multi": true,
+        "includeAll": true,
+        "current": {
+          "selected": true,
+          "text": [
+            "All"
+          ],
+          "value": [
+            "$__all"
+          ]
+        },
+        "refresh": 1,
+        "sort": 1
+      }
+    ]
+  }
+}

@@ -49,7 +49,7 @@ static const int BUF_MAX = 240;             // offline buffer (readings, all com
 struct ChannelDef { const char* id; const char* material; float capacityKg; float fillPctPerHour; };
 static const ChannelDef DEFS[] = {
   {"C1", "cardboard", 2000, 5.0f},   // busy warehouse: full in ~20 h
-  {"C2", "plastic",   1500, 3.5f},   // ~28 h
+  {"C2", "biowaste",  3000, 3.5f},   // ~28 h (bio: hygiene max 7 days)
   {"C3", "mixed",     4000, 4.0f},   // ~25 h
 };
 static const int NCH = sizeof(DEFS) / sizeof(DEFS[0]);

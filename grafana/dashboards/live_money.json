@@ -27,7 +27,7 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "🟢 **Live (ESP32):** [Site now](/d/smart-compactor) · [Pickups](/d/live-pickups) · **● Money & CO₂** · [Devices](/d/edge-live) &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (Europress history):** [1 Overview](/d/value-cockpit) · [2 Problems found](/d/cockpit-findings) · [3 Cost & weight](/d/cockpit-cost) · [4 Waste companies](/d/cockpit-operators) · [5 Decisions](/d/cockpit-actions) &nbsp;·&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)"
+        "content": "🟢 **Live (ESP32):** [Site now](/d/smart-compactor) · [Pickups](/d/live-pickups) · **● Money & CO₂** · [Devices](/d/edge-live) &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (all customers):** [1 Problems](/d/value-cockpit) · [2 Cost & weight](/d/cockpit-cost) · [3 Waste companies](/d/cockpit-operators) · [4 Invoices](/d/cockpit-actions)"
       }
     },
     {
@@ -42,9 +42,24 @@
       },
       "options": {
         "mode": "markdown",
-        "content": "### What the measured kilograms are worth — and what the invoices got wrong"
+        "content": "### A quick estimate of what the collections cost — with your prices"
       },
       "id": 102
+    },
+    {
+      "type": "text",
+      "title": "Your prices — cost per lift and price per tonne, then Save",
+      "gridPos": {
+        "x": 0,
+        "y": 4,
+        "w": 24,
+        "h": 6
+      },
+      "options": {
+        "mode": "html",
+        "content": "<iframe src=\"http://localhost:8000/prices\" title=\"Your prices\" style=\"width:100%;height:165px;border:0;display:block\"></iframe>"
+      },
+      "id": 103
     },
     {
       "type": "stat",
@@ -56,7 +71,7 @@
       "description": "Measured by the board, not by the truck",
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 10,
         "w": 4,
         "h": 4
       },
@@ -70,7 +85,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT round(sum(kg_collected)) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
+          "rawSql": "SELECT round(sum(p.kg_collected)) FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at)"
         }
       ],
       "fieldConfig": {
@@ -106,81 +121,19 @@
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 103
-    },
-    {
-      "type": "stat",
-      "title": "Material value €",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      },
-      "description": "+ earned (cardboard, plastic) / − paid (mixed waste)",
-      "gridPos": {
-        "x": 4,
-        "y": 4,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "rawQuery": true,
-          "format": "table",
-          "rawSql": "SELECT round(sum(value_eur)) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "currencyEUR",
-          "decimals": null,
-          "color": {
-            "mode": "thresholds"
-          },
-          "noValue": "–",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "blue",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "value",
-        "justifyMode": "center"
-      },
       "id": 104
     },
     {
       "type": "stat",
-      "title": "Lift fees €",
+      "title": "Lift costs €",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "Contract fee per lift",
+      "description": "Cost per lift × number of lifts",
       "gridPos": {
-        "x": 8,
-        "y": 4,
+        "x": 4,
+        "y": 10,
         "w": 4,
         "h": 4
       },
@@ -194,7 +147,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT round(sum(fee_eur)) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
+          "rawSql": "SELECT round(sum(coalesce(m.lift_fee_eur, p.fee_eur, 0))) FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at)"
         }
       ],
       "fieldConfig": {
@@ -234,15 +187,15 @@
     },
     {
       "type": "stat",
-      "title": "Net €",
+      "title": "Material value €",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "",
+      "description": "kg × your price per tonne: + earned / − paid",
       "gridPos": {
-        "x": 12,
-        "y": 4,
+        "x": 8,
+        "y": 10,
         "w": 4,
         "h": 4
       },
@@ -256,7 +209,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT round(sum(net_eur)) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
+          "rawSql": "SELECT round(sum((p.kg_collected * m.price_eur_per_kg))) FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at)"
         }
       ],
       "fieldConfig": {
@@ -271,12 +224,8 @@
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "blue",
                 "value": null
-              },
-              {
-                "color": "green",
-                "value": 0
               }
             ]
           }
@@ -300,15 +249,15 @@
     },
     {
       "type": "stat",
-      "title": "CO₂ saved",
+      "title": "Total cost €",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "Recycled material × CO₂ factor",
+      "description": "Lift costs − material value",
       "gridPos": {
-        "x": 16,
-        "y": 4,
+        "x": 12,
+        "y": 10,
         "w": 4,
         "h": 4
       },
@@ -322,69 +271,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT round(sum(co2_kg)) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
-        }
-      ],
-      "fieldConfig": {
-        "defaults": {
-          "unit": "masskg",
-          "decimals": null,
-          "color": {
-            "mode": "thresholds"
-          },
-          "noValue": "–",
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": null
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "options": {
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": false
-        },
-        "colorMode": "background",
-        "graphMode": "none",
-        "textMode": "value",
-        "justifyMode": "center"
-      },
-      "id": 107
-    },
-    {
-      "type": "stat",
-      "title": "To claim back €",
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "compactor-pg"
-      },
-      "description": "Invoice errors found by comparing with our own kg",
-      "gridPos": {
-        "x": 20,
-        "y": 4,
-        "w": 4,
-        "h": 4
-      },
-      "targets": [
-        {
-          "refId": "A",
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "compactor-pg"
-          },
-          "editorMode": "code",
-          "rawQuery": true,
-          "format": "table",
-          "rawSql": "SELECT round(sum(claim_eur)) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
+          "rawSql": "SELECT round(sum((coalesce(m.lift_fee_eur, p.fee_eur, 0) - (p.kg_collected * m.price_eur_per_kg)))) FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at)"
         }
       ],
       "fieldConfig": {
@@ -424,7 +311,131 @@
         "textMode": "value",
         "justifyMode": "center"
       },
+      "id": 107
+    },
+    {
+      "type": "stat",
+      "title": "Total cost € / t",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Total cost per tonne collected",
+      "gridPos": {
+        "x": 16,
+        "y": 10,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT round((sum((coalesce(m.lift_fee_eur, p.fee_eur, 0) - (p.kg_collected * m.price_eur_per_kg))) / NULLIF(sum(p.kg_collected) / 1000, 0))::numeric, 1) FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "currencyEUR",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
       "id": 108
+    },
+    {
+      "type": "stat",
+      "title": "CO₂ saved",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Recycled material × CO₂ factor",
+      "gridPos": {
+        "x": 20,
+        "y": 10,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT round(sum(p.co2_kg)) FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "masskg",
+          "decimals": null,
+          "color": {
+            "mode": "thresholds"
+          },
+          "noValue": "–",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "center"
+      },
+      "id": 109
     },
     {
       "type": "barchart",
@@ -436,7 +447,7 @@
       "description": "",
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 14,
         "w": 10,
         "h": 9
       },
@@ -450,7 +461,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT c.material AS \"Material\", round(sum(p.value_eur)) AS \"Material value\", -round(sum(p.fee_eur)) AS \"Lift fees\", round(sum(p.net_eur)) AS \"Net\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND $__timeFilter(p.done_at) GROUP BY 1 ORDER BY 1"
+          "rawSql": "SELECT c.material AS \"Material\", round(sum(coalesce(m.lift_fee_eur, p.fee_eur, 0))) AS \"Lift costs\", round(sum((p.kg_collected * m.price_eur_per_kg))) AS \"Material value\", round(sum((coalesce(m.lift_fee_eur, p.fee_eur, 0) - (p.kg_collected * m.price_eur_per_kg)))) AS \"Total cost\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at) GROUP BY 1 ORDER BY 1"
         }
       ],
       "fieldConfig": {
@@ -466,11 +477,11 @@
           "showLegend": true
         }
       },
-      "id": 109
+      "id": 110
     },
     {
       "type": "timeseries",
-      "title": "Running total: net € and CO₂ saved",
+      "title": "Running total: total cost € and CO₂ saved",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
@@ -478,7 +489,7 @@
       "description": "",
       "gridPos": {
         "x": 10,
-        "y": 8,
+        "y": 14,
         "w": 14,
         "h": 9
       },
@@ -492,7 +503,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "time_series",
-          "rawSql": "SELECT done_at AS time, sum(net_eur) OVER (ORDER BY done_at) AS \"Net € (running)\" FROM pickups WHERE status = 'done' AND $__timeFilter(done_at) ORDER BY 1"
+          "rawSql": "SELECT p.done_at AS time, sum((coalesce(m.lift_fee_eur, p.fee_eur, 0) - (p.kg_collected * m.price_eur_per_kg))) OVER (ORDER BY p.done_at) AS \"Total cost € (running)\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY 1"
         },
         {
           "refId": "B",
@@ -503,7 +514,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "time_series",
-          "rawSql": "SELECT done_at AS time, sum(co2_kg) OVER (ORDER BY done_at) AS \"CO₂ saved kg (running)\" FROM pickups WHERE status = 'done' AND $__timeFilter(done_at) ORDER BY 1"
+          "rawSql": "SELECT p.done_at AS time, sum(p.co2_kg) OVER (ORDER BY p.done_at) AS \"CO₂ saved kg (running)\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY 1"
         }
       ],
       "fieldConfig": {
@@ -519,7 +530,7 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Net € (running)"
+              "options": "Total cost € (running)"
             },
             "properties": [
               {
@@ -554,11 +565,11 @@
         ]
       },
       "options": {},
-      "id": 110
+      "id": 111
     },
     {
       "type": "table",
-      "title": "Invoice check: their bill vs our measurement",
+      "title": "Every pickup, priced with your prices",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
@@ -566,9 +577,9 @@
       "description": "",
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 23,
         "w": 24,
-        "h": 10
+        "h": 9
       },
       "targets": [
         {
@@ -580,57 +591,15 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT p.id AS \"Pickup\", p.done_at AS \"Emptied\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", p.kg_collected AS \"We measured kg\", p.invoice_kg AS \"Billed kg\", p.fee_eur AS \"Contract fee €\", p.invoice_fee_eur AS \"Billed fee €\", p.invoice_check AS \"Check\", p.claim_eur AS \"Claim €\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY (p.invoice_check <> 'OK') DESC, p.done_at DESC"
+          "rawSql": "SELECT p.id AS \"Pickup\", p.done_at AS \"Emptied\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", p.kg_collected AS \"kg\", round((coalesce(m.lift_fee_eur, p.fee_eur, 0))::numeric, 2) AS \"Lift cost €\", round(((p.kg_collected * m.price_eur_per_kg))::numeric, 2) AS \"Material value €\", round(((coalesce(m.lift_fee_eur, p.fee_eur, 0) - (p.kg_collected * m.price_eur_per_kg)))::numeric, 2) AS \"Total cost €\", round((((coalesce(m.lift_fee_eur, p.fee_eur, 0) - (p.kg_collected * m.price_eur_per_kg))) / NULLIF(p.kg_collected / 1000, 0))::numeric, 2) AS \"€ / t\", p.co2_kg AS \"CO₂ saved kg\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY p.done_at DESC"
         }
       ],
       "fieldConfig": {
         "defaults": {},
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Check"
-            },
-            "properties": [
-              {
-                "id": "custom.cellOptions",
-                "value": {
-                  "type": "color-background",
-                  "mode": "basic"
-                }
-              },
-              {
-                "id": "mappings",
-                "value": [
-                  {
-                    "type": "value",
-                    "options": {
-                      "OK": {
-                        "color": "green",
-                        "index": 0
-                      },
-                      "WEIGHT_MISMATCH": {
-                        "color": "red",
-                        "index": 1
-                      },
-                      "WRONG_FEE": {
-                        "color": "red",
-                        "index": 2
-                      },
-                      "WEIGHT_MISMATCH+WRONG_FEE": {
-                        "color": "red",
-                        "index": 3
-                      }
-                    }
-                  }
-                ]
-              }
-            ]
-          }
-        ]
+        "overrides": []
       },
       "options": {},
-      "id": 111
+      "id": 112
     },
     {
       "type": "text",
@@ -638,15 +607,15 @@
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 32,
         "w": 24,
         "h": 2
       },
       "options": {
         "mode": "markdown",
-        "content": "Prices, fees and CO₂ factors are placeholders (backend `materials` table and `FEE_EUR` in `backend/app/pickups.py`) — replace them with the customer's contract. Operator invoices are simulated: most are right, some bill more kg than we measured (or fewer, when they pay us), some still use an old fee."
+        "content": "**A quick estimate:** total cost = cost per lift − kg × price per tonne. The **kg** are measured by the board; the **€** use your prices above. The full invoice detail (haulage, processing, surcharges, penalties, credits) is on the **Analysis** pages, from the real invoice lines. CO₂ factors are placeholders."
       },
-      "id": 112
+      "id": 113
     }
   ],
   "templating": {

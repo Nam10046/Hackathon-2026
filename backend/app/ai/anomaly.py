@@ -32,7 +32,8 @@ def check(new: dict, history: list[dict], compactor: dict, material: dict, ts=No
         last = last if last.tzinfo or ts.tzinfo is None else last.replace(tzinfo=ts.tzinfo)
         gap_h = (ts - last).total_seconds() / 3600
         if gap_h > GAP_FACTOR * READING_INTERVAL_H:
-            alerts.append(_a("data_gap", "warning", f"No data for {gap_h:.0f} h — check power / network of the node"))
+            gap = f"{gap_h:.0f} h" if gap_h >= 1 else f"{gap_h * 60:.0f} min"
+            alerts.append(_a("data_gap", "warning", f"No data for {gap} — node offline, or the server could not receive"))
 
     # 1. Impossible values -> sensor problem (a few kg below zero is normal noise on an empty scale)
     if w < -max(20, 4 * NOISE_KG) or w > cap * 1.3:

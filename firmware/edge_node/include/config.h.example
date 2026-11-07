@@ -9,7 +9,7 @@
 #define MQTT_HOST      "192.168.1.50"
 #define MQTT_PORT      1883
 
-#define SITE_ID "S1"               // the site; its compactors (C1 cardboard, C2 plastic, C3 mixed) are in src/main.cpp
+#define SITE_ID "S1"               // the site; its compactors (C1 cardboard, C2 bio waste, C3 mixed) are in src/main.cpp
 #define TIME_SCALE 60              // 60 = fast demo (1 min = 1 h), 1 = real time. Same as DEMO_TIME_SCALE in .env
 
 // Signing key: the same text must be in the backend .env as DEVICE_KEYS=C1:<this key>

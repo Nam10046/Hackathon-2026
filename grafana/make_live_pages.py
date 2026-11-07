@@ -15,6 +15,17 @@ SCALE = float(next((l.split("=", 1)[1] for l in (ROOT.parent / ".env").read_text
                     if l.startswith("DEMO_TIME_SCALE=")), "60")) if (ROOT.parent / ".env").exists() else 60.0
 LOAD = "greatest(r.weight_kg / c.capacity_kg * 100, coalesce(r.fill_pct, 0))"
 VERDICT_COLORS = {"ON_TIME": "green", "TOO_EARLY": "orange", "TOO_LATE": "red", "booked": "blue", "scheduled": "purple"}
+# what the verdicts are called on the pages (the database keeps ON_TIME / TOO_EARLY / TOO_LATE, see CONTRACT.md)
+# = the rules in backend/app/pickups.py: TOO_EARLY below on-call (80 %) - 20 points, TOO_LATE full (>= 98 %) for 2+ site h
+LABEL = {"ON_TIME": "≥60%", "TOO_EARLY": "<60%", "TOO_LATE": "Full 2h+"}
+LABEL_COLORS = {LABEL[k]: VERDICT_COLORS[k] for k in LABEL}
+LABEL_SQL = "CASE verdict " + " ".join(f"WHEN '{k}' THEN '{v}'" for k, v in LABEL.items()) + " ELSE verdict END"
+# the booking panel is a page served by the backend, opened by the viewer's browser (so: the address the browser sees)
+API_URL = os.getenv("API_PUBLIC_URL", "http://localhost:8000")
+# LIVE estimate of one pickup p with the customer's 2 numbers in m (= backend app/pickups.costs)
+LIFT = "coalesce(m.lift_fee_eur, p.fee_eur, 0)"                 # cost per lift
+VALUE = "(p.kg_collected * m.price_eur_per_kg)"                  # + earned / - paid
+TOTAL = f"({LIFT} - {VALUE})"                                    # total cost of the pickup
 
 
 class Page:
@@ -42,9 +53,10 @@ class Page:
         self.y += h
 
     def stats(self, items, h=4):
-        w = 24 // len(items)
+        n = len(items)
+        widths = [24 // n + (1 if i < 24 % n else 0) for i in range(n)]
         for i, (title, sql, unit, steps, desc) in enumerate(items):
-            p = self.panel("stat", title, i * w, self.y, w, h, sql, desc=desc)
+            p = self.panel("stat", title, sum(widths[:i]), self.y, widths[i], h, sql, desc=desc)
             p["fieldConfig"]["defaults"] = {"unit": unit or "none", "decimals": 0 if unit in (None, "none", "short") else None,
                                             "color": {"mode": "thresholds"}, "noValue": "–",
                                             "thresholds": {"mode": "absolute", "steps": steps or [{"color": "blue", "value": None}]}}
@@ -76,18 +88,23 @@ pg = Page("smart-compactor", "Live 1 · Site now",
           f"**demo speed: 1 real minute = {SCALE:.0f} site minutes**" if SCALE != 1 else "### Site S1 — live from the ESP32 edge node")
 pg.annotations.append(pickup_anno)
 pg.stats([
-    ("Trucks on the way", "SELECT count(*) FROM pickups WHERE status = 'booked'", "short", None, "Booked by the system, not arrived yet"),
+    ("Need a truck", "SELECT count(*) FROM compactors c JOIN compactor_status s ON s.compactor_id = c.id "
+     "WHERE s.load_pct >= coalesce(c.on_call_threshold_pct, 80) AND NOT EXISTS (SELECT 1 FROM pickups p "
+     "WHERE p.compactor_id = c.id AND p.status = 'booked')", "short", [{"color": "green", "value": None}, {"color": "orange", "value": 1}],
+     "Over the on-call level and no truck booked yet: press Book truck below"),
+    ("Trucks on the way", "SELECT count(*) FROM pickups WHERE status = 'booked'", "short", None, "Booked by a person, not arrived yet"),
     ("Next truck in (site h)", f"SELECT round((extract(epoch FROM min(truck_due) - now()) / 3600 * {SCALE})::numeric, 1) FROM pickups "
      "WHERE status = 'booked' AND cmd_sent_at IS NULL", "none", None, "Site hours until the next booked truck arrives"),
     ("Pickups (last 24 site h)", f"SELECT count(*) FROM pickups WHERE status = 'done' AND done_at > now() - interval '{24 / SCALE * 60:.0f} minutes'",
      "short", None, ""),
-    ("On time", "SELECT round(100.0 * count(*) FILTER (WHERE verdict = 'ON_TIME') / NULLIF(count(*), 0)) FROM pickups WHERE status = 'done'",
-     "percent", [{"color": "red", "value": None}, {"color": "orange", "value": 60}, {"color": "green", "value": 85}], "Share of all lifts that were on time"),
-    ("Net result €", "SELECT round(sum(net_eur)) FROM pickups WHERE status = 'done'", "currencyEUR",
-     [{"color": "red", "value": None}, {"color": "green", "value": 0}], "Material value minus lift fees, all pickups"),
-    ("Invoice claims €", "SELECT round(sum(claim_eur)) FROM pickups WHERE status = 'done'", "currencyEUR",
-     [{"color": "green", "value": None}, {"color": "orange", "value": 1}], "Money to claim back: invoices that do not match what we measured"),
+    ("Pickups at ≥60%", "SELECT round(100.0 * count(*) FILTER (WHERE verdict = 'ON_TIME') / NULLIF(count(*), 0)) FROM pickups WHERE status = 'done'",
+     "percent", [{"color": "red", "value": None}, {"color": "orange", "value": 60}, {"color": "green", "value": 85}], "Share of all lifts emptied at 60 % or more and not left full for 2+ site h"),
 ])
+pg._add({"type": "text", "title": "Book a truck — the system only warns at the on-call level, a person decides",
+         "gridPos": {"x": 0, "y": pg.y, "w": 24, "h": 6},
+         "options": {"mode": "html", "content": f'<iframe src="{API_URL}/book" title="Book a truck" '
+                                                f'style="width:100%;height:165px;border:0;display:block"></iframe>'}}, 24, 6)
+pg.y += 6
 p = pg.panel("bargauge", "Load now", 0, pg.y, 8, 9,
              f"SELECT c.id || ' ' || c.material AS \"Compactor\", s.load_pct AS \"Load\" FROM compactors c "
              f"LEFT JOIN compactor_status s ON s.compactor_id = c.id ORDER BY c.id")
@@ -113,16 +130,15 @@ p = pg.panel("table", "Trucks: booked and on the way", 0, pg.y, 10, 8,
 p["fieldConfig"]["overrides"] = [color_col("Status", VERDICT_COLORS)]
 p = pg.panel("table", "What happened (all decisions, newest first)", 10, pg.y, 14, 8,
              "SELECT ts AS \"Time\", compactor_id AS \"Compactor\", type AS \"Event\", message AS \"What\" FROM alerts "
-             "WHERE $__timeFilter(ts) ORDER BY ts DESC, id DESC LIMIT 60")
+             "WHERE $__timeFilter(ts) AND type <> 'invoice_mismatch' ORDER BY ts DESC, id DESC LIMIT 60")
 p["fieldConfig"]["overrides"] = [{"matcher": {"id": "byName", "options": "Time"}, "properties": [{"id": "custom.width", "value": 150}]},
                                  {"matcher": {"id": "byName", "options": "Compactor"}, "properties": [{"id": "custom.width", "value": 90}]},
                                  {"matcher": {"id": "byName", "options": "Event"}, "properties": [{"id": "custom.width", "value": 160}]}]
 pg.y += 8
-pg.text("**How it works:** the board measures (stable weight, spikes removed, signed). At the on-call % the system **books a truck**. "
-        "When the truck arrives, the system tells the board over MQTT; the board **detects the emptying itself**. Every lift is then "
-        "**judged** (on time / too early / too late), **priced** (material value − lift fee), its **CO₂** counted and the operator's "
-        "**invoice checked** against our kg. Some trucks are late and the old fixed route sometimes comes early — on purpose, so you "
-        "see every case.", h=3)
+pg.text("**How it works:** the board measures (stable weight, spikes removed, signed). At the on-call % the system **warns** "
+        "(*pickup_needed*) — it does not book. A **person presses Book truck**. When the truck arrives, the system tells the board "
+        "over MQTT; the board **detects the emptying itself**. Every lift is then **judged** (≥60% / <60% / Full 2h+) and its "
+        "**CO₂** counted. Some trucks are late and the old fixed route sometimes comes early — on purpose, so you see every case.", h=3)
 site = pg.dash()
 
 # ======================================================================== 2. PICKUPS
@@ -132,91 +148,96 @@ pg.annotations.append(pickup_anno)
 done = "status = 'done' AND $__timeFilter(done_at)"
 pg.stats([
     ("Pickups", f"SELECT count(*) FROM pickups WHERE {done}", "short", None, ""),
-    ("On time", f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'ON_TIME'", "short", GOOD, ""),
-    ("Too early", f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'TOO_EARLY'", "short",
+    (LABEL["ON_TIME"], f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'ON_TIME'", "short", GOOD, "On time: emptied at 60 % or more"),
+    (LABEL["TOO_EARLY"], f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'TOO_EARLY'", "short",
      [{"color": "green", "value": None}, {"color": "orange", "value": 1}], "Emptied well below the on-call level"),
-    ("Too late", f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'TOO_LATE'", "short",
+    (LABEL["TOO_LATE"], f"SELECT count(*) FROM pickups WHERE {done} AND verdict = 'TOO_LATE'", "short",
      [{"color": "green", "value": None}, {"color": "red", "value": 1}], "Full for 2+ site hours before the truck came"),
     ("Avg load at pickup", f"SELECT round(avg(load_before_pct)) FROM pickups WHERE {done}", "percent",
      [{"color": "red", "value": None}, {"color": "orange", "value": 60}, {"color": "green", "value": 80}], "Higher = fewer trucks for the same waste"),
-    ("Paid for empty space €", f"SELECT round(sum(fee_eur * greatest(0, 1 - load_before_pct / 100))) FROM pickups WHERE {done}",
-     "currencyEUR", [{"color": "green", "value": None}, {"color": "orange", "value": 20}],
-     "Lift fee × the empty part of the container: what too-early lifts cost"),
 ])
 p = pg.panel("barchart", "Verdict per compactor", 0, pg.y, 8, 9,
              f"SELECT p.compactor_id || ' ' || c.material AS \"Compactor\", "
-             f"count(*) FILTER (WHERE verdict = 'ON_TIME') AS \"On time\", count(*) FILTER (WHERE verdict = 'TOO_EARLY') AS \"Too early\", "
-             f"count(*) FILTER (WHERE verdict = 'TOO_LATE') AS \"Too late\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id "
+             f"count(*) FILTER (WHERE verdict = 'ON_TIME') AS \"{LABEL['ON_TIME']}\", count(*) FILTER (WHERE verdict = 'TOO_EARLY') AS \"{LABEL['TOO_EARLY']}\", "
+             f"count(*) FILTER (WHERE verdict = 'TOO_LATE') AS \"{LABEL['TOO_LATE']}\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id "
              f"WHERE p.{done.replace('$__timeFilter(done_at)', '$__timeFilter(p.done_at)')} GROUP BY 1 ORDER BY 1")
 p["options"] = {"stacking": "normal", "legend": {"displayMode": "list", "placement": "bottom", "showLegend": True}, "xTickLabelRotation": 0}
 p["fieldConfig"]["overrides"] = [{"matcher": {"id": "byName", "options": k}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": v}}]}
-                                 for k, v in [("On time", "green"), ("Too early", "orange"), ("Too late", "red")]]
+                                 for k, v in LABEL_COLORS.items()]
 p = pg.panel("barchart", "Who sent the truck", 8, pg.y, 8, 9,
-             f"SELECT CASE kind WHEN 'booked' THEN 'Booked by sensor' WHEN 'fixed_route' THEN 'Old fixed route' ELSE 'By hand' END AS \"Who\", "
+             f"SELECT CASE kind WHEN 'booked' THEN 'Booked by a person' WHEN 'fixed_route' THEN 'Old fixed route' ELSE 'By hand' END AS \"Who\", "
              f"round(avg(load_before_pct)) AS \"Avg load at pickup %\" FROM pickups WHERE {done} GROUP BY 1 ORDER BY 1",
-             desc="Booking on the sensor's data vs the old fixed schedule")
+             desc="A person booking on the sensor's warning vs the old fixed schedule")
 p["fieldConfig"]["defaults"] = {"unit": "percent", "min": 0, "max": 100, "color": {"mode": "fixed", "fixedColor": "blue"}}
 p = pg.panel("piechart", "Verdicts", 16, pg.y, 8, 9,
-             f"SELECT verdict AS metric, count(*) AS value FROM pickups WHERE {done} GROUP BY 1")
+             f"SELECT {LABEL_SQL} AS metric, count(*) AS value FROM pickups WHERE {done} GROUP BY 1")
 p["options"] = {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": True}, "pieType": "donut",
                 "legend": {"displayMode": "table", "placement": "right", "values": ["value", "percent"], "showLegend": True}}
 p["fieldConfig"]["overrides"] = [{"matcher": {"id": "byName", "options": k}, "properties": [{"id": "color", "value": {"mode": "fixed", "fixedColor": v}}]}
-                                 for k, v in VERDICT_COLORS.items()]
+                                 for k, v in LABEL_COLORS.items()]
 pg.y += 9
 p = pg.panel("table", "All pickups", 0, pg.y, 24, 11,
              f"SELECT p.id AS \"#\", p.done_at AS \"Emptied\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", "
              f"p.kind AS \"Who\", p.load_before_pct AS \"Load %\", p.kg_collected AS \"kg\", p.wait_hours AS \"Wait (site h)\", "
-             f"p.full_hours AS \"Full for (site h)\", p.verdict AS \"Verdict\", p.verdict_reason AS \"Why\", p.net_eur AS \"Net €\", "
-             f"p.invoice_check AS \"Invoice\", p.claim_eur AS \"Claim €\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id "
+             f"p.full_hours AS \"Full for (site h)\", {LABEL_SQL.replace('verdict', 'p.verdict')} AS \"Verdict\", p.verdict_reason AS \"Why\", "
+             f"round((-{TOTAL})::numeric, 2) AS \"Net €\" "
+             f"FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material "
              f"WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY p.done_at DESC")
-p["fieldConfig"]["overrides"] = [color_col("Verdict", VERDICT_COLORS), color_col("Invoice", {"OK": "green"}),
+p["fieldConfig"]["overrides"] = [color_col("Verdict", LABEL_COLORS),
                                  {"matcher": {"id": "byName", "options": "Why"}, "properties": [{"id": "custom.width", "value": 330}]}]
 pg.y += 11
-pg.text("**Rules:** TOO LATE = full (≥ 98 %) for 2+ site hours before the lift · TOO EARLY = emptied more than 20 points below the "
-        "on-call level (80 %) · otherwise ON TIME. The lift-model verdicts (trained on the Europress history) are shown as a second "
+pg.text("**Rules:** Full 2h+ (too late) = full (≥ 98 %) for 2+ site hours before the lift · <60% (too early) = emptied more than 20 points "
+        "below the on-call level (80 %) · otherwise ≥60% (on time). The lift-model verdicts (trained on the Europress history) are shown as a second "
         "opinion on the *Site now* page.", h=2)
 pickups_page = pg.dash()
 
 # ======================================================================== 3. MONEY & CO2
-pg = Page("live-money", "Live 3 · Money & CO₂", "### What the measured kilograms are worth — and what the invoices got wrong",
+# a quick LIVE estimate with 2 numbers per material that the customer types in (materials.lift_fee_eur, price):
+# change a number and every pickup on this page is re-priced. The full invoice formula is on the Analysis pages.
+PRICED = ("FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material "
+          "WHERE p.status = 'done' AND $__timeFilter(p.done_at)")
+pg = Page("live-money", "Live 3 · Money & CO₂", "### A quick estimate of what the collections cost — with your prices",
           time_from="now-6h", refresh="10s")
+pg._add({"type": "text", "title": "Your prices — cost per lift and price per tonne, then Save",
+         "gridPos": {"x": 0, "y": pg.y, "w": 24, "h": 6},
+         "options": {"mode": "html", "content": f'<iframe src="{API_URL}/prices" title="Your prices" '
+                                                f'style="width:100%;height:165px;border:0;display:block"></iframe>'}}, 24, 6)
+pg.y += 6
 pg.stats([
-    ("Collected", f"SELECT round(sum(kg_collected)) FROM pickups WHERE {done}", "masskg", None, "Measured by the board, not by the truck"),
-    ("Material value €", f"SELECT round(sum(value_eur)) FROM pickups WHERE {done}", "currencyEUR", None, "+ earned (cardboard, plastic) / − paid (mixed waste)"),
-    ("Lift fees €", f"SELECT round(sum(fee_eur)) FROM pickups WHERE {done}", "currencyEUR", None, "Contract fee per lift"),
-    ("Net €", f"SELECT round(sum(net_eur)) FROM pickups WHERE {done}", "currencyEUR",
-     [{"color": "red", "value": None}, {"color": "green", "value": 0}], ""),
-    ("CO₂ saved", f"SELECT round(sum(co2_kg)) FROM pickups WHERE {done}", "masskg", GOOD, "Recycled material × CO₂ factor"),
-    ("To claim back €", f"SELECT round(sum(claim_eur)) FROM pickups WHERE {done}", "currencyEUR",
-     [{"color": "green", "value": None}, {"color": "orange", "value": 1}], "Invoice errors found by comparing with our own kg"),
+    ("Collected", f"SELECT round(sum(p.kg_collected)) {PRICED}", "masskg", None, "Measured by the board, not by the truck"),
+    ("Lift costs €", f"SELECT round(sum({LIFT})) {PRICED}", "currencyEUR", None, "Cost per lift × number of lifts"),
+    ("Material value €", f"SELECT round(sum({VALUE})) {PRICED}", "currencyEUR", None, "kg × your price per tonne: + earned / − paid"),
+    ("Total cost €", f"SELECT round(sum({TOTAL})) {PRICED}", "currencyEUR",
+     [{"color": "green", "value": None}, {"color": "orange", "value": 1}], "Lift costs − material value"),
+    ("Total cost € / t", f"SELECT round((sum({TOTAL}) / NULLIF(sum(p.kg_collected) / 1000, 0))::numeric, 1) {PRICED}",
+     "currencyEUR", None, "Total cost per tonne collected"),
+    ("CO₂ saved", f"SELECT round(sum(p.co2_kg)) {PRICED}", "masskg", GOOD, "Recycled material × CO₂ factor"),
 ])
 p = pg.panel("barchart", "Per material (€)", 0, pg.y, 10, 9,
-             f"SELECT c.material AS \"Material\", round(sum(p.value_eur)) AS \"Material value\", -round(sum(p.fee_eur)) AS \"Lift fees\", "
-             f"round(sum(p.net_eur)) AS \"Net\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id "
-             f"WHERE p.status = 'done' AND $__timeFilter(p.done_at) GROUP BY 1 ORDER BY 1")
+             f"SELECT c.material AS \"Material\", round(sum({LIFT})) AS \"Lift costs\", round(sum({VALUE})) AS \"Material value\", "
+             f"round(sum({TOTAL})) AS \"Total cost\" {PRICED} GROUP BY 1 ORDER BY 1")
 p["fieldConfig"]["defaults"] = {"unit": "currencyEUR"}
 p["options"] = {"legend": {"displayMode": "list", "placement": "bottom", "showLegend": True}}
-p = pg.panel("timeseries", "Running total: net € and CO₂ saved", 10, pg.y, 14, 9, [
-    f"SELECT done_at AS time, sum(net_eur) OVER (ORDER BY done_at) AS \"Net € (running)\" FROM pickups WHERE {done} ORDER BY 1",
-    f"SELECT done_at AS time, sum(co2_kg) OVER (ORDER BY done_at) AS \"CO₂ saved kg (running)\" FROM pickups WHERE {done} ORDER BY 1",
+p = pg.panel("timeseries", "Running total: total cost € and CO₂ saved", 10, pg.y, 14, 9, [
+    f"SELECT p.done_at AS time, sum({TOTAL}) OVER (ORDER BY p.done_at) AS \"Total cost € (running)\" {PRICED} ORDER BY 1",
+    f"SELECT p.done_at AS time, sum(p.co2_kg) OVER (ORDER BY p.done_at) AS \"CO₂ saved kg (running)\" {PRICED} ORDER BY 1",
 ], fmt="time_series")
 p["fieldConfig"] = {"defaults": {"custom": {"drawStyle": "line", "lineInterpolation": "stepAfter", "lineWidth": 2, "showPoints": "always"}},
-                    "overrides": [{"matcher": {"id": "byName", "options": "Net € (running)"}, "properties": [{"id": "unit", "value": "currencyEUR"}]},
+                    "overrides": [{"matcher": {"id": "byName", "options": "Total cost € (running)"}, "properties": [{"id": "unit", "value": "currencyEUR"}]},
                                   {"matcher": {"id": "byName", "options": "CO₂ saved kg (running)"}, "properties": [
                                       {"id": "unit", "value": "masskg"}, {"id": "custom.axisPlacement", "value": "right"},
                                       {"id": "color", "value": {"mode": "fixed", "fixedColor": "green"}}]}]}
 pg.y += 9
-p = pg.panel("table", "Invoice check: their bill vs our measurement", 0, pg.y, 24, 10,
+r2 = "::numeric, 2)"
+p = pg.panel("table", "Every pickup, priced with your prices", 0, pg.y, 24, 9,
              f"SELECT p.id AS \"Pickup\", p.done_at AS \"Emptied\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", "
-             f"p.kg_collected AS \"We measured kg\", p.invoice_kg AS \"Billed kg\", p.fee_eur AS \"Contract fee €\", "
-             f"p.invoice_fee_eur AS \"Billed fee €\", p.invoice_check AS \"Check\", p.claim_eur AS \"Claim €\" "
-             f"FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND $__timeFilter(p.done_at) "
-             f"ORDER BY (p.invoice_check <> 'OK') DESC, p.done_at DESC")
-p["fieldConfig"]["overrides"] = [color_col("Check", {"OK": "green", "WEIGHT_MISMATCH": "red", "WRONG_FEE": "red", "WEIGHT_MISMATCH+WRONG_FEE": "red"})]
-pg.y += 10
-pg.text("Prices, fees and CO₂ factors are placeholders (backend `materials` table and `FEE_EUR` in `backend/app/pickups.py`) — "
-        "replace them with the customer's contract. Operator invoices are simulated: most are right, some bill more kg than we "
-        "measured (or fewer, when they pay us), some still use an old fee.", h=2)
+             f"p.kg_collected AS \"kg\", round(({LIFT}){r2} AS \"Lift cost €\", round(({VALUE}){r2} AS \"Material value €\", "
+             f"round(({TOTAL}){r2} AS \"Total cost €\", round((({TOTAL}) / NULLIF(p.kg_collected / 1000, 0)){r2} AS \"€ / t\", "
+             f"p.co2_kg AS \"CO₂ saved kg\" {PRICED} ORDER BY p.done_at DESC")
+pg.y += 9
+pg.text("**A quick estimate:** total cost = cost per lift − kg × price per tonne. The **kg** are measured by the board; the **€** "
+        "use your prices above. The full invoice detail (haulage, processing, surcharges, penalties, credits) is on the "
+        "**Analysis** pages, from the real invoice lines. CO₂ factors are placeholders.", h=2)
 money = pg.dash()
 
 # ======================================================================== 4. DEVICES & DATA HEALTH

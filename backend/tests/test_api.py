@@ -205,8 +205,9 @@ def _feed(client, cid, kgs, start, step_s=10):
     return out
 
 
-def test_pickup_loop_book_truck_judge_invoice(client, monkeypatch):
-    """C1 (2000 kg, on-call 80 %) fills up -> truck booked -> command to the board -> emptied -> judged + priced."""
+def test_pickup_loop_notice_then_person_books(client, monkeypatch):
+    """C1 (2000 kg, on-call 80 %) fills up -> NOTICE only (no automatic booking) -> a person books ->
+    command to the board -> emptied -> judged + priced."""
     import random
     from app import pickups
     monkeypatch.setattr(pickups, "SCALE", 60.0)          # 1 min = 1 site hour
@@ -216,20 +217,43 @@ def test_pickup_loop_book_truck_judge_invoice(client, monkeypatch):
     monkeypatch.setattr(pickups, "P_INVOICE_FEE", 0.0)
     random.seed(1)
     start = datetime.now(timezone.utc) - timedelta(minutes=30)
-    kgs = [1000 + 30 * i for i in range(25)] + [1720 + (i % 4) * 3 for i in range(40)]   # crosses 1600, then waits 6.7 site h
+    kgs = [1000 + 30 * i for i in range(25)] + [1720 + (i % 4) * 3 for i in range(40)]   # crosses 1600 (80 %), stays there
     res = _feed(client, "C1", kgs, start)
-    booked = [a for r in res for a in r["alerts"] if a["type"] == "pickup_booked"]
-    assert len(booked) == 1
-    cmds = [c for r in res for c in r.get("commands", [])]
-    assert cmds and cmds[0]["compactor_id"] == "C1" and cmds[0]["action"] == "empty"   # truck due within 1.5-3.5 site h
-    last = start + timedelta(seconds=len(kgs) * 10)
-    r = _feed(client, "C1", [12], last)[0]                                         # the board reports it emptied
+    alerts = [a["type"] for r in res for a in r["alerts"]]
+    assert alerts.count("pickup_needed") == 1                    # told once, not on every reading
+    assert "pickup_booked" not in alerts                         # the system does not book by itself
+    assert not [c for r in res for c in r.get("commands", [])]
+    assert client.get("/api/pickups").json() == []
+    board = {b["compactor_id"]: b for b in client.get("/api/pickups/board").json()}
+    assert board["C1"]["needs_truck"] and board["C1"]["truck"] is None and not board["C2"]["needs_truck"]
+
+    r = client.post("/api/pickups/book", json={"compactor_id": "C1"})   # the person presses "Book truck"
+    assert r.status_code == 200 and r.json()["new"], r.text
+    again = client.post("/api/pickups/book", json={"compactor_id": "C1"})   # button is always on: re-sends, no 2nd truck
+    assert again.status_code == 200 and not again.json()["new"] and again.json()["pickup_id"] == r.json()["pickup_id"]
+    assert client.post("/api/pickups/book", json={"compactor_id": "C9"}).status_code == 404
+    board = {b["compactor_id"]: b for b in client.get("/api/pickups/board").json()}
+    assert not board["C1"]["needs_truck"] and board["C1"]["truck"]["pickup_id"] == r.json()["pickup_id"]
+
+    now = datetime.now(timezone.utc)
+    res = _feed(client, "C1", [1725], now + timedelta(seconds=5))            # the truck goes NOW: next reading carries it
+    assert res[0]["commands"] == [{"topic": "site/S1/cmd", "compactor_id": "C1", "action": "empty", "pickup_id": r.json()["pickup_id"]}]
+    assert _feed(client, "C2", [500], now + timedelta(seconds=6))[0]["commands"] == []   # only the chosen compactor
+    r = _feed(client, "C1", [12], now + timedelta(minutes=6))[0]               # the board reports it emptied
     types = {a["type"] for a in r["alerts"]}
     assert "pickup_on_time" in types and "invoice_mismatch" in types
     p = client.get("/api/pickups").json()[0]
     assert p["status"] == "done" and p["verdict"] == "ON_TIME" and p["kind"] == "booked"
     assert p["kg_collected"] > 1600 and p["invoice_check"] == "WEIGHT_MISMATCH" and p["claim_eur"] > 0
     assert p["net_eur"] == round(p["value_eur"] - p["fee_eur"], 2)
+    # new cycle: the notice may come again after the emptying
+    res = _feed(client, "C1", [1700], now + timedelta(minutes=7))
+    assert "pickup_needed" in {a["type"] for x in res for a in x["alerts"]}
+
+
+def test_book_page_is_served(client):
+    r = client.get("/book")
+    assert r.status_code == 200 and "Book truck" in r.text
 
 
 def test_early_lift_is_judged_too_early(client):
@@ -237,3 +261,29 @@ def test_early_lift_is_judged_too_early(client):
     _feed(client, "C2", [600, 610, 620], start)                                   # 40 % of 1500 kg
     r = _feed(client, "C2", [10], start + timedelta(seconds=30))[0]
     assert "pickup_too_early" in {a["type"] for a in r["alerts"]}
+
+
+def test_customer_types_in_prices(client):
+    """Live page: 2 numbers per material from the customer (cost per lift, price per tonne), used for new pickups."""
+    r = client.put("/api/materials/biowaste", json={"lift_fee_eur": 30, "price_eur_per_t": -50})
+    assert r.status_code == 200 and r.json()["price_eur_per_kg"] == -0.05 and r.json()["lift_fee_eur"] == 30
+    m = {x["name"]: x for x in client.get("/api/materials").json()}
+    assert set(m) == {"cardboard", "biowaste", "mixed"} and m["mixed"]["lift_fee_eur"] == 85   # others keep their numbers
+    assert client.put("/api/materials/gold", json={"lift_fee_eur": 1, "price_eur_per_t": 1}).status_code == 404
+    assert client.put("/api/materials/biowaste", json={"lift_fee_eur": -5, "price_eur_per_t": 1}).status_code == 422
+    assert "Price per tonne" in client.get("/prices").text
+    start = datetime.now(timezone.utc) - timedelta(minutes=10)
+    _feed(client, "C2", [600, 610, 620], start)
+    _feed(client, "C2", [10], start + timedelta(seconds=30))
+    p = client.get("/api/pickups").json()[0]
+    assert p["fee_eur"] == 30 and p["value_eur"] == round(-0.05 * p["kg_collected"], 2)
+    assert p["net_eur"] == round(p["value_eur"] - 30, 2)
+
+
+def test_live_cost_estimate():
+    """pickups.costs = the simple live estimate; NULL per tonne when kg is 0."""
+    from app.pickups import costs
+    c = costs(2000, {"lift_fee_eur": 45, "price_eur_per_kg": 0.08})
+    assert c["collection_cost"] == 45 and c["material_value"] == 160 and c["total_customer_cost"] == -115
+    assert c["total_cost_eur_per_t"] == -57.5
+    assert costs(0, {"lift_fee_eur": 45, "price_eur_per_kg": 0.08})["total_cost_eur_per_t"] is None

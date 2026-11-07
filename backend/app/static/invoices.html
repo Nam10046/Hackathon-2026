@@ -1,0 +1,248 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Invoices</title>
+<!-- Shown inside Grafana (Analysis · Invoices) as an embedded panel. Colours match Grafana's dark theme. -->
+<style>
+  :root { --bg: #181b1f; --card: #22252b; --line: #2f333a; --text: #d8d9da; --muted: #8e9196;
+          --green: #73bf69; --orange: #ff9830; --red: #f2495c; --blue: #5794f2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 8px; background: var(--bg); color: var(--text); font: 13px/1.4 Inter, "Helvetica Neue", Arial, sans-serif; }
+  .tabs { display: flex; gap: 4px; margin-bottom: 8px; }
+  .tabs button { border: 1px solid var(--line); color: var(--muted); }
+  .tabs button.on { border-color: var(--blue); color: var(--blue); }
+  select, input, textarea { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+  input[type=number] { text-align: right; }
+  button { font: inherit; font-weight: 600; padding: 5px 11px; border-radius: 4px; cursor: pointer; background: transparent; }
+  .blue { border: 1px solid var(--blue); color: var(--blue); } .ok { border: 1px solid var(--green); color: var(--green); }
+  .no { border: 1px solid var(--red); color: var(--red); } .hold { border: 1px solid var(--orange); color: var(--orange); }
+  .plain { border: 1px solid var(--line); color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 8px; }
+  .grid label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 12px; }
+  .scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { text-align: left; padding: 3px 5px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { color: var(--muted); font-weight: 500; white-space: nowrap; }
+  td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+  td input, td select { width: 100%; min-width: 70px; }
+  tr.bad td { background: rgba(242, 73, 92, .10); } tr.warn td { background: rgba(255, 152, 48, .10); }
+  .row { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
+  .muted { color: var(--muted); } .err { color: var(--red); }
+  .wrap { display: grid; grid-template-columns: minmax(240px, 2fr) minmax(320px, 5fr); gap: 8px; height: calc(100vh - 52px); }
+  @media (max-width: 760px) { .wrap { grid-template-columns: 1fr; height: auto; } }
+  .list { overflow: auto; padding: 0; } .detail { overflow: auto; }
+  .item { padding: 7px 10px; border-bottom: 1px solid var(--line); cursor: pointer; } .item:hover, .item.on { background: #2a2e35; }
+  .tag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; }
+  .actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
+  .msg { font-size: 12px; min-height: 16px; margin-top: 6px; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="tabs"><button class="on" data-tab="review">Check &amp; decide</button><button data-tab="enter">Enter an invoice</button></div>
+
+<!-- ============ ENTER ============ -->
+<div id="enter" hidden>
+  <div class="card">
+    <div class="grid">
+      <label>Invoice number <input id="f_id" placeholder="e.g. HA-2026-1107"></label>
+      <label>Waste company <select id="f_op"></select></label>
+      <label>Period from <input id="f_from" type="date"></label>
+      <label>Period to <input id="f_to" type="date"></label>
+      <label>Total on the invoice € <input id="f_total" type="number" step="0.01"></label>
+      <label>Your name <input id="f_by"></label>
+    </div>
+    <div class="row"><b>Lines</b><span>
+      <button class="plain" id="b_draft" title="Fill in what the board measured — then change a number to test the check">Fill from measurement</button>
+      <button class="plain" id="b_add">+ Line</button></span></div>
+    <div class="scroll"><table id="lines"><thead><tr><th>Type</th><th>Compactor</th><th>Date</th><th class="num">Qty</th><th>Unit</th>
+      <th class="num">Unit €</th><th class="num">Amount €</th><th></th></tr></thead><tbody></tbody></table></div>
+    <div class="row" style="margin-top:8px"><span class="muted" id="f_sum"></span><button class="blue" id="b_save">Save &amp; check</button></div>
+    <div class="msg" id="f_msg"></div>
+  </div>
+</div>
+
+<!-- ============ REVIEW ============ -->
+<div id="review">
+  <div class="row" style="margin-bottom:6px"><span>
+    <select id="status"><option value="waiting">Waiting for a decision</option><option value="hold">On hold</option>
+      <option value="approved">Approved</option><option value="rejected">Rejected</option><option value="all">All</option></select>
+    <select id="customer"><option value="">All customers</option></select></span><span class="muted" id="count"></span></div>
+  <div class="wrap">
+    <div class="card list" id="list"></div>
+    <div class="card detail" id="detail"><span class="muted">Pick an invoice on the left, or enter one in the other tab.</span></div>
+  </div>
+</div>
+
+<script>
+// Data: /api/analysis/* (admin view here; the user platform calls the same API scoped to one customer)
+const $ = (id) => document.getElementById(id);
+const eur = (x) => x == null ? "–" : Number(x).toLocaleString("en", { style: "currency", currency: "EUR", maximumFractionDigits: 2 });
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const store = { get: (k) => { try { return localStorage.getItem(k) || ""; } catch { return ""; } }, set: (k, v) => { try { localStorage.setItem(k, v); } catch {} } };
+const TYPES = [["LIFT_FEE", "Lift fee", "lift"], ["MATERIAL_CREDIT", "Material credit (−)", "t"], ["PROCESSING", "Processing", "t"],
+               ["HAULAGE", "Haulage", "t"], ["SURCHARGE", "Surcharge", "pcs"], ["PENALTY", "Penalty", "pcs"], ["OTHER", "Other", "pcs"]];
+const STATUS = { OK: ["ok", "var(--green)"], WRONG_PRICE: ["wrong price", "var(--red)"], NO_LIFT: ["no lift measured", "var(--red)"],
+  DUPLICATE: ["billed twice", "var(--red)"], WEIGHT_MISMATCH: ["weight differs", "var(--red)"], NO_EVIDENCE: ["needs proof", "var(--orange)"],
+  UNKNOWN_COMPACTOR: ["not your compactor", "var(--red)"] };
+const DEC = { APPROVE: ["approved", "var(--green)"], REJECT: ["rejected", "var(--red)"], HOLD: ["on hold", "var(--orange)"] };
+let current = null, compactors = [];
+
+// ---------- tabs
+document.querySelectorAll(".tabs button").forEach((b) => b.addEventListener("click", () => tab(b.dataset.tab)));
+function tab(name) {
+  document.querySelectorAll(".tabs button").forEach((b) => b.classList.toggle("on", b.dataset.tab === name));
+  $("enter").hidden = name !== "enter"; $("review").hidden = name !== "review";
+}
+
+// ---------- enter an invoice
+function lineRow(l = {}) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `<td><select data-k="line_type">${TYPES.map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select></td>
+    <td><select data-k="compactor_id"><option value="">–</option>${compactors.map((c) => `<option>${esc(c)}</option>`).join("")}</select></td>
+    <td><input data-k="service_date" type="date"></td><td><input data-k="quantity" type="number" step="0.001" min="0"></td>
+    <td><select data-k="unit"><option>lift</option><option>t</option><option>kg</option><option>pcs</option></select></td>
+    <td><input data-k="unit_price_eur" type="number" step="0.01"></td><td><input data-k="amount_eur" type="number" step="0.01"></td>
+    <td><button class="plain" data-del title="Remove line">✕</button></td>`;
+  for (const [k, v] of Object.entries(l)) { const el = tr.querySelector(`[data-k="${k}"]`); if (el && v != null) el.value = v; }
+  if (!l.unit) tr.querySelector('[data-k="unit"]').value = TYPES.find((t) => t[0] === tr.querySelector('[data-k="line_type"]').value)[2];
+  $("lines").tBodies[0].append(tr); sum();
+}
+$("lines").addEventListener("input", (ev) => {
+  const tr = ev.target.closest("tr"), k = ev.target.dataset.k, g = (n) => tr.querySelector(`[data-k="${n}"]`);
+  if (k === "line_type") g("unit").value = TYPES.find((t) => t[0] === ev.target.value)[2];
+  if ((k === "quantity" || k === "unit_price_eur") && g("quantity").value && g("unit_price_eur").value) {
+    const credit = g("line_type").value === "MATERIAL_CREDIT" ? -1 : 1;
+    g("amount_eur").value = (credit * Number(g("quantity").value) * Number(g("unit_price_eur").value)).toFixed(2);
+  }
+  sum();
+});
+$("lines").addEventListener("click", (ev) => { if (ev.target.closest("[data-del]")) { ev.target.closest("tr").remove(); sum(); } });
+function readLines() {
+  return [...$("lines").tBodies[0].rows].map((tr) => {
+    const o = {}; tr.querySelectorAll("[data-k]").forEach((el) => { o[el.dataset.k] = el.value === "" ? null : el.value; });
+    for (const n of ["quantity", "unit_price_eur", "amount_eur"]) if (o[n] != null) o[n] = Number(o[n]);
+    return o;
+  });
+}
+function sum() {
+  const s = readLines().reduce((a, l) => a + (l.amount_eur || 0), 0);
+  $("f_sum").textContent = `${$("lines").tBodies[0].rows.length} line(s) · lines add up to ${eur(s)}`;
+  return s;
+}
+$("b_add").addEventListener("click", () => lineRow());
+$("b_draft").addEventListener("click", async () => {
+  if (!$("f_from").value || !$("f_to").value) { msg("f_msg", "Pick the period first.", true); return; }
+  const q = new URLSearchParams({ operator: $("f_op").value, period_from: $("f_from").value, period_to: $("f_to").value });
+  const r = await fetch("/api/analysis/invoices/draft?" + q); const lines = await r.json();
+  if (!r.ok) { msg("f_msg", lines.detail || r.status, true); return; }
+  $("lines").tBodies[0].innerHTML = ""; lines.forEach(lineRow);
+  $("f_total").value = sum().toFixed(2);
+  msg("f_msg", lines.length ? `${lines.length} line(s) from what the board measured. Change a number to see the check catch it.`
+                            : "The board measured no lifts for this waste company in that period.");
+});
+$("b_save").addEventListener("click", async () => {
+  const by = $("f_by").value.trim(); store.set("invoiceReviewer", by);
+  const body = { invoice_id: $("f_id").value.trim(), operator_name: $("f_op").value, period_from: $("f_from").value,
+                 period_to: $("f_to").value, total_eur: Number($("f_total").value || sum()), entered_by: by, lines: readLines() };
+  const r = await fetch("/api/analysis/invoices", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  const res = await r.json().catch(() => ({}));
+  if (!r.ok) { msg("f_msg", "Not saved: " + detail(res, r.status), true); return; }
+  $("lines").tBodies[0].innerHTML = ""; $("f_id").value = ""; $("f_total").value = ""; sum();
+  $("status").value = "waiting"; tab("review"); await loadList(); show(res.invoice_id);
+});
+function detail(res, status) {
+  if (typeof res.detail === "string") return res.detail;
+  if (Array.isArray(res.detail)) return res.detail.map((d) => `${d.loc.slice(1).join(" ")}: ${d.msg}`).join("; ");
+  return status;
+}
+function msg(id, text, bad) { $(id).className = "msg" + (bad ? " err" : ""); $(id).textContent = text; }
+
+// ---------- check & decide
+function tag(i) {
+  if (i.decision) { const [t, c] = DEC[i.decision]; return `<span class="tag" style="color:${c}">${t}</span>`; }
+  return i.suggestion === "CHECK" ? `<span class="tag" style="color:var(--orange)">check</span>` : `<span class="tag" style="color:var(--green)">matches</span>`;
+}
+async function loadList() {
+  const q = new URLSearchParams({ status: $("status").value, limit: 300 });
+  if ($("customer").value) q.set("customer", $("customer").value);
+  const r = await fetch("/api/analysis/invoices?" + q);
+  const rows = await r.json().catch(() => []);
+  if (!r.ok) { $("list").innerHTML = `<div class="item err">${esc(detail(rows, r.status))}</div>`; return; }
+  $("count").textContent = `${rows.length} invoice(s)`;
+  $("list").innerHTML = rows.map((i) => `<div class="item${i.invoice_id === current ? " on" : ""}" data-id="${esc(i.invoice_id)}">
+    <div class="row"><b>${esc(i.invoice_id)}</b>${tag(i)}</div>
+    <div class="row muted"><span>${esc(i.operator_name)} · ${esc(i.period_from)} → ${esc(i.period_to)}</span><span>${eur(i.total_eur)}</span></div>
+    ${i.overcharged_eur > 0 ? `<div style="color:var(--red)">${eur(i.overcharged_eur)} charged too much</div>` : ""}
+  </div>`).join("") || `<div class="item muted">Nothing here yet.</div>`;
+}
+async function show(id) {
+  current = id;
+  document.querySelectorAll(".item").forEach((el) => el.classList.toggle("on", el.dataset.id === id));
+  const r = await fetch("/api/analysis/invoices/" + encodeURIComponent(id)); const i = await r.json();
+  if (!r.ok) { $("detail").innerHTML = `<span class="err">${esc(i.detail)}</span>`; return; }
+  const sugg = i.suggestion === "CHECK" ? `<b style="color:var(--orange)">Suggestion: check before paying.</b>`
+                                        : `<b style="color:var(--green)">Suggestion: approve — every line matches the board's measurement.</b>`;
+  $("detail").innerHTML = `
+    <div class="row"><b>${esc(i.invoice_id)}</b>${tag(i)}</div>
+    <div class="muted">${esc(i.customer_name)} · ${esc(i.operator_name)} · ${esc(i.period_from)} → ${esc(i.period_to)} · entered by ${esc(i.entered_by)}</div>
+    <div style="margin:6px 0">${sugg} ${esc(i.summary)}</div>
+    <div class="row"><span>Billed <b>${eur(i.total_eur)}</b></span><span style="color:var(--red)">Charged too much <b>${eur(i.overcharged_eur)}</b></span>
+      <span style="color:var(--orange)">Needs proof <b>${eur(i.unverified_eur)}</b></span><span>${i.lines_ok} / ${i.lines_total} lines ok</span></div>
+    <div class="scroll"><table style="margin-top:6px"><tr><th>#</th><th>Line</th><th>Compactor</th><th>Date</th><th class="num">Qty</th>
+      <th class="num">Billed</th><th class="num">Should be</th><th class="num">Difference</th><th>Check</th></tr>
+      ${i.lines.map((l) => { const s = (l.check_status || "").split("+"), bad = s.some((x) => STATUS[x] && STATUS[x][1] === "var(--red)");
+        return `<tr class="${bad ? "bad" : s.includes("NO_EVIDENCE") ? "warn" : ""}"><td>${l.line_no}</td>
+        <td>${esc((TYPES.find((t) => t[0] === l.line_type) || [0, l.line_type])[1])}</td><td>${esc(l.compactor_id ?? "")}</td>
+        <td>${esc(l.service_date ?? "")}</td><td class="num">${l.quantity ?? ""} ${esc(l.unit ?? "")}</td><td class="num">${eur(l.amount_eur)}</td>
+        <td class="num">${s.includes("NO_EVIDENCE") ? "?" : eur(l.expected_eur)}</td>
+        <td class="num" style="color:${l.difference_eur > 0.005 ? "var(--red)" : "inherit"}">${s.includes("NO_EVIDENCE") ? "" : eur(l.difference_eur)}</td>
+        <td>${s.map((x) => STATUS[x] ? `<span style="color:${STATUS[x][1]}">${STATUS[x][0]}</span>` : esc(x)).join(", ")}
+          ${l.check_reason ? `<div class="muted">${esc(l.check_reason)}</div>` : ""}</td></tr>`; }).join("")}
+    </table></div>
+    <div class="actions">
+      <input id="who" placeholder="Your name" value="${esc(store.get("invoiceReviewer"))}">
+      <input id="note" placeholder="Note (why?)" style="flex:1 1 200px">
+      <button class="ok" data-d="APPROVE">Approve</button><button class="no" data-d="REJECT">Reject</button>
+      <button class="hold" data-d="HOLD">Hold</button><button class="plain" data-recheck title="Check again with the newest pickups and prices">Check again</button>
+    </div>
+    <div class="msg" id="dmsg"></div>
+    ${i.history.length ? `<div class="muted">History: ${i.history.map((h) => `${DEC[h.decision][0]} by ${esc(h.decided_by)} (${esc(h.role)})${h.note ? ` — “${esc(h.note)}”` : ""}, ${new Date(h.decided_at).toLocaleString()}`).join(" · ")}</div>` : ""}`;
+}
+$("detail").addEventListener("click", async (ev) => {
+  if (!current) return;
+  if (ev.target.closest("[data-recheck]")) {
+    await fetch(`/api/analysis/invoices/${encodeURIComponent(current)}/check`, { method: "POST" }); await loadList(); return show(current);
+  }
+  const b = ev.target.closest("button[data-d]"); if (!b) return;
+  const who = $("who").value.trim();
+  if (who.length < 2) { msg("dmsg", "Type your name first — every decision is signed.", true); return; }
+  store.set("invoiceReviewer", who);
+  const r = await fetch(`/api/analysis/invoices/${encodeURIComponent(current)}/decision`, { method: "POST",
+    headers: { "Content-Type": "application/json" }, body: JSON.stringify({ decision: b.dataset.d, decided_by: who, note: $("note").value || null }) });
+  const res = await r.json().catch(() => ({}));
+  if (!r.ok) { msg("dmsg", "Not saved: " + detail(res, r.status), true); return; }
+  await loadList(); await show(current); msg("dmsg", `Saved: ${DEC[b.dataset.d][0]} by ${who}.`);
+});
+$("list").addEventListener("click", (ev) => { const it = ev.target.closest(".item[data-id]"); if (it) show(it.dataset.id); });
+$("status").addEventListener("change", loadList);
+$("customer").addEventListener("change", loadList);
+
+// ---------- start
+(async () => {
+  const today = new Date().toISOString().slice(0, 10);
+  $("f_from").value = today.slice(0, 8) + "01"; $("f_to").value = today; $("f_by").value = store.get("invoiceReviewer");
+  const [ops, cust, status] = await Promise.all(["/api/analysis/operators", "/api/analysis/customers", "/api/compactors"]
+    .map((u) => fetch(u).then((r) => r.ok ? r.json() : []).catch(() => [])));
+  $("f_op").innerHTML = ops.map((o) => `<option>${esc(o)}</option>`).join("");
+  $("customer").insertAdjacentHTML("beforeend", cust.map((n) => `<option>${esc(n)}</option>`).join(""));
+  compactors = status.map((c) => c.compactor_id);
+  lineRow();
+  loadList();
+})();
+</script>
+</body>
+</html>

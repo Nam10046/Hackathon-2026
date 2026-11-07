@@ -3,3 +3,5 @@ FROM grafana/grafana:11.3.0
 COPY grafana/provisioning /etc/grafana/provisioning
 COPY grafana/dashboards /etc/grafana/dashboards
 ENV GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/compactor.json
+# lets "Site now" embed the Book truck buttons (backend /book)
+ENV GF_PANELS_DISABLE_SANITIZE_HTML=true

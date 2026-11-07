@@ -1,9 +1,12 @@
-"""Generate the Customer Value Cockpit pages for Grafana (simple version).
+"""Generate the ANALYSIS pages for Grafana (the admin's view of all customers, live data from the ESP32 sites).
 
     python grafana/make_cockpit_pages.py            # writes grafana/dashboards/cockpit_*.json
+    python grafana/make_cockpit_pages.py sql        # print every query with filters set to "all" (for testing)
 
-Design rules: one fixed menu (same order on every page, current page included), max ~5 panels per page,
-plain-language names instead of codes, every panel title says what you are looking at.
+The data is what our customers' boards measured (pickups, alerts) and the invoices they typed in (invoices,
+invoice_lines, checked by backend/app/invoice_check.py). The Europress dataset is only used to TRAIN the models.
+Customers get their own layout on the user platform (teammate), from the same data via /api/analysis/*.
+Design rules: one fixed menu (same order on every page), plain-language names, every panel title says what it shows.
 """
 import json
 import sys
@@ -11,51 +14,53 @@ from pathlib import Path
 
 OUT = Path(__file__).resolve().parent / "dashboards"
 DS = {"type": "grafana-postgresql-datasource", "uid": "compactor-pg"}
-TIME = {"from": "2025-10-01T00:00:00Z", "to": "2026-10-15T00:00:00Z"}
+TIME = {"from": "now-7d", "to": "now"}
+API_URL = "http://localhost:8000"   # embedded pages are opened by the viewer's browser
 
 PAGES = [  # (uid, menu label)
-    ("value-cockpit", "1 Overview"), ("cockpit-findings", "2 Problems found"), ("cockpit-cost", "3 Cost & weight"),
-    ("cockpit-operators", "4 Waste companies"), ("cockpit-actions", "5 Decisions"),
+    ("value-cockpit", "1 Problems"), ("cockpit-cost", "2 Cost & weight"),
+    ("cockpit-operators", "3 Waste companies"), ("cockpit-actions", "4 Invoices"),
 ]
-LIVE_PAGES = [  # the live product, fed only by the ESP32 edge node (grafana/make_live_pages.py)
+LIVE_PAGES = [  # the live product (grafana/make_live_pages.py)
     ("smart-compactor", "Site now"), ("live-pickups", "Pickups"), ("live-money", "Money & CO₂"), ("edge-live", "Devices"),
 ]
 
-# plain-language names for the codes in the data
-PROBLEM = {
-    "COST_PER_T_HIGH": "Very high cost per tonne", "PREMATURE_UNJUSTIFIED": "Emptied too early",
-    "DELAYED_COLLECTION": "Emptied too late (overflow risk)", "WEIGHT_DISCREPANCY": "Our scale and truck scale disagree",
-    "CONTAMINATION_VALUE_LOSS": "Dirty load lost its value", "REJECTED_LOAD": "Load rejected",
-    "OUTDATED_TARIFF": "Old price on invoice", "DUPLICATE_LINE": "Charged twice", "WRONG_SURCHARGE": "Wrong extra fee",
-    "WEIGHT_BASIS_MISMATCH": "Invoice tonnes differ from truck scale", "UNMATCHED_LINE": "Charge without a lift",
-    "MISSING_LINE": "Charge or credit missing", "UNINVOICED_COLLECTION": "Lift never invoiced",
+PROBLEM = {  # alert type -> plain language
+    "pickup_too_early": "Emptied too early (<60%)", "pickup_too_late": "Left full 2h+", "ml_premature_unjustified": "AI: lift not needed",
+    "ml_delayed_collection": "AI: lift came late", "ml_anomaly": "AI: unusual reading", "contamination": "Wrong material (density)",
+    "spike": "Sensor spike", "sensor_stuck": "Sensor stuck", "sensor_fault": "Sensor fault", "data_gap": "No data",
+    "zero_shift": "Scale not zero after emptying", "overload": "Overloaded", "unexpected_drop": "Weight dropped without emptying",
+    "signature_invalid": "Reading tampered / wrong key",
 }
-ACTION = {
-    "DISPUTE_INVOICE": "Ask the operator to correct the invoice", "REQUEST_WEIGHBRIDGE_DATA": "Ask for the weight tickets",
-    "RENEGOTIATE_CONTRACT": "Renegotiate the price", "TENDER_OR_SWITCH_OPERATOR": "Get offers from other waste companies",
-}
-MATERIAL = {"cardboard": "Cardboard", "mixed_waste": "Mixed waste", "plastic_film": "Plastic film", "biowaste": "Bio waste",
-            "paper": "Paper", "mixed_plastic": "Mixed plastic"}
+CHECK = {"OK": "ok", "WRONG_PRICE": "wrong price", "NO_LIFT": "no lift measured", "DUPLICATE": "billed twice",
+         "WEIGHT_MISMATCH": "weight differs", "NO_EVIDENCE": "needs proof", "UNKNOWN_COMPACTOR": "not their compactor"}
+LINE = {"LIFT_FEE": "Lift fee", "MATERIAL_CREDIT": "Material credit", "PROCESSING": "Processing", "HAULAGE": "Haulage",
+        "SURCHARGE": "Surcharge", "PENALTY": "Penalty", "OTHER": "Other"}
 
 
 def case(col, mapping):
     return "CASE " + col + " " + " ".join(f"WHEN '{k}' THEN '{v}'" for k, v in mapping.items()) + f" ELSE {col} END"
 
 
-PROB, ACT, MAT = case("label_family", PROBLEM), case("a.action", ACTION), case("material_stream", MATERIAL)
-LATEST = ("LEFT JOIN (SELECT ad.* FROM action_decisions ad JOIN (SELECT action_id, MAX(id) AS max_id FROM action_decisions "
-          "GROUP BY action_id) m ON m.max_id = ad.id) d ON d.action_id = a.action_id")
-OPEN = "(d.decision IS NULL OR d.decision = 'REVERT')"
+# an ISSUE = something a person should look at, counted once (same rule as backend app/analysis.py):
+#   one per lift judged too early / too late  +  device faults: same fault, same compactor, same hour = one
+# AI lift-model alerts are a second opinion on a lift (event log), never an extra issue.
+DEVICE_TYPES = ["spike", "sensor_stuck", "sensor_fault", "data_gap", "zero_shift", "overload", "unexpected_drop",
+                "signature_invalid", "contamination"]
+DEV_IN = ", ".join(f"'{t}'" for t in DEVICE_TYPES)
+INV_LATEST = ("LEFT JOIN (SELECT d.* FROM invoice_decisions d JOIN (SELECT invoice_id, MAX(id) AS max_id FROM invoice_decisions "
+              "GROUP BY invoice_id) m ON m.max_id = d.id) d ON d.invoice_id = i.invoice_id")
+STATUS_SQL = ("COALESCE(CASE d.decision WHEN 'APPROVE' THEN 'approved' WHEN 'REJECT' THEN 'rejected' WHEN 'HOLD' THEN 'on hold' END, "
+              "CASE WHEN i.suggestion = 'CHECK' THEN 'to check' ELSE 'matches' END)")
+STATUS_COLOURS = {"to check": "orange", "matches": "green", "approved": "green", "rejected": "red", "on hold": "orange"}
 SQL = []
 
 
 def menu_text(current_uid):
-    """The page menu as its own line (a text panel), so filters can never squeeze it.
-    Two parts: the LIVE product (ESP32 data only) and the ANALYSIS of the Europress history (dataset)."""
+    """The page menu as its own line (a text panel), so filters can never squeeze it."""
     def items(pages):
         return " · ".join(f"**● {label}**" if uid == current_uid else f"[{label}](/d/{uid})" for uid, label in pages)
-    return (f"🟢 **Live (ESP32):** {items(LIVE_PAGES)} &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (Europress history):** {items(PAGES)}"
-            " &nbsp;·&nbsp; [Approve decisions ↗](http://localhost:8000/cockpit)")
+    return f"🟢 **Live (ESP32):** {items(LIVE_PAGES)} &nbsp;&nbsp;|&nbsp;&nbsp; 📊 **Analysis (all customers):** {items(PAGES)}"
 
 
 def menu_panel(current_uid):
@@ -77,12 +82,12 @@ def page(uid, title, intro, panels, variables=()):
     for i, p in enumerate(panels, 1):
         p["id"] = i
         p["gridPos"]["y"] += 2          # make room for the menu line
-        for t in p["targets"]:
+        for t in p.get("targets", []):
             SQL.append(t["rawSql"])
         out.append(p)
-    return {"uid": uid, "title": title, "tags": ["europress-cockpit"], "timezone": "browser", "schemaVersion": 39, "version": 3,
-            "refresh": "1m", "time": TIME, "graphTooltip": 1, "editable": True, "links": [],
-            "description": "SYNTHETIC DATA (Europress dataset v1.0.1). Proposals need human approval.",
+    return {"uid": uid, "title": title, "tags": ["analysis"], "timezone": "browser", "schemaVersion": 39, "version": 4,
+            "refresh": "30s", "time": TIME, "graphTooltip": 1, "editable": True, "links": [],
+            "description": "Analysis of our customers' live data. The system only suggests; a person decides.",
             "panels": out, "templating": {"list": list(variables)}}
 
 
@@ -95,10 +100,16 @@ def P(title, typ, sql, x, y, w, h, fmt="table", field=None, options=None, desc="
             "fieldConfig": field, "options": options or {}}
 
 
+def embed(title, path, y, h, px):
+    return {"title": title, "type": "text", "gridPos": {"x": 0, "y": y, "w": 24, "h": h},
+            "options": {"mode": "html", "content": f'<iframe src="{API_URL}{path}" title="{title}" '
+                                                   f'style="width:100%;height:{px}px;border:0;display:block"></iframe>'}}
+
+
 STAT = {"reduceOptions": {"calcs": ["lastNotNull"], "fields": "", "values": False}, "colorMode": "none", "graphMode": "none",
         "textMode": "value", "justifyMode": "center", "wideLayout": True}
-EUR = {"defaults": {"unit": "currencyEUR", "decimals": 0}, "overrides": []}
-EUR1 = {"defaults": {"unit": "currencyEUR", "decimals": 1}, "overrides": []}   # big totals: €6.1M, not €6M
+EUR = {"defaults": {"unit": "currencyEUR", "decimals": 0, "noValue": "–"}, "overrides": []}
+NUM = {"defaults": {"noValue": "0"}, "overrides": []}
 BAR = lambda f: {"orientation": "horizontal", "displayMode": "basic", "valueMode": "text", "showUnfilled": True,  # noqa: E731
                  "namePlacement": "left", "sizing": "auto", "reduceOptions": {"calcs": ["lastNotNull"], "fields": f, "values": True}}
 TABLE = {"showHeader": True, "cellHeight": "sm", "footer": {"show": False}}
@@ -106,160 +117,165 @@ TABLE = {"showHeader": True, "cellHeight": "sm", "footer": {"show": False}}
 
 def o_unit(n, u): return {"matcher": {"id": "byName", "options": n}, "properties": [{"id": "unit", "value": u}]}
 def o_width(n, w): return {"matcher": {"id": "byName", "options": n}, "properties": [{"id": "custom.width", "value": w}]}
-def o_colour(n, steps):
+def o_map(n, colours):
     return {"matcher": {"id": "byName", "options": n}, "properties": [
         {"id": "custom.cellOptions", "value": {"type": "color-text"}},
-        {"id": "thresholds", "value": {"mode": "absolute", "steps": steps}}]}
+        {"id": "mappings", "value": [{"type": "value", "options": {k: {"color": v, "index": i} for i, (k, v) in enumerate(colours.items())}}]}]}
 
 
-V_CUST = var("customer", "Customer", "SELECT DISTINCT customer_name FROM cp_collections WHERE customer_name IS NOT NULL ORDER BY 1")
-V_OP = var("operator", "Waste company", "SELECT DISTINCT operator_name FROM cp_collections WHERE operator_name IS NOT NULL ORDER BY 1")
-V_PROB = var("problem", "Problem", f"SELECT DISTINCT {PROB} AS __text, label_family AS __value FROM cp_flags ORDER BY 1")
-V_MAT = var("material", "Material", f"SELECT DISTINCT {MAT} AS __text, material_stream AS __value FROM cp_collections WHERE material_stream IS NOT NULL ORDER BY 1")
+V_CUST = var("customer", "Customer", "SELECT DISTINCT customer_name FROM compactors WHERE customer_name IS NOT NULL ORDER BY 1")
+V_OP = var("operator", "Waste company", "SELECT DISTINCT operator_name FROM compactors WHERE operator_name IS NOT NULL ORDER BY 1")
+CW = "c.customer_name IN ($customer) AND c.operator_name IN ($operator)"
+IW = "i.customer_name IN ($customer) AND i.operator_name IN ($operator)"
+PICK = ("FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materials m ON m.name = c.material "
+        f"WHERE p.status = 'done' AND {CW} AND $__timeFilter(p.done_at)")
+COST = "(coalesce(m.lift_fee_eur, p.fee_eur, 0) - p.kg_collected * m.price_eur_per_kg)"   # live estimate (backend pickups.costs)
+ISSUES = (
+    "SELECT p.done_at AS ts, c.customer_name, p.compactor_id, c.operator_name, "
+    "CASE p.verdict WHEN 'TOO_EARLY' THEN 'Emptied too early (<60%)' ELSE 'Left full 2h+' END AS problem, "
+    "p.verdict_reason AS what, 1 AS times FROM pickups p JOIN compactors c ON c.id = p.compactor_id "
+    f"WHERE p.status = 'done' AND p.verdict IN ('TOO_EARLY', 'TOO_LATE') AND {CW} AND $__timeFilter(p.done_at) "
+    f"UNION ALL SELECT min(a.ts), c.customer_name, a.compactor_id, c.operator_name, {case('a.type', PROBLEM)}, min(a.message), count(*) "
+    f"FROM alerts a JOIN compactors c ON c.id = a.compactor_id WHERE a.type IN ({DEV_IN}) AND {CW} AND $__timeFilter(a.ts) "
+    "GROUP BY c.customer_name, a.compactor_id, c.operator_name, a.type, date_trunc('hour', a.ts)")
+LINES = f"FROM invoice_lines l JOIN invoices i ON i.invoice_id = l.invoice_id {INV_LATEST} WHERE {IW}"
+IN_PERIOD = ("p.compactor_id = l.compactor_id AND p.status = 'done' AND p.done_at >= i.period_from "
+             "AND p.done_at < i.period_to + 1")
 
-# ------------------------------------------------------------------ 1 OVERVIEW
-overview = page("value-cockpit", "1 Overview",
-"""### One year of waste service for 52 customers (synthetic data)
-Customers **paid** the waste companies the amount on the left and **got money back** for recyclables. Our system checked every lift and invoice line and found **issues** (the same problem on the same compactor counted once) with **money worth checking**. A person decides what to do — see *5 Decisions*.""",
+# ------------------------------------------------------------------ 1 PROBLEMS
+problems = page("value-cockpit", "1 Problems",
+"""### What went wrong — from the board's own measurements and the checked invoices
+Pick a **customer** or **waste company** at the top. An **issue** is counted once: one per lift that was emptied too early or left full too long, and a device fault once per compactor per hour. The AI's opinion on each lift is shown in the event log, not counted again. **Charged too much** is proven by our measurement; **needs proof** = a surcharge or penalty the sensor cannot check.""",
 [
-    P("Paid for waste service", "stat", "SELECT round(sum(collection_cost_eur + processing_cost_eur + penalties_eur)::numeric) AS v FROM cp_collections",
-      0, 3, 5, 4, field=EUR1, options=STAT, desc="Collection, treatment and penalty charges under the customer–operator contracts (hypothetical prices)."),
-    P("Money back for recyclables", "stat", "SELECT round(sum(material_credit_eur)::numeric) AS v FROM cp_collections",
-      5, 3, 5, 4, field=EUR1, options=STAT, desc="Material credits for cardboard and plastic."),
-    P("Issues found", "stat", "SELECT count(*) AS v FROM cp_issues",
-      10, 3, 5, 4, options=STAT, desc="Same problem on the same compactor = one issue (it may repeat on many lifts)."),
-    P("Money worth checking", "stat", "SELECT round(sum(eur_at_stake)::numeric) AS v FROM cp_flags",
-      15, 3, 5, 4, field=EUR, options=STAT, desc="Estimated euros behind all problems found. To check — not a proven saving."),
-    P("Decisions waiting", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE {OPEN}",
-      20, 3, 4, 4, options=STAT, desc="Proposals no person has approved or rejected yet."),
-    P("Which problems cost the most?", "bargauge",
-      f"SELECT {PROB} AS \"Problem\", round(sum(eur_at_stake)::numeric) AS \"EUR\" FROM cp_flags GROUP BY 1 HAVING sum(eur_at_stake) > 0 ORDER BY 2 DESC",
-      0, 7, 12, 11, field=EUR, options=BAR("/EUR/")),
-    P("Which customers have the most to check?", "bargauge",
-      "SELECT customer_name AS \"Customer\", round(sum(eur_at_stake)::numeric) AS \"EUR\" FROM cp_flags WHERE customer_name IS NOT NULL "
-      "GROUP BY 1 ORDER BY 2 DESC LIMIT 10", 12, 7, 12, 11, field=EUR, options=BAR("/EUR/")),
-])
+    P("Lifts measured", "stat", f"SELECT count(*) AS v {PICK}", 0, 3, 4, 4, field=NUM, options=STAT),
+    P("Collected", "stat", f"SELECT round(sum(p.kg_collected)) AS v {PICK}", 4, 3, 4, 4,
+      field={"defaults": {"unit": "masskg", "noValue": "0"}, "overrides": []}, options=STAT),
+    P("Issues", "stat", f"SELECT count(*) AS v FROM ({ISSUES}) x", 8, 3, 4, 4, field=NUM, options=STAT,
+      desc="One per lift judged too early / too late, plus device faults (same fault, same compactor, same hour = one)."),
+    P("Invoices to check", "stat", f"SELECT count(*) AS v FROM invoices i {INV_LATEST} WHERE {IW} AND i.suggestion = 'CHECK' AND d.decision IS NULL",
+      12, 3, 4, 4, field=NUM, options=STAT, desc="Invoices where a line differs from the measurement and nobody decided yet."),
+    P("Charged too much", "stat", f"SELECT round(sum(i.overcharged_eur)::numeric) AS v FROM invoices i {INV_LATEST} WHERE {IW}",
+      16, 3, 4, 4, field=EUR, options=STAT, desc="Billed more than the board measured or than the customer's prices."),
+    P("Needs proof", "stat", f"SELECT round(sum(i.unverified_eur)::numeric) AS v FROM invoices i {INV_LATEST} WHERE {IW}",
+      20, 3, 4, 4, field=EUR, options=STAT, desc="Surcharges and penalties the sensor cannot prove or disprove: ask for evidence."),
+    P("Issues by type", "bargauge",
+      f"SELECT problem AS \"Problem\", count(*) AS \"Issues\" FROM ({ISSUES}) x GROUP BY 1 ORDER BY 2 DESC",
+      0, 7, 8, 11, options=BAR("/Issues/")),
+    P("Issues — newest first (times = how often the same fault repeated within the hour)", "table",
+      f"SELECT ts AS \"Time\", customer_name AS \"Customer\", compactor_id AS \"Compactor\", operator_name AS \"Waste company\", "
+      f"problem AS \"Problem\", what AS \"What the data shows\", times AS \"Times\" FROM ({ISSUES}) x ORDER BY ts DESC LIMIT 500",
+      8, 7, 16, 11, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_width("Time", 150), o_width("Compactor", 90),
+          o_width("Problem", 200)]}, options=TABLE),
+    P("Invoice lines that do not match the measurement", "table",
+      f"SELECT i.invoice_id AS \"Invoice\", i.operator_name AS \"Waste company\", {case('l.line_type', LINE)} AS \"Line\", "
+      f"l.compactor_id AS \"Compactor\", l.service_date AS \"Date\", l.amount_eur AS \"Billed €\", l.expected_eur AS \"Should be €\", "
+      f"l.difference_eur AS \"Difference €\", {case('l.check_status', CHECK)} AS \"Check\", l.check_reason AS \"Why\" "
+      f"{LINES} AND l.check_status <> 'OK' ORDER BY l.difference_eur DESC NULLS LAST LIMIT 500",
+      0, 18, 24, 10, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Billed €", "currencyEUR"),
+          o_unit("Should be €", "currencyEUR"), o_unit("Difference €", "currencyEUR"),
+          o_map("Check", {"needs proof": "orange", **{v: "red" for k, v in CHECK.items() if k not in ("OK", "NO_EVIDENCE")}})]}, options=TABLE),
+], [V_CUST, V_OP])
 
-# ------------------------------------------------------------------ 2 PROBLEMS FOUND
-fw = "customer_name IN ($customer) AND operator_name IN ($operator) AND label_family IN ($problem)"
-findings = page("cockpit-findings", "2 Problems found",
-"""### Issues: the same problem on the same compactor, counted once
-Pick a **customer**, **waste company** or **problem** at the top. **Times seen** = on how many lifts or invoice lines it happened. **Found by**: *AI model* or *rules*. **Likely cause**: operator, device, logistics, billing, data entry or normal noise.
-The lower table lists every single record. It is a **difference to check, not an accusation** — the cause can also be a sensor or missing data.""",
+# ------------------------------------------------------------------ 2 COST & WEIGHT
+cost = page("cockpit-cost", "2 Cost & weight",
+"""### What the waste cost, per tonne — and does the invoice agree with our scale?
+**Estimated** = the live estimate with the customer's prices (cost per lift − kg × price per tonne). **Billed** = what the waste companies invoiced. The middle table puts the **lifts and tonnes we measured** next to what each invoice **billed**.""",
 [
-    P("How many issues of each problem?", "bargauge",
-      f"SELECT {PROB} AS \"Problem\", count(*) AS \"Issues\" FROM cp_issues WHERE {fw} GROUP BY 1 ORDER BY 2 DESC",
-      0, 3, 8, 13, options=BAR("/Issues/")),
-    P("Issues — biggest euros first", "table",
-      f"SELECT customer_name AS \"Customer\", site_name AS \"Site\", {PROB} AS \"Problem\", times_seen AS \"Times seen\", "
-      f"to_char(last_seen, 'YYYY-MM-DD') AS \"Last seen\", eur_at_stake AS \"Euros\", "
-      f"CASE WHEN detected_by LIKE '%model%' OR detected_by LIKE '%(ML)%' THEN 'AI model' ELSE 'rules' END AS \"Found by\", "
-      f"initcap(replace(COALESCE(side, ''), '_', ' ')) AS \"Likely cause\" "
-      f"FROM cp_issues WHERE {fw} ORDER BY eur_at_stake DESC, times_seen DESC LIMIT 1000",
-      8, 3, 16, 13, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Euros", "currencyEUR"),
-          o_width("Times seen", 95), o_width("Last seen", 100), o_width("Euros", 90), o_width("Found by", 90), o_width("Likely cause", 110)]}, options=TABLE),
-    P("Every single record (one row per lift or invoice line)", "table",
-      f"SELECT to_char(found_at, 'YYYY-MM-DD') AS \"Date\", customer_name AS \"Customer\", {PROB} AS \"Problem\", "
-      f"COALESCE(NULLIF(calculation, ''), NULLIF(evidence, ''), explanation) AS \"What the data shows\", likely_cause AS \"Likely cause\", "
-      f"eur_at_stake AS \"Euros\", entity_id AS \"Record\" FROM cp_flags WHERE {fw} AND $__timeFilter(found_at) "
-      "ORDER BY eur_at_stake DESC NULLS LAST, found_at DESC LIMIT 1000",
-      0, 16, 24, 12, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Euros", "currencyEUR"),
-          o_width("Date", 100), o_width("Problem", 230), o_width("Euros", 90), o_width("Record", 190)]}, options=TABLE),
-], [V_CUST, V_OP, V_PROB])
+    P("Tonnes measured", "stat", f"SELECT round((sum(p.kg_collected) / 1000)::numeric, 2) AS v {PICK}", 0, 3, 5, 4, field=NUM, options=STAT),
+    P("Estimated cost", "stat", f"SELECT round(sum({COST})::numeric) AS v {PICK}", 5, 3, 5, 4, field=EUR, options=STAT,
+      desc="Cost per lift − kg × price per tonne, with the prices on Money & CO₂."),
+    P("Estimated € per tonne", "stat", f"SELECT round((sum({COST}) / NULLIF(sum(p.kg_collected) / 1000, 0))::numeric, 1) AS v {PICK}",
+      10, 3, 4, 4, field=EUR, options=STAT),
+    P("Billed (invoices entered)", "stat", f"SELECT round(sum(i.total_eur)::numeric) AS v FROM invoices i {INV_LATEST} WHERE {IW}",
+      14, 3, 5, 4, field=EUR, options=STAT),
+    P("Charged too much", "stat", f"SELECT round(sum(i.overcharged_eur)::numeric) AS v FROM invoices i {INV_LATEST} WHERE {IW}",
+      19, 3, 5, 4, field=EUR, options=STAT),
+    P("Per compactor (measured)", "table",
+      f"SELECT c.customer_name AS \"Customer\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", c.operator_name AS \"Waste company\", "
+      f"count(*) AS \"Lifts\", round((sum(p.kg_collected) / 1000)::numeric, 2) AS \"Tonnes\", round(avg(p.load_before_pct)::numeric) AS \"Avg load at lift %\", "
+      f"round(sum({COST})::numeric) AS \"Estimated €\", round((sum({COST}) / NULLIF(sum(p.kg_collected) / 1000, 0))::numeric, 1) AS \"Estimated € / t\" "
+      f"{PICK} GROUP BY 1, 2, 3, 4 ORDER BY 1, 2", 0, 7, 24, 6, options=TABLE),
+    P("Invoice vs our measurement, per compactor", "table",
+      "SELECT i.invoice_id AS \"Invoice\", i.operator_name AS \"Waste company\", l.compactor_id AS \"Compactor\", "
+      "sum(CASE WHEN l.line_type = 'LIFT_FEE' THEN coalesce(l.quantity, 1) ELSE 0 END) AS \"Lifts billed\", "
+      f"(SELECT count(*) FROM pickups p WHERE {IN_PERIOD}) AS \"Lifts measured\", "
+      "round(sum(CASE WHEN l.line_type IN ('PROCESSING', 'MATERIAL_CREDIT') THEN CASE WHEN l.unit = 'kg' THEN l.quantity / 1000 ELSE l.quantity END "
+      "ELSE 0 END)::numeric, 3) AS \"Tonnes billed\", "
+      f"(SELECT round((sum(p.kg_collected) / 1000)::numeric, 3) FROM pickups p WHERE {IN_PERIOD}) AS \"Tonnes measured\", "
+      "round(sum(l.amount_eur)::numeric, 2) AS \"Billed €\", round(sum(l.difference_eur)::numeric, 2) AS \"Difference €\" "
+      f"{LINES} AND l.compactor_id IS NOT NULL GROUP BY i.invoice_id, i.operator_name, l.compactor_id, i.period_from, i.period_to "
+      "ORDER BY i.invoice_id, l.compactor_id", 0, 13, 24, 8,
+      field={"defaults": {}, "overrides": [o_unit("Billed €", "currencyEUR"), o_unit("Difference €", "currencyEUR")]}, options=TABLE),
+    P("Every lift the board measured", "table",
+      f"SELECT p.done_at AS \"Emptied\", c.customer_name AS \"Customer\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", "
+      f"c.operator_name AS \"Waste company\", p.load_before_pct AS \"Load %\", p.kg_collected AS \"kg\", "
+      f"round({COST}::numeric, 2) AS \"Estimated €\", p.co2_kg AS \"CO₂ saved kg\" {PICK} ORDER BY p.done_at DESC LIMIT 1000",
+      0, 21, 24, 10, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Estimated €", "currencyEUR")]}, options=TABLE),
+], [V_CUST, V_OP])
 
-# ------------------------------------------------------------------ 3 COST & WEIGHT
-cw = "customer_name IN ($customer) AND material_stream IN ($material)"
-cost = page("cockpit-cost", "3 Cost & weight",
-"""### Who pays too much per tonne — and does our scale agree with the truck's?
-**€ per tonne** = total collection euros ÷ total tonnes collected. *Times normal* compares it with similar contracts: **1.5** means paying 50 % more.
-Bottom table: lifts where **our scale** and the **waste company's truck scale** disagree by more than 10 % — the reason independent weighing matters.""",
+# ------------------------------------------------------------------ 3 WASTE COMPANIES
+OP_PICK = ("SELECT c.operator_name AS op, count(*) AS lifts, avg(CASE WHEN p.verdict = 'ON_TIME' THEN 100.0 ELSE 0 END) AS on_time, "
+           "avg(p.load_before_pct) AS load, sum(CASE WHEN p.verdict = 'TOO_EARLY' THEN 1 ELSE 0 END) AS early, "
+           "sum(CASE WHEN p.verdict = 'TOO_LATE' THEN 1 ELSE 0 END) AS late FROM pickups p JOIN compactors c ON c.id = p.compactor_id "
+           f"WHERE p.status = 'done' AND {CW} AND $__timeFilter(p.done_at) GROUP BY 1")
+OP_INV = ("SELECT i.operator_name AS op, count(*) AS invoices, 100.0 * sum(i.lines_ok) / NULLIF(sum(i.lines_total), 0) AS lines_ok, "
+          f"sum(i.overcharged_eur) AS over, sum(i.unverified_eur) AS proof FROM invoices i {INV_LATEST} WHERE {IW} GROUP BY 1")
+operators = page("cockpit-operators", "3 Waste companies",
+"""### Which waste company performs best?
+**Lifts at ≥60 %** = emptied when the container was worth it and not left full. **Invoice lines correct** = lines that match the board's measurement and the customer's prices. Facts for contract talks, not blame — a sensor can be wrong too.""",
 [
-    P("€ per tonne vs normal, by material", "table",
-      f"SELECT {MAT} AS \"Material\", round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0))::numeric) AS \"Paid € / t\", "
-      "round(avg(benchmark_eur_per_t)::numeric) AS \"Normal € / t\", "
-      "round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0) / NULLIF(avg(benchmark_eur_per_t), 0))::numeric, 1) AS \"Times normal\" "
-      f"FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND {cw} GROUP BY 1 ORDER BY 4 DESC",
-      0, 3, 10, 9, field={"defaults": {}, "overrides": [o_colour("Times normal", [{"color": "text", "value": None},
-          {"color": "orange", "value": 1.3}, {"color": "red", "value": 2}])]}, options=TABLE),
-    P("Sites that pay the most per tonne", "table",
-      f"SELECT customer_name AS \"Customer\", site_name AS \"Site\", {MAT} AS \"Material\", "
-      "round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0))::numeric) AS \"Paid € / t\", "
-      "round((sum(collection_cost_eur) / NULLIF(sum(mass_kg) / 1000, 0) / NULLIF(avg(benchmark_eur_per_t), 0))::numeric, 1) AS \"Times normal\" "
-      f"FROM cp_collections WHERE collection_cost_eur_per_t IS NOT NULL AND {cw} GROUP BY 1, 2, 3 HAVING count(*) >= 5 ORDER BY 5 DESC NULLS LAST LIMIT 100",
-      10, 3, 14, 9, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_colour("Times normal", [{"color": "text", "value": None},
-          {"color": "orange", "value": 1.3}, {"color": "red", "value": 2}])]}, options=TABLE),
-    P("Our scale vs truck scale: lifts that differ by more than 10 %", "table",
-      f"SELECT to_char(service_date, 'YYYY-MM-DD') AS \"Date\", customer_name AS \"Customer\", operator_name AS \"Waste company\", "
-      "round(device_estimated_collected_kg::numeric) AS \"Our scale (kg)\", round(weighbridge_net_kg::numeric) AS \"Truck scale (kg)\", "
-      "round((100.0 * (weighbridge_net_kg - device_estimated_collected_kg) / NULLIF(device_estimated_collected_kg, 0))::numeric) AS \"Difference %\" "
-      "FROM cp_collections WHERE weighbridge_net_kg IS NOT NULL AND device_estimated_collected_kg > 200 "
-      f"AND abs(weighbridge_net_kg - device_estimated_collected_kg) > 0.1 * device_estimated_collected_kg AND {cw} "
-      "AND $__timeFilter(service_date) ORDER BY abs(weighbridge_net_kg - device_estimated_collected_kg) DESC LIMIT 500",
-      0, 12, 24, 12, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Difference %", "percent")]}, options=TABLE),
-], [V_CUST, V_MAT])
+    P("Lifts at ≥60 % (on time)", "bargauge", f"SELECT op AS \"Waste company\", round(on_time::numeric) AS \"%\" FROM ({OP_PICK}) x ORDER BY 2 DESC",
+      0, 3, 8, 7, field={"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []}, options=BAR("/%/")),
+    P("Invoice lines correct", "bargauge", f"SELECT op AS \"Waste company\", round(lines_ok::numeric) AS \"%\" FROM ({OP_INV}) x ORDER BY 2 DESC",
+      8, 3, 8, 7, field={"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []}, options=BAR("/%/")),
+    P("Charged too much", "bargauge", f"SELECT op AS \"Waste company\", round(over::numeric) AS \"EUR\" FROM ({OP_INV}) x ORDER BY 2 DESC",
+      16, 3, 8, 7, field={"defaults": {"unit": "currencyEUR", "decimals": 0}, "overrides": []}, options=BAR("/EUR/")),
+    P("Scorecard", "table",
+      "SELECT coalesce(a.op, b.op) AS \"Waste company\", a.lifts AS \"Lifts\", round(a.on_time::numeric) AS \"At ≥60 % %\", "
+      "round(a.load::numeric) AS \"Avg load at lift %\", a.early AS \"Too early\", a.late AS \"Left full 2h+\", b.invoices AS \"Invoices\", "
+      "round(b.lines_ok::numeric) AS \"Lines correct %\", round(b.over::numeric, 2) AS \"Charged too much €\", round(b.proof::numeric, 2) AS \"Needs proof €\" "
+      f"FROM ({OP_PICK}) a FULL JOIN ({OP_INV}) b ON b.op = a.op ORDER BY 1", 0, 10, 24, 8,
+      field={"defaults": {}, "overrides": [o_unit("Charged too much €", "currencyEUR"), o_unit("Needs proof €", "currencyEUR")]}, options=TABLE),
+], [V_CUST, V_OP])
 
-# ------------------------------------------------------------------ 4 WASTE COMPANIES
-ow = "operator_name IN ($operator)"
-ops = page("cockpit-operators", "4 Waste companies",
-"""### How each waste company performs (fictional companies)
-**On time** and **tickets shared**: higher is better. **Invoice errors**: lower is better. Use these as facts for contract talks, not as blame —
-some differences come from sensors or missing data.""",
+# ------------------------------------------------------------------ 4 INVOICES
+invoices_pg = page("cockpit-actions", "4 Invoices",
+"""### Enter an invoice, see it compared with what the board measured, then decide
+**Enter an invoice** tab: type in the waste company's invoice (or *Fill from measurement* and change a number). It is checked at once: lifts against the board's emptyings, tonnes against the measured weight, prices against the customer's prices. **Check & decide** tab: read every line, then **Approve**, **Reject** or **Hold** with your name — every decision is kept.""",
 [
-    P("On time — share of lifts that came as planned", "bargauge",
-      f"SELECT replace(operator_name, ' (fictional)', '') AS \"Waste company\", round((100 * avg(on_time_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
-      0, 3, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []}, options=BAR("/%/")),
-    P("Tickets shared — truck weight sent to the customer within 7 days", "bargauge",
-      f"SELECT replace(operator_name, ' (fictional)', '') AS \"Waste company\", round((100 * avg(weighbridge_shared_7d_rate))::numeric) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
-      8, 3, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "max": 100}, "overrides": []}, options=BAR("/%/")),
-    P("Invoice errors — lines that differ from the contract", "bargauge",
-      f"SELECT replace(operator_name, ' (fictional)', '') AS \"Waste company\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"%\" FROM cp_scorecard WHERE {ow} GROUP BY 1 ORDER BY 2 DESC",
-      16, 3, 8, 8, field={"defaults": {"unit": "percent", "min": 0, "decimals": 1}, "overrides": []}, options=BAR("/%/")),
-    P("Details per region", "table",
-      "SELECT operator_name AS \"Waste company\", region_code AS \"Region\", round((100 * avg(on_time_rate))::numeric) AS \"On time %\", "
-      "round((100 * avg(missed_visit_rate))::numeric, 1) AS \"Missed visits %\", round((100 * avg(weighbridge_shared_7d_rate))::numeric) AS \"Tickets shared %\", "
-      "round(avg(billing_overcharge_pct)::numeric, 1) AS \"Overcharged %\", round((100 * avg(discrepant_line_rate))::numeric, 1) AS \"Invoice errors %\", "
-      "round(avg(weight_bias_pct) FILTER (WHERE weight_bias_status = 'MEASURED')::numeric, 1) AS \"Weight vs our scale % (measured)\", "
-      "round((100.0 * count(*) FILTER (WHERE weight_bias_status = 'MEASURED') / count(*))::numeric) AS \"Months with weight evidence %\" "
-      f"FROM cp_scorecard WHERE {ow} GROUP BY 1, 2 ORDER BY 1, 2", 0, 11, 24, 10, options=TABLE),
-], [V_OP])
-
-# ------------------------------------------------------------------ 5 DECISIONS
-aw = "a.customer_name IN ($customer) AND a.operator_name IN ($operator)"
-acts = page("cockpit-actions", "5 Decisions",
-"""### What the system proposes — a person decides
-Each row is one proposal, decided **only with data known on its decision date**. **Expected €** = chance it works × money × time left − effort (an estimate, with a low–high range).
-Proposal values overlap, so **do not add them up as savings**. To decide, click **Approve decisions ↗** in the menu: open the evidence and calculation, then approve or reject with your name. Decisions are saved and can be undone.""",
-[
-    P("Waiting", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND {OPEN}", 0, 3, 6, 4, options=STAT),
-    P("Approved", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND d.decision = 'APPROVE'", 6, 3, 6, 4, options=STAT),
-    P("Rejected", "stat", f"SELECT count(*) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND d.decision = 'REJECT'", 12, 3, 6, 4, options=STAT),
-    P("Invoice euros behind waiting proposals", "stat", f"SELECT round(sum(a.flagged_invoice_eur)::numeric) AS v FROM cp_actions a {LATEST} WHERE ({aw}) AND {OPEN}",
-      18, 3, 6, 4, field=EUR, options=STAT),
-    P("All proposals (biggest euros first)", "table",
-      "SELECT COALESCE(CASE d.decision WHEN 'APPROVE' THEN 'approved' WHEN 'REJECT' THEN 'rejected' END, 'waiting') AS \"Status\", "
-      f"{ACT} AS \"Proposal\", a.customer_name AS \"Customer\", a.operator_name AS \"Waste company\", "
-      f"round(a.expected_value_eur::numeric) AS \"Expected €\", round(a.ev_low_eur::numeric) || ' … ' || round(a.ev_high_eur::numeric) AS \"Range €\", "
-      f"a.flagged_invoice_eur AS \"Invoice € flagged\", a.calculation AS \"Calculation\", "
-      f"d.decided_by AS \"Decided by\" FROM cp_actions a {LATEST} WHERE {aw} ORDER BY a.expected_value_eur DESC NULLS LAST, a.flagged_invoice_eur DESC",
-      0, 7, 24, 18, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Expected €", "currencyEUR"), o_unit("Invoice € flagged", "currencyEUR"), o_width("Status", 100),
-          o_width("Expected €", 100), o_width("Range €", 110), o_width("Invoice € flagged", 120),
-          {"matcher": {"id": "byName", "options": "Status"}, "properties": [{"id": "custom.cellOptions", "value": {"type": "color-text"}},
-           {"id": "mappings", "value": [{"type": "value", "options": {"waiting": {"color": "orange"}, "approved": {"color": "green"},
-                                                                      "rejected": {"color": "red"}}}]}]}]}, options=TABLE),
+    P("Waiting", "stat", f"SELECT count(*) AS v FROM invoices i {INV_LATEST} WHERE {IW} AND d.decision IS NULL", 0, 3, 4, 4, field=NUM, options=STAT),
+    P("To check", "stat", f"SELECT count(*) AS v FROM invoices i {INV_LATEST} WHERE {IW} AND d.decision IS NULL AND i.suggestion = 'CHECK'",
+      4, 3, 4, 4, field=NUM, options=STAT),
+    P("Charged too much (waiting)", "stat", f"SELECT round(sum(i.overcharged_eur)::numeric) AS v FROM invoices i {INV_LATEST} WHERE {IW} AND d.decision IS NULL",
+      8, 3, 4, 4, field=EUR, options=STAT),
+    P("Approved", "stat", f"SELECT count(*) AS v FROM invoices i {INV_LATEST} WHERE {IW} AND d.decision = 'APPROVE'", 12, 3, 4, 4, field=NUM, options=STAT),
+    P("Rejected", "stat", f"SELECT count(*) AS v FROM invoices i {INV_LATEST} WHERE {IW} AND d.decision = 'REJECT'", 16, 3, 4, 4, field=NUM, options=STAT),
+    P("On hold", "stat", f"SELECT count(*) AS v FROM invoices i {INV_LATEST} WHERE {IW} AND d.decision = 'HOLD'", 20, 3, 4, 4, field=NUM, options=STAT),
+    embed("Invoices — enter, compare, decide", "/invoices", 7, 18, 540),
+    P("All invoices", "table",
+      f"SELECT {STATUS_SQL} AS \"Status\", i.invoice_id AS \"Invoice\", i.customer_name AS \"Customer\", i.operator_name AS \"Waste company\", "
+      "i.period_from AS \"From\", i.period_to AS \"To\", i.total_eur AS \"Billed €\", i.overcharged_eur AS \"Charged too much €\", "
+      "i.unverified_eur AS \"Needs proof €\", i.lines_ok || ' / ' || i.lines_total AS \"Lines ok\", i.summary AS \"Check\", "
+      f"d.decided_by AS \"Decided by\" FROM invoices i {INV_LATEST} WHERE {IW} ORDER BY i.entered_at DESC",
+      0, 25, 24, 9, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Billed €", "currencyEUR"),
+          o_unit("Charged too much €", "currencyEUR"), o_unit("Needs proof €", "currencyEUR"), o_width("Status", 90), o_map("Status", STATUS_COLOURS)]},
+      options=TABLE),
 ], [V_CUST, V_OP])
 
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "sql":   # print every query with filters set to "all", for testing
         for s in SQL:
-            s = (s.replace("$__timeFilter(found_at)", "TRUE").replace("$__timeFilter(service_date)", "TRUE")
-                  .replace("${__url_time_range}", ""))
-            for v in ["$customer", "$operator", "$problem", "$material"]:
+            for f in ["p.done_at", "a.ts"]:
+                s = s.replace(f"$__timeFilter({f})", f"{f} > now() - interval '7 days'")
+            for v in ["$customer", "$operator"]:
                 s = s.replace(f"IN ({v})", "IS NOT NULL OR TRUE")
             print(s + ";")
     else:
         out = Path(sys.argv[1]) if len(sys.argv) > 1 else OUT
-        for name, d in [("cockpit_1_overview", overview), ("cockpit_2_findings", findings), ("cockpit_3_cost_weight", cost),
-                        ("cockpit_4_operators", ops), ("cockpit_5_actions", acts)]:
+        for old in out.glob("cockpit_*.json"):
+            old.unlink()                                  # older page sets (Europress dataset pages) are gone
+        for name, d in [("cockpit_1_problems", problems), ("cockpit_2_cost_weight", cost),
+                        ("cockpit_3_operators", operators), ("cockpit_4_invoices", invoices_pg)]:
             (out / f"{name}.json").write_text(json.dumps(d, indent=2, ensure_ascii=False), encoding="utf-8")
         print(f"written to {out}")

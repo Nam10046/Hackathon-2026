@@ -260,7 +260,30 @@ def build(pub: Path, engine_dir: Path, audit_dir: Path | None = None, profile: s
             "trigger_type", "device_fill_pct_before", "device_estimated_collected_kg", "weighbridge_net_kg", "mass_kg",
             "mass_basis", "mass_evidence", "collection_cost_eur", "processing_cost_eur", "penalties_eur",
             "material_credit_eur", "net_material_contribution_eur", "collection_cost_eur_per_t", "benchmark_eur_per_t"]
-    return {"cp_collections": col[keep], "cp_flags": flags, "cp_issues": issues, "cp_scorecard": sc, "cp_actions": acts}
+    # ---------- invoices: one row per invoice + its lines, with the problems found on them (a person approves / rejects) ----------
+    inv = (rd("finance/invoices").merge(cust[["customer_id", "customer_name"]], on="customer_id", how="left")
+           .merge(ops[["operator_id", "operator_name"]], on="operator_id", how="left"))
+    lf = flags[flags.entity_type == "invoice_line"]
+    per_line = (lf.assign(problem=lf.label_family.map(lambda f: f.replace("_", " ").lower()))
+                .groupby("entity_id").agg(problem=("problem", lambda v: ", ".join(sorted(set(v)))),
+                                          eur_at_stake=("eur_at_stake", "sum"),
+                                          explanation=("explanation", "first")).reset_index())
+    lines = (il.merge(per_line, left_on="invoice_line_id", right_on="entity_id", how="left").drop(columns=["entity_id"]))
+    lines["eur_at_stake"] = lines.eur_at_stake.round(2)
+    lines = lines[["invoice_line_id", "invoice_id", "line_no", "line_type", "service_date", "operator_job_ref", "quantity",
+                   "unit", "unit_price_eur", "amount_eur", "problem", "eur_at_stake", "explanation"]]
+    per_inv = (lines[lines.problem.notna()].groupby("invoice_id")
+               .agg(flagged_lines=("invoice_line_id", "count"), flagged_eur=("eur_at_stake", "sum"),
+                    problems=("problem", lambda v: ", ".join(sorted({p for x in v for p in x.split(", ")})))).reset_index())
+    inv = inv.merge(per_inv, on="invoice_id", how="left")
+    inv["flagged_lines"] = inv.flagged_lines.fillna(0).astype(int)
+    inv["flagged_eur"] = inv.flagged_eur.fillna(0).round(2)
+    inv["suggestion"] = inv.flagged_lines.map(lambda n: "CHECK" if n else "APPROVE")   # the system only suggests
+    inv = inv[["invoice_id", "contract_id", "customer_name", "operator_name", "billing_period", "issued_at", "total_eur",
+               "n_lines", "flagged_lines", "flagged_eur", "problems", "dispute_status", "suggestion"]]
+
+    return {"cp_collections": col[keep], "cp_flags": flags, "cp_issues": issues, "cp_scorecard": sc, "cp_actions": acts,
+            "cp_invoices": inv, "cp_invoice_lines": lines}
 
 
 def main():
@@ -285,6 +308,8 @@ def main():
         if db.dialect.name == "postgresql":
             conn.execute(text("CREATE INDEX IF NOT EXISTS cp_flags_family ON cp_flags (label_family)"))
             conn.execute(text("CREATE INDEX IF NOT EXISTS cp_coll_date ON cp_collections (service_date)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS cp_inv_lines_inv ON cp_invoice_lines (invoice_id)"))
+            conn.execute(text("CREATE INDEX IF NOT EXISTS cp_inv_customer ON cp_invoices (customer_name)"))
     print("Cockpit ready. Open Grafana -> 'Customer Value Cockpit'.")
 
 

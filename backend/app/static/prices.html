@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Your prices</title>
+<!-- Shown inside Grafana (Money & CO2 page) as an embedded panel. Colours match Grafana's dark theme. -->
+<style>
+  :root { --bg: #181b1f; --card: #22252b; --line: #2f333a; --text: #d8d9da; --muted: #8e9196;
+          --green: #73bf69; --red: #f2495c; --blue: #5794f2; }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 8px; background: var(--bg); color: var(--text);
+         font: 14px/1.4 Inter, "Helvetica Neue", Arial, sans-serif; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 8px; }
+  form { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px;
+         display: flex; flex-direction: column; gap: 8px; }
+  .name { font-weight: 600; text-transform: capitalize; }
+  label { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); font-size: 13px; }
+  input { width: 110px; font: inherit; color: var(--text); background: var(--bg); border: 1px solid var(--line);
+          border-radius: 4px; padding: 5px 8px; text-align: right; font-variant-numeric: tabular-nums; }
+  input:focus { outline: none; border-color: var(--blue); }
+  button { font: inherit; font-weight: 600; padding: 6px 10px; border-radius: 4px; cursor: pointer;
+           border: 1px solid var(--blue); background: transparent; color: var(--blue); }
+  .saved { color: var(--green); font-size: 12px; min-height: 16px; }
+  .msg { color: var(--muted); font-size: 12px; margin-top: 6px; }
+  .err { color: var(--red); }
+</style>
+</head>
+<body>
+<div class="grid" id="grid"></div>
+<div class="msg" id="msg">Loading…</div>
+<script>
+// Reads GET /api/materials, saves with PUT /api/materials/{name}. The Money page uses the saved numbers.
+const grid = document.getElementById("grid"), msg = document.getElementById("msg");
+
+function form(m) {
+  const name = m.name === "biowaste" ? "bio waste" : m.name === "mixed" ? "mixed waste" : m.name;
+  return `<form data-name="${m.name}">
+    <div class="name">${name}</div>
+    <label>Cost per lift € <input name="lift" type="number" step="1" min="0" max="10000" required value="${m.lift_fee_eur ?? 0}"></label>
+    <label>Price per tonne € <input name="price" type="number" step="1" min="-5000" max="5000" required value="${Math.round(m.price_eur_per_kg * 1000)}"></label>
+    <button type="submit">Save</button>
+    <div class="saved"></div>
+  </form>`;
+}
+
+async function load() {
+  try {
+    const r = await fetch("/api/materials");
+    if (!r.ok) throw new Error(r.status);
+    grid.innerHTML = (await r.json()).map(form).join("");
+    msg.textContent = "A quick estimate: cost per lift (lift fee + transport) and price per tonne (+ they pay you, − you pay them). The full invoice detail is on the Analysis pages.";
+  } catch (e) {
+    msg.className = "msg err"; msg.textContent = "Backend not reachable (" + e.message + ")";
+  }
+}
+
+grid.addEventListener("submit", async (ev) => {
+  ev.preventDefault();
+  const f = ev.target, out = f.querySelector(".saved");
+  out.className = "saved"; out.textContent = "Saving…";
+  try {
+    const r = await fetch("/api/materials/" + encodeURIComponent(f.dataset.name), {
+      method: "PUT", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lift_fee_eur: Number(f.elements.lift.value), price_eur_per_t: Number(f.elements.price.value) }) });
+    const body = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(typeof body.detail === "string" ? body.detail : "check the numbers (" + r.status + ")");
+    out.textContent = "Saved ✓ — the page updates within 10 s";
+  } catch (e) {
+    out.className = "saved err"; out.textContent = "Not saved: " + e.message;
+  }
+});
+
+load();
+</script>
+</body>
+</html>

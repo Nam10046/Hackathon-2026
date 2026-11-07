@@ -38,8 +38,8 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 START = datetime(2026, 1, 5, 0, 0, tzinfo=timezone.utc)          # a Monday
-MATERIALS = {"cardboard": (2000, 8), "plastic": (1500, 8), "mixed": (4000, 8)}   # capacity kg, volume m3 (= backend seed)
-MAX_DAYS = {"cardboard": 28, "plastic": 28, "mixed": 21}         # hygiene maximum, same as backend live_lift.MAX_DAYS
+MATERIALS = {"cardboard": (2000, 8), "biowaste": (3000, 8), "mixed": (4000, 8)}   # capacity kg, volume m3 (= backend seed)
+MAX_DAYS = {"cardboard": 28, "biowaste": 7, "mixed": 21}         # hygiene maximum, same as backend live_lift.MAX_DAYS
 NOISE_KG, FILL_NOISE = 15.0, 1.5                                  # 1 sigma, like the dataset's mass_uncertainty_kg
 LIFT_MIX = {"NORMAL": 0.55, "PREMATURE": 0.15, "DELAYED": 0.18, "JUSTIFIED": 0.12}
 FAULTS = ["SPIKE", "IMPOSSIBLE", "STUCK", "GAP", "DRIFT", "GLITCH", "DUPLICATE", "CONTAMINATION"]
@@ -69,7 +69,7 @@ def build_world(n_devices: int, days: int, seed: int) -> list[Device]:
     rnd = random.Random(seed)
     devs = []
     for i in range(n_devices):
-        mat = ["cardboard", "plastic", "mixed"][i % 3]
+        mat = ["cardboard", "biowaste", "mixed"][i % 3]
         cap, vol = MATERIALS[mat]
         d = Device(f"SIM-{i + 1:02d}", mat, cap, vol, daily_pct=rnd.uniform(9, 24))
         simulate_device(d, days, rnd)
@@ -375,7 +375,7 @@ def cmd_live(a):
     rnd = random.Random(a.seed)
     hours = a.hours
     devs = []
-    for cid, mat in (("C1", "cardboard"), ("C2", "plastic"), ("C3", "mixed")):
+    for cid, mat in (("C1", "cardboard"), ("C2", "biowaste"), ("C3", "mixed")):
         cap, vol = MATERIALS[mat]
         d = Device(cid, mat, cap, vol, daily_pct=rnd.uniform(18, 30))
         simulate_device(d, max(2, math.ceil(hours / 24)), rnd)

@@ -68,3 +68,4 @@ class Material(BaseModel):
     density_min: float
     density_max: float
     co2_factor: float
+    lift_fee_eur: Optional[float] = None
