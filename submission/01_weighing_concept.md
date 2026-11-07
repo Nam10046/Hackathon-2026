@@ -177,6 +177,23 @@ Biases kept **out** of the budget, and how we handle them:
 sensor parts). On new units Europress can offer **factory-fit as an option on the compactor price**. Retrofit is a
 **project sale** for large fleets, where the value per device is highest. Part 3 uses these hardware costs.
 
+## 7b. Edge electronics — working prototype on an ESP32-C6
+
+The weighing rules above are not only on paper: they run on a real **ESP32-C6 edge node** (`firmware/edge_node`).
+The load cells are simulated on the board (we have no 10 t cells), but **everything after the load cell is real code on real
+hardware**, feeding the live product pages in Grafana.
+
+| Rule in this concept | What the board does |
+|---|---|
+| weigh only at idle, 30 s stable (§ Summary) | samples 10×/s, reports a weight only when the press is still and 3 s of samples are within 4σ (demo-shortened window) |
+| one bad sample must not move the result (§10) | median-of-5 spike filter on the board; removed spikes are counted and reported |
+| frozen sensor (§10) | 5 s of identical raw samples → quality `STUCK` |
+| emptying = new cycle, no blind re-tare (§5) | emptying detected on the board (≥ 10 % → < 5 % of capacity) and sent at once |
+| data must survive network loss | offline ring buffer (240 readings), sent later with their original time |
+| weights must be evidence for invoice checks | every reading **HMAC-SHA256 signed**; firmware protected by **Secure Boot V2 + flash encryption** |
+
+In production the same firmware would read the 4-channel weight transmitter over RS-485 Modbus instead of the simulated cells.
+
 ## 8. Installation (retrofit DUO, 2 technicians, ≈ 1 day)
 
 1. **Survey:** foundation level and strength, docking rails, cable route, photos.
