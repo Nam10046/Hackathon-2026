@@ -68,4 +68,24 @@ def test_live_lift_model(tmp_path, monkeypatch):
         res = send(5, 0, 6)                                               # emptied at 25 % -> premature
         types = [a["type"] for a in res["alerts"]]
         assert "emptied" in types and "ml_premature_unjustified" in types
+
+        # someone checks it on site: correct -> live precision; the performance page counts it
+        alert_id = next(a["id"] for a in c.get("/api/alerts?compactor_id=C1").json() if a["type"] == "ml_premature_unjustified")
+        assert c.post(f"/api/alerts/{alert_id}/feedback", json={"verdict": "CORRECT", "decided_by": "test"}).status_code == 200
+        assert c.post("/api/alerts/999999/feedback", json={"verdict": "CORRECT", "decided_by": "test"}).status_code == 404
+        perf = c.get("/api/models/performance").json()["models"][0]
+        assert perf["alert_type"] == "ml_premature_unjustified" and perf["feedback_correct"] == 1 and perf["alerts"] == 1
+        assert perf["status"].startswith("too early")                    # only 1 lift so far
+
+        # a model trained on the ESP32 feed takes over from the full-feed model for live readings
+        esp = tmp_path / "models" / "lift_premature_esp32"
+        esp.mkdir()
+        (esp / "model.onnx").write_bytes(onx.SerializeToString())
+        (esp / "model.json").write_text(json.dumps({"type": "lift_classifier", "family": "PREMATURE_UNJUSTIFIED", "feed": "esp32",
+                                                    "input_features": FEATURES, "threshold": 1.01, "alert_message": "x"}))
+        c.post("/api/models/reload")
+        for i in range(5):
+            send(100 + 50 * i, 5 + 5 * i, 10 + i)
+        types = [a["type"] for a in send(5, 0, 16)["alerts"]]
+        assert "emptied" in types and "ml_premature_unjustified" not in types   # esp32 model (never fires) was used
     db.reset_engine()

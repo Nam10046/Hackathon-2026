@@ -29,7 +29,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "backend"))
 from app.ai.lift_features import FEATURES  # noqa: E402
 sys.path.insert(0, str(ROOT / "training"))
-from lift_dataset import build_raw, to_matrix  # noqa: E402
+from lift_dataset import build_raw, live_matrix, to_matrix  # noqa: E402
 
 FAMILIES = {"PREMATURE_UNJUSTIFIED": "lift_premature", "DELAYED_COLLECTION": "lift_delayed"}
 ALERT_TEXT = {
@@ -58,6 +58,8 @@ def main():
     ap.add_argument("--engine", default=os.getenv("EUROPRESS_ENGINE", str(ROOT / "europress" / "Europress_SMART_Material_Value_Engine_v1.0.1")))
     ap.add_argument("--profile", default="competition")
     ap.add_argument("--no-export", action="store_true")
+    ap.add_argument("--feed", default="full", choices=["full", "esp32", "esp32_order"],
+                    help="full = SMART device data (cockpit); esp32 = weight+fill+clock, computed by the live code (ESP32 node)")
     a = ap.parse_args()
     engine_dir = Path(a.engine)
     pub = engine_dir / "data" / a.profile / "public"
@@ -66,7 +68,8 @@ def main():
     compute, collection_features, detect_collections, detect_invoices, _entity_times, _period_filter, score_b, _ = eng
 
     f = build_raw(pub, compute, collection_features, eng[-1])
-    X = to_matrix(f)
+    # esp32: inputs computed by the live backend code itself from raw readings (no train/serve skew)
+    X = live_matrix(pub, f, eng[-1]) if a.feed == "esp32" else to_matrix(f, a.feed)
     ids = f.collection_id.to_numpy()
     ent = _entity_times(dev_dir)
     tr_ids = set(_period_filter(ent, dev_dir, "train", "eval_at").entity_id)
@@ -98,15 +101,17 @@ def main():
         if not a.no_export:
             from skl2onnx import to_onnx
             onx = to_onnx(model, X[:1], target_opset={"": 17, "ai.onnx.ml": 3}, options={id(model): {"zipmap": False}})
-            out = ROOT / "models" / folder
+            out = ROOT / "models" / (folder if a.feed == "full" else f"{folder}_{a.feed}")
             out.mkdir(parents=True, exist_ok=True)
             (out / "model.onnx").write_bytes(onx.SerializeToString())
             (out / "model.json").write_text(json.dumps({
-                "type": "lift_classifier", "family": fam, "input_features": FEATURES, "threshold": round(thr, 3),
+                "type": "lift_classifier", "family": fam, "feed": a.feed, "input_features": FEATURES, "threshold": round(thr, 3),
                 "alert_message": ALERT_TEXT[fam],
                 "description": "Gradient boosting on live-only lift features (lift_features.py). Trained on the Europress "
                                "synthetic dataset, train months only. Advice for a human, not a decision.",
-                "trained_rows": int(tr.sum()), "created": report["created"]}, indent=2))
+                "trained_rows": int(tr.sum()), "created": report["created"],
+                # share of lifts this model flagged on the validation months; live rate far from it = drift
+                "validation_alert_rate": round(float((p_va >= thr).mean()), 4)}, indent=2))
             import onnxruntime as ort                                        # check ONNX == scikit-learn
             sess = ort.InferenceSession(str(out / "model.onnx"))
             onnx_p = sess.run(None, {sess.get_inputs()[0].name: X[va][:500]})[1][:, 1]
@@ -128,7 +133,8 @@ def main():
     report["macro_f1_detection_only"] = {"baseline_B2": s_rules["macro_f1_detection_only"], "rules_plus_model": s_hyb["macro_f1_detection_only"]}
     print(f"macro-F1 (all families) {s_rules['macro_f1']} -> {s_hyb['macro_f1']} · detection-only "
           f"{s_rules['macro_f1_detection_only']} -> {s_hyb['macro_f1_detection_only']}")
-    (ROOT / "training" / "lift_model_report.json").write_text(json.dumps(report, indent=2))
+    name = "lift_model_report.json" if a.feed == "full" else f"lift_model_report_{a.feed}.json"
+    (ROOT / "training" / name).write_text(json.dumps(report, indent=2))
 
 
 if __name__ == "__main__":

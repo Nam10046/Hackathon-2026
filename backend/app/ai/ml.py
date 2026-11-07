@@ -70,10 +70,13 @@ def check_lift(raw: dict) -> list[dict]:
     """Run every LIFT model (type "lift_classifier") on one emptying. raw: see live_lift.build_raw."""
     from app.ai.lift_features import to_vector
     alerts = []
-    for name, m in _models.items():
+    lift = {n: m for n, m in _models.items() if m["meta"].get("type") == "lift_classifier"}
+    feed = raw.get("feed", "full")
+    # a model trained on the same inputs is much more accurate (training/model_accuracy_report.json);
+    # fall back to the other models only if none was trained for this feed
+    chosen = {n: m for n, m in lift.items() if m["meta"].get("feed", "full") == feed} or lift
+    for name, m in chosen.items():
         meta = m["meta"]
-        if meta.get("type") != "lift_classifier":
-            continue
         try:
             x = np.array([to_vector(raw)], dtype=np.float32)
             sess = m["session"]

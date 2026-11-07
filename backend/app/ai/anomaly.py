@@ -32,7 +32,14 @@ def check(new: dict, history: list[dict], compactor: dict, material: dict) -> li
 
         # 2. Weight went to ~0 -> compactor was emptied (normal event).
         #    Low threshold on purpose: an EARLY (half-empty) lift is still a lift, and the lift model must see it.
-        if prev >= cap * 0.08 and w < cap * 0.05:
+        prev_fill, fill = history[-1].get("fill_pct"), new.get("fill_pct")
+        # a real drop, not sensor noise around empty (e.g. 75 kg -> 25 kg on a 735 kg container)
+        by_weight = prev >= cap * 0.10 and w < cap * 0.05 and prev - w >= cap * 0.08
+        # light material: little weight but the fill sensor clearly drops from full-ish to empty
+        by_fill = prev_fill is not None and fill is not None and prev_fill >= 30 and fill <= 10 and w < prev * 0.5
+        # one bad weight reading while the fill sensor still says "well filled" is a glitch, not an emptying
+        glitch = fill is not None and fill >= 30
+        if (by_weight or by_fill) and not glitch:
             alerts.append(_a("emptied", "info", f"Emptied: {prev:.0f} kg collected"))
 
         # 3. Weight dropped but not emptied -> strange (sensor drift, theft, leak)

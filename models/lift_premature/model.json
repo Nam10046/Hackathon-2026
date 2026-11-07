@@ -1,6 +1,7 @@
 {
   "type": "lift_classifier",
   "family": "PREMATURE_UNJUSTIFIED",
+  "feed": "full",
   "input_features": [
     "fill_before",
     "mass_before_kg",
@@ -45,5 +46,6 @@
   "alert_message": "This lift looks unnecessary (container not full, no hygiene/contract reason)",
   "description": "Gradient boosting on live-only lift features (lift_features.py). Trained on the Europress synthetic dataset, train months only. Advice for a human, not a decision.",
   "trained_rows": 10756,
-  "created": "2026-11-06T19:22:56+00:00"
+  "created": "2026-11-06T20:25:19+00:00",
+  "validation_alert_rate": 0.1271
 }

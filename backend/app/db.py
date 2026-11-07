@@ -73,6 +73,17 @@ action_decisions = Table(
     Column("decided_at", DateTime(timezone=True), nullable=False),
 )
 
+# Was a live alert right? Filled in by the person who checked it on site. Gives the model's LIVE precision.
+alert_feedback = Table(
+    "alert_feedback", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("alert_id", Integer, ForeignKey("alerts.id"), nullable=False, index=True),
+    Column("verdict", String, nullable=False),         # CORRECT | FALSE_ALARM
+    Column("decided_by", String, nullable=False),
+    Column("note", String),
+    Column("decided_at", DateTime(timezone=True), nullable=False),
+)
+
 # PLACEHOLDER numbers — replace with real prices/densities from Europress or recyclers
 SEED_MATERIALS = [
     {"name": "cardboard", "price_eur_per_kg": 0.08, "density_min": 150, "density_max": 450, "co2_factor": 0.9},

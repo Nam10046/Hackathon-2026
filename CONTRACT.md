@@ -51,6 +51,8 @@ Node-RED forwards the same JSON to the backend.
 | GET | `/materials` | Price & density table |
 | GET | `/models` | Loaded ML models (from `models/`) |
 | POST | `/models/reload` | Load new/changed model folders without restart |
+| GET | `/models/performance?days=30` | Live check per lift model: alerts per lift vs. the validation rate (drift), live precision from feedback |
+| POST | `/alerts/{id}/feedback` | `{"verdict": "CORRECT"\|"FALSE_ALARM", "decided_by", "note"}` — was this alert right? (API key) |
 
 **Writes need a key:** if the server has `INGEST_API_KEY` set (always on Rahti), `POST` requests must send
 header `X-API-Key: <key>`. Reading (GET) is open. On the laptop the key is empty = open.

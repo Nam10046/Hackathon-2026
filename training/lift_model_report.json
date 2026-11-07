@@ -1,11 +1,11 @@
 {
-  "created": "2026-11-06T19:22:56+00:00",
+  "created": "2026-11-06T20:25:19+00:00",
   "families": {
     "PREMATURE_UNJUSTIFIED": {
       "threshold": 0.55,
       "train_rows": 10756,
       "train_positives": 1450,
-      "onnx_max_abs_diff": 5.334401655399112e-07,
+      "onnx_max_abs_diff": 3.892150604034583e-07,
       "validation": {
         "baseline_B2": {
           "precision": 0.9023,
@@ -27,7 +27,7 @@
       "threshold": 0.4,
       "train_rows": 10756,
       "train_positives": 1667,
-      "onnx_max_abs_diff": 4.087288698606528e-07,
+      "onnx_max_abs_diff": 4.2915502251883453e-07,
       "validation": {
         "baseline_B2": {
           "precision": 0.7714,

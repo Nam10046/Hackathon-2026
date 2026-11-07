@@ -1,0 +1,30 @@
+{
+  "devices": 40,
+  "readings": 66861,
+  "real_lifts": 256,
+  "lifts_noticed_by_backend": 238,
+  "lift_detection_rate": 0.93,
+  "emptied_alerts_without_real_lift": 35,
+  "families": {
+    "PREMATURE_UNJUSTIFIED": {
+      "real_problems": 26,
+      "flagged": 19,
+      "caught": 13,
+      "false_alarms": 6,
+      "missed": 13,
+      "precision": 0.684,
+      "recall": 0.5,
+      "f1": 0.578
+    },
+    "DELAYED_COLLECTION": {
+      "real_problems": 35,
+      "flagged": 39,
+      "caught": 26,
+      "false_alarms": 13,
+      "missed": 9,
+      "precision": 0.667,
+      "recall": 0.743,
+      "f1": 0.703
+    }
+  }
+}

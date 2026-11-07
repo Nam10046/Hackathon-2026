@@ -8,7 +8,8 @@ from datetime import timedelta
 
 # our demo compactors use short material names; the model knows the Europress names
 MATERIAL_MAP = {"cardboard": "cardboard", "plastic": "plastic_film", "mixed": "mixed_waste",
-                "paper": "paper", "biowaste": "biowaste", "mixed_plastic": "mixed_plastic"}
+                "paper": "paper", "biowaste": "biowaste", "mixed_plastic": "mixed_plastic",
+                "plastic_film": "plastic_film", "mixed_waste": "mixed_waste"}
 MAX_DAYS = {"cardboard": 28, "paper": 28, "plastic_film": 28, "mixed_plastic": 28, "mixed_waste": 21, "biowaste": 7}
 FULL_PCT = 95  # the dataset's "FULL" state ≈ fill at or above this
 
@@ -29,6 +30,7 @@ def build_raw(lift_at, before: dict, window: list[dict], last_lift_at, compactor
     last24 = [r for r in window if r["ts"] >= lift_at - timedelta(hours=24) and r.get("fill_pct") is not None]
     fill_rate = (max(r["fill_pct"] for r in last24) - min(r["fill_pct"] for r in last24)) / 24 if len(last24) >= 2 else None
     return {
+        "feed": "esp32",                                        # picks the models trained on this feed (ml.check_lift)
         "fill_before": before.get("fill_pct"),
         "mass_before_kg": before.get("weight_kg"),
         "volume_m3": compactor.get("volume_m3"),

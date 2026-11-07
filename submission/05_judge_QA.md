@@ -76,6 +76,26 @@ Weight source order: truck ticket → invoice tonnes → our device → **none**
 The contract calculator reproduces **96.4 % of amounts exactly to the cent** on validation. And every finding links to
 its source record — e.g. job `OP-B-003200015`: contract V2 says €1,041.39 per lift, the invoice has it twice.
 
+**13a. Does it still work on live data from a simple sensor?**
+Yes, but less accurately, and we measured exactly how much. With only weight + fill (an ESP32), F1 is **0.75 / 0.63**
+(too early / too late), compared with **0.93 / 0.92** on full SMART data. So we run a second model trained on exactly the
+ESP32 inputs. Then we played **67,000 real readings from 40 compactors** into our backend one by one: it found
+**93 % of the lifts by itself** and gave F1 0.58 / 0.70 (small sample). Details: `06_model_accuracy_and_live_data.md`.
+
+**13b. How do you know the model stays right after go-live?**
+Two live checks (`/api/models/performance`): (1) people mark alerts **correct / false alarm** → live precision;
+(2) the share of lifts flagged is compared with testing (11–16 %) — far off means the data changed (sensor, routine,
+season) → review and retrain (1 minute, reload without restart).
+
+**13c. What did the live test teach you?**
+Three real problems we fixed: the simple sensor knows less (→ second model), the backend computed inputs slightly
+differently from the training data (→ we now train on the same live code), and sensor noise looked like emptyings
+(→ false emptyings from 112 to 35).
+
+**13d. What should Europress send to make it better?**
+The **order type and order time** with each lift. SMART already has them, and adding just the order type raised
+early-lift F1 from 0.84 to 0.90 in our test.
+
 ---
 
 ## C. Customer and business value (25 % + 10 %)
