@@ -178,3 +178,13 @@ def test_book_works_with_only_a_grafana_login(world, monkeypatch):
         assert c.get("/api/analysis/summary").status_code == status, cookie
         assert c.put("/api/materials/cardboard", json={"lift_fee_eur": 45, "price_eur_per_t": 80}).status_code == status, cookie
     c.cookies.clear()
+
+
+def test_rounding_cents_are_not_an_overcharge(world):
+    c, _, a, _ = world
+    draft = c.get("/api/analysis/invoices/draft", params={"operator": "Hauler Alpha", **PERIOD}, headers=a).json()
+    for l in draft:
+        if l["line_type"] == "MATERIAL_CREDIT":
+            l["amount_eur"] = round(l["amount_eur"] + 0.02, 2)     # 2 cents of rounding on the invoice
+    r = enter(c, a, draft).json()
+    assert r["suggestion"] == "APPROVE" and r["overcharged_eur"] == 0 and "charged too much" not in r["summary"]

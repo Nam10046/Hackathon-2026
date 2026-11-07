@@ -19,6 +19,7 @@ from app.db import compactors, invoice_lines, invoices, materials, pickups
 
 WEIGHT_TOLERANCE = 0.04      # 4 %: normal difference between two scales
 PRICE_TOLERANCE = 0.01       # 1 %
+ROUNDING_EUR = 0.05          # cents from rounding tonnes / amounts on an invoice are not an overcharge
 WEIGHT_TYPES = {"PROCESSING", "MATERIAL_CREDIT", "HAULAGE"}
 NO_EVIDENCE_TYPES = {"SURCHARGE", "PENALTY", "OTHER"}
 LINE_TYPES = ["LIFT_FEE", *sorted(WEIGHT_TYPES), *sorted(NO_EVIDENCE_TYPES)]
@@ -129,6 +130,8 @@ def check(conn, invoice_id: str) -> dict:
         diff = round(amount - expected, 2) if st != ["NO_EVIDENCE"] else round(amount, 2)
         if st == ["OK"]:
             n_ok, diff = n_ok + 1, round(amount - expected, 2)
+            if abs(diff) < ROUNDING_EUR:
+                diff = 0.0
         if st == ["NO_EVIDENCE"]:
             unverified += max(amount, 0)
         elif diff > 0:
