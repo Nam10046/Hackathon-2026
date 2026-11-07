@@ -38,13 +38,206 @@
         "x": 0,
         "y": 2,
         "w": 24,
-        "h": 2
+        "h": 3
       },
       "options": {
         "mode": "markdown",
-        "content": "### Every lift, judged — from the board's own emptying detection"
+        "content": "### Pickups: did each truck come at the right moment?\nStart with the status line below."
       },
       "id": 102
+    },
+    {
+      "type": "stat",
+      "title": "Pickups in this view",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Zero here means nothing was recorded. It does not mean the system failed. Widen the time range at the top right to see older pickups.",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 10,
+        "h": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT CASE\n  WHEN total = 0 THEN 'No pickups recorded yet'\n  WHEN in_range = 0 THEN 'None in this time range. ' || total || ' recorded, latest ' || to_char(latest AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') || ' UTC'\n  ELSE in_range || ' of ' || total || ' recorded pickups' || CASE WHEN incomplete > 0 THEN ', ' || incomplete || ' with a missing measurement' ELSE '' END\n  END AS \"Pickups\"\nFROM (SELECT count(*) AS total, max(done_at) AS latest,\n        count(*) FILTER (WHERE $__timeFilter(done_at)) AS in_range,\n        count(*) FILTER (WHERE $__timeFilter(done_at) AND (kg_collected IS NULL OR load_before_pct IS NULL)) AS incomplete\n      FROM pickups WHERE status = 'done') t"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Data unavailable",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto",
+        "text": {
+          "valueSize": 17
+        }
+      },
+      "id": 103
+    },
+    {
+      "type": "stat",
+      "title": "Device readings",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Latest reading from any compactor. Silent means no reading for 2 hours or more, so new pickups cannot be detected.",
+      "gridPos": {
+        "x": 10,
+        "y": 5,
+        "w": 6,
+        "h": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT CASE\n  WHEN last_ts IS NULL THEN 'No readings received yet'\n  WHEN last_ts > now() - interval '2 hours' THEN 'Arriving, latest ' || to_char(last_ts AT TIME ZONE 'UTC', 'HH24:MI') || ' UTC'\n  ELSE 'Silent since ' || to_char(last_ts AT TIME ZONE 'UTC', 'YYYY-MM-DD HH24:MI') || ' UTC'\n  END AS \"Readings\"\nFROM (SELECT max(ts) AS last_ts FROM readings) t"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Data unavailable",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto",
+        "text": {
+          "valueSize": 17
+        }
+      },
+      "id": 104
+    },
+    {
+      "type": "stat",
+      "title": "Source of these pickups",
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "compactor-pg"
+      },
+      "description": "Demo seed rows were never produced by a board. ESP32 pickups run through real edge processing, but on a simulated load cell. No weight here is a real measurement.",
+      "gridPos": {
+        "x": 16,
+        "y": 5,
+        "w": 8,
+        "h": 3
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "compactor-pg"
+          },
+          "editorMode": "code",
+          "rawQuery": true,
+          "format": "table",
+          "rawSql": "SELECT CASE\n  WHEN n = 0 THEN 'No pickups to describe'\n  WHEN seeded = n THEN 'SIMULATED: ' || n || ' demo seed, not from a board'\n  WHEN board = n THEN 'SIMULATED load cell: ' || n || ' from the ESP32'\n  WHEN seeded + board = n THEN 'SIMULATED: ' || seeded || ' demo seed, ' || board || ' from the ESP32'\n  ELSE 'NOT VERIFIED: ' || (n - seeded - board) || ' of ' || n || ' have no known source' END AS \"Source\"\nFROM (SELECT count(*) AS n, count(*) FILTER (WHERE r.edge_quality = 'simulated') AS seeded,\n        count(*) FILTER (WHERE r.seq IS NOT NULL AND coalesce(r.edge_quality, '') <> 'simulated') AS board\n      FROM pickups p LEFT JOIN readings r ON r.compactor_id = p.compactor_id AND r.ts = p.done_at\n      WHERE p.status = 'done' AND $__timeFilter(p.done_at)) s"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "noValue": "Data unavailable",
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "text"
+          },
+          "mappings": [
+            {
+              "type": "regex",
+              "options": {
+                "pattern": "^(SIMULATED|NOT VERIFIED).*",
+                "result": {
+                  "color": "#D79A32",
+                  "index": 0
+                }
+              }
+            }
+          ]
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/.*/",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value",
+        "justifyMode": "auto",
+        "text": {
+          "valueSize": 17
+        }
+      },
+      "id": 105
+    },
+    {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Read the totals with care:** KPIs and charts may mix demo seed and ESP32 pickups. ESP32 weights come from a simulated load cell and are not verified against a real one."
+      },
+      "id": 106
     },
     {
       "type": "stat",
@@ -53,12 +246,12 @@
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "",
+      "description": "Completed in this time range. 0 means none were recorded.",
       "gridPos": {
         "x": 0,
-        "y": 4,
-        "w": 4,
-        "h": 4
+        "y": 11,
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -80,13 +273,17 @@
           "color": {
             "mode": "thresholds"
           },
-          "noValue": "–",
+          "noValue": "Unavailable",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "blue",
+                "color": "#F2495C",
                 "value": null
+              },
+              {
+                "color": "text",
+                "value": 0
               }
             ]
           }
@@ -101,12 +298,12 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 103
+      "id": 107
     },
     {
       "type": "stat",
@@ -115,12 +312,12 @@
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "",
+      "description": "Neither too early nor too late",
       "gridPos": {
-        "x": 4,
-        "y": 4,
-        "w": 4,
-        "h": 4
+        "x": 3,
+        "y": 11,
+        "w": 3,
+        "h": 3
       },
       "targets": [
         {
@@ -142,13 +339,17 @@
           "color": {
             "mode": "thresholds"
           },
-          "noValue": "–",
+          "noValue": "Unavailable",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#F2495C",
                 "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
               }
             ]
           }
@@ -163,12 +364,12 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 104
+      "id": 108
     },
     {
       "type": "stat",
@@ -179,10 +380,10 @@
       },
       "description": "Emptied well below the on-call level",
       "gridPos": {
-        "x": 8,
-        "y": 4,
+        "x": 6,
+        "y": 11,
         "w": 4,
-        "h": 4
+        "h": 3
       },
       "targets": [
         {
@@ -204,13 +405,17 @@
           "color": {
             "mode": "thresholds"
           },
-          "noValue": "–",
+          "noValue": "Unavailable",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#F2495C",
                 "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "orange",
@@ -229,12 +434,12 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 105
+      "id": 109
     },
     {
       "type": "stat",
@@ -245,10 +450,10 @@
       },
       "description": "Full for 2+ site hours before the truck came",
       "gridPos": {
-        "x": 12,
-        "y": 4,
+        "x": 10,
+        "y": 11,
         "w": 4,
-        "h": 4
+        "h": 3
       },
       "targets": [
         {
@@ -270,13 +475,17 @@
           "color": {
             "mode": "thresholds"
           },
-          "noValue": "–",
+          "noValue": "Unavailable",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#F2495C",
                 "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "red",
@@ -295,12 +504,12 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 106
+      "id": 110
     },
     {
       "type": "stat",
@@ -309,12 +518,12 @@
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "Higher = fewer trucks for the same waste",
+      "description": "Higher means fewer trucks for the same waste. No value means there was nothing to average.",
       "gridPos": {
-        "x": 16,
-        "y": 4,
-        "w": 4,
-        "h": 4
+        "x": 14,
+        "y": 11,
+        "w": 5,
+        "h": 3
       },
       "targets": [
         {
@@ -326,7 +535,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT round(avg(load_before_pct)) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
+          "rawSql": "SELECT coalesce(v, -999999) AS v FROM (SELECT round(avg(load_before_pct)) AS v FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)) q"
         }
       ],
       "fieldConfig": {
@@ -336,13 +545,17 @@
           "color": {
             "mode": "thresholds"
           },
-          "noValue": "–",
+          "noValue": "Unavailable",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "red",
+                "color": "#F2495C",
                 "value": null
+              },
+              {
+                "color": "red",
+                "value": 0
               },
               {
                 "color": "orange",
@@ -353,7 +566,19 @@
                 "value": 80
               }
             ]
-          }
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-999999": {
+                  "text": "No value",
+                  "color": "text",
+                  "index": 0
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -365,26 +590,26 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 107
+      "id": 111
     },
     {
       "type": "stat",
-      "title": "Paid for empty space €",
+      "title": "Wasted fees (estimate)",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "Lift fee × the empty part of the container: what too-early lifts cost",
+      "description": "Fees paid for empty space. Estimate: placeholder lift fee × the empty part of the container",
       "gridPos": {
-        "x": 20,
-        "y": 4,
-        "w": 4,
-        "h": 4
+        "x": 19,
+        "y": 11,
+        "w": 5,
+        "h": 3
       },
       "targets": [
         {
@@ -396,7 +621,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT round(sum(fee_eur * greatest(0, 1 - load_before_pct / 100))) FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)"
+          "rawSql": "SELECT coalesce(v, -999999) AS v FROM (SELECT round(sum(fee_eur * greatest(0, 1 - load_before_pct / 100))) AS v FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)) q"
         }
       ],
       "fieldConfig": {
@@ -406,20 +631,36 @@
           "color": {
             "mode": "thresholds"
           },
-          "noValue": "–",
+          "noValue": "Unavailable",
           "thresholds": {
             "mode": "absolute",
             "steps": [
               {
-                "color": "green",
+                "color": "#F2495C",
                 "value": null
+              },
+              {
+                "color": "green",
+                "value": 0
               },
               {
                 "color": "orange",
                 "value": 20
               }
             ]
-          }
+          },
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "-999999": {
+                  "text": "No value",
+                  "color": "text",
+                  "index": 0
+                }
+              }
+            }
+          ]
         },
         "overrides": []
       },
@@ -431,12 +672,44 @@
           "fields": "",
           "values": false
         },
-        "colorMode": "background",
+        "colorMode": "value",
         "graphMode": "none",
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 108
+      "id": 112
+    },
+    {
+      "type": "text",
+      "title": "How each pickup is judged, in this order",
+      "transparent": false,
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 14,
+        "h": 6
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "- **Too late:** full (98 % or more) for 2 site hours or longer before the lift. Overflow risk.\n- **Too early:** emptied more than 20 points below that compactor's on-call level. A paid lift for a part-full container.\n- **On time:** neither of the above."
+      },
+      "id": 113
+    },
+    {
+      "type": "text",
+      "title": "Terms used here",
+      "transparent": false,
+      "gridPos": {
+        "x": 14,
+        "y": 14,
+        "w": 10,
+        "h": 6
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**On-call level:** the fill that orders a truck. 80 % for C1 and C2, 85 % for C3.\n\n**Speed:** Site time runs at real speed (DEMO_TIME_SCALE=1)."
+      },
+      "id": 114
     },
     {
       "type": "barchart",
@@ -445,11 +718,11 @@
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "",
+      "description": "How the pickups of each compactor were judged. A compactor with mostly orange gets trucks too soon.",
       "gridPos": {
         "x": 0,
-        "y": 8,
-        "w": 8,
+        "y": 20,
+        "w": 10,
         "h": 9
       },
       "targets": [
@@ -466,7 +739,9 @@
         }
       ],
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "Nothing to show here. See the status line above."
+        },
         "overrides": [
           {
             "matcher": {
@@ -522,22 +797,22 @@
           "placement": "bottom",
           "showLegend": true
         },
-        "xTickLabelRotation": 0
+        "xTickLabelRotation": -25
       },
-      "id": 109
+      "id": 115
     },
     {
       "type": "barchart",
-      "title": "Who sent the truck",
+      "title": "Average load by who sent the truck",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "Booking on the sensor's data vs the old fixed schedule",
+      "description": "Fill level at pickup when the system booked the truck, compared with the old fixed schedule. Trucks are simulated.",
       "gridPos": {
-        "x": 8,
-        "y": 8,
-        "w": 8,
+        "x": 10,
+        "y": 20,
+        "w": 7,
         "h": 9
       },
       "targets": [
@@ -550,7 +825,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT CASE kind WHEN 'booked' THEN 'Booked by sensor' WHEN 'fixed_route' THEN 'Old fixed route' ELSE 'By hand' END AS \"Who\", round(avg(load_before_pct)) AS \"Avg load at pickup %\" FROM pickups WHERE status = 'done' AND $__timeFilter(done_at) GROUP BY 1 ORDER BY 1"
+          "rawSql": "SELECT CASE kind WHEN 'booked' THEN 'Booked by the system' WHEN 'fixed_route' THEN 'Old fixed route' ELSE 'By hand' END AS \"Who\", round(avg(load_before_pct)) AS \"Avg load at pickup %\" FROM pickups WHERE status = 'done' AND $__timeFilter(done_at) GROUP BY 1 ORDER BY 1"
         }
       ],
       "fieldConfig": {
@@ -561,25 +836,26 @@
           "color": {
             "mode": "fixed",
             "fixedColor": "blue"
-          }
+          },
+          "noValue": "Nothing to show here. See the status line above."
         },
         "overrides": []
       },
       "options": {},
-      "id": 110
+      "id": 116
     },
     {
       "type": "piechart",
-      "title": "Verdicts",
+      "title": "Share of verdicts",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "",
+      "description": "The same pickups as the numbers above, as shares of the total.",
       "gridPos": {
-        "x": 16,
-        "y": 8,
-        "w": 8,
+        "x": 17,
+        "y": 20,
+        "w": 7,
         "h": 9
       },
       "targets": [
@@ -596,7 +872,9 @@
         }
       ],
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "Nothing to show here. See the status line above."
+        },
         "overrides": [
           {
             "matcher": {
@@ -686,7 +964,7 @@
         "pieType": "donut",
         "legend": {
           "displayMode": "table",
-          "placement": "right",
+          "placement": "bottom",
           "values": [
             "value",
             "percent"
@@ -694,19 +972,19 @@
           "showLegend": true
         }
       },
-      "id": 111
+      "id": 117
     },
     {
       "type": "table",
-      "title": "All pickups",
+      "title": "Pickup history",
       "datasource": {
         "type": "grafana-postgresql-datasource",
         "uid": "compactor-pg"
       },
-      "description": "",
+      "description": "Newest first. Source says where each pickup came from. A dash means the value was not recorded. Weights are simulated, net is an estimate with placeholder prices, and invoices are simulated.",
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 29,
         "w": 24,
         "h": 11
       },
@@ -720,12 +998,50 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT p.id AS \"#\", p.done_at AS \"Emptied\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", p.kind AS \"Who\", p.load_before_pct AS \"Load %\", p.kg_collected AS \"kg\", p.wait_hours AS \"Wait (site h)\", p.full_hours AS \"Full for (site h)\", p.verdict AS \"Verdict\", p.verdict_reason AS \"Why\", p.net_eur AS \"Net €\", p.invoice_check AS \"Invoice\", p.claim_eur AS \"Claim €\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY p.done_at DESC"
+          "rawSql": "SELECT p.id AS \"#\", p.done_at AS \"Emptied\", p.compactor_id AS \"Compactor\", c.material AS \"Material\", p.kind AS \"Who\", p.load_before_pct AS \"Load %\", p.kg_collected AS \"kg\", p.wait_hours AS \"Wait (site h)\", p.full_hours AS \"Full for (site h)\", p.verdict AS \"Verdict\", p.verdict_reason AS \"Why\", p.net_eur AS \"Net € (estimate)\", p.invoice_check AS \"Simulated invoice\", p.claim_eur AS \"Simulated claim €\", CASE WHEN r.edge_quality = 'simulated' THEN 'Demo seed' WHEN r.seq IS NOT NULL THEN 'ESP32, simulated load cell' ELSE 'Not verified' END AS \"Source\" FROM pickups p JOIN compactors c ON c.id = p.compactor_id LEFT JOIN readings r ON r.compactor_id = p.compactor_id AND r.ts = p.done_at WHERE p.status = 'done' AND $__timeFilter(p.done_at) ORDER BY p.done_at DESC"
         }
       ],
       "fieldConfig": {
-        "defaults": {},
+        "defaults": {
+          "noValue": "Nothing to show here. See the status line above."
+        },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byType",
+              "options": "number"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "–"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byType",
+              "options": "string"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "–"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byType",
+              "options": "time"
+            },
+            "properties": [
+              {
+                "id": "noValue",
+                "value": "–"
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -735,8 +1051,7 @@
               {
                 "id": "custom.cellOptions",
                 "value": {
-                  "type": "color-background",
-                  "mode": "basic"
+                  "type": "color-text"
                 }
               },
               {
@@ -747,23 +1062,18 @@
                     "options": {
                       "ON_TIME": {
                         "color": "green",
+                        "text": "On time",
                         "index": 0
                       },
                       "TOO_EARLY": {
                         "color": "orange",
+                        "text": "Too early",
                         "index": 1
                       },
                       "TOO_LATE": {
                         "color": "red",
+                        "text": "Too late",
                         "index": 2
-                      },
-                      "booked": {
-                        "color": "blue",
-                        "index": 3
-                      },
-                      "scheduled": {
-                        "color": "purple",
-                        "index": 4
                       }
                     }
                   }
@@ -774,14 +1084,13 @@
           {
             "matcher": {
               "id": "byName",
-              "options": "Invoice"
+              "options": "Simulated invoice"
             },
             "properties": [
               {
                 "id": "custom.cellOptions",
                 "value": {
-                  "type": "color-background",
-                  "mode": "basic"
+                  "type": "color-text"
                 }
               },
               {
@@ -792,11 +1101,99 @@
                     "options": {
                       "OK": {
                         "color": "green",
+                        "text": "OK",
                         "index": 0
                       }
                     }
                   }
                 ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Source"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "type": "value",
+                    "options": {
+                      "Demo seed": {
+                        "color": "#D79A32",
+                        "text": "Demo seed",
+                        "index": 0
+                      },
+                      "ESP32, simulated load cell": {
+                        "color": "#D79A32",
+                        "text": "ESP32, simulated load cell",
+                        "index": 1
+                      },
+                      "Not verified": {
+                        "color": "red",
+                        "text": "Not verified",
+                        "index": 2
+                      }
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Emptied"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 160
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Compactor"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 100
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Verdict"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 85
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Source"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 195
               }
             ]
           },
@@ -808,14 +1205,103 @@
             "properties": [
               {
                 "id": "custom.width",
-                "value": 330
+                "value": 230
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Load %"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 75
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "kg"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 70
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Net € (estimate)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 125
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Simulated invoice"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 170
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Simulated claim €"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 140
               }
             ]
           }
         ]
       },
-      "options": {},
-      "id": 112
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm"
+      },
+      "id": 118,
+      "transformations": [
+        {
+          "id": "organize",
+          "options": {
+            "indexByName": {
+              "Emptied": 0,
+              "Compactor": 1,
+              "Verdict": 2,
+              "Source": 3,
+              "Why": 4,
+              "Load %": 5,
+              "kg": 6,
+              "Net € (estimate)": 7,
+              "Simulated invoice": 8,
+              "Simulated claim €": 9,
+              "Who": 10,
+              "Material": 11,
+              "Wait (site h)": 12,
+              "Full for (site h)": 13,
+              "#": 14
+            },
+            "excludeByName": {},
+            "renameByName": {}
+          }
+        }
+      ]
     },
     {
       "type": "text",
@@ -823,21 +1309,34 @@
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 28,
+        "y": 40,
         "w": 24,
         "h": 2
       },
       "options": {
         "mode": "markdown",
-        "content": "**Rules:** TOO LATE = full (≥ 98 %) for 2+ site hours before the lift · TOO EARLY = emptied more than 20 points below the on-call level (80 %) · otherwise ON TIME. The lift-model verdicts (trained on the Europress history) are shown as a second opinion on the *Site now* page."
+        "content": "The lift model's second opinion, trained on the Europress history, is on the *Site now* page."
       },
-      "id": 113
+      "id": 119
     }
   ],
   "templating": {
     "list": []
   },
-  "links": [],
+  "links": [
+    {
+      "type": "dashboards",
+      "tags": [
+        "live"
+      ],
+      "asDropdown": true,
+      "title": "Live pages",
+      "keepTime": true,
+      "icon": "external link",
+      "includeVars": false,
+      "targetBlank": false
+    }
+  ],
   "annotations": {
     "list": [
       {

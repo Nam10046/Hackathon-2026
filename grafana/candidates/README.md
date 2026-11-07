@@ -11,8 +11,10 @@ python grafana/make_live_pages.py --out grafana/candidates --only live_pickups
 ```
 The committed file shows one build only. Do not copy it to a machine with a different `DEMO_TIME_SCALE`.
 
+Applied to the local Grafana on 2026-11-07 with `DEMO_TIME_SCALE=1`. `grafana/dashboards/live_pickups.json` is that build, so a machine with another speed must rebuild first.
+
 To apply it, after approval:
 ```bash
 cp grafana/candidates/live_pickups.json grafana/dashboards/live_pickups.json
 ```
-To undo: `git checkout grafana/dashboards/live_pickups.json`
+To undo: `git show 2fedaa5:grafana/dashboards/live_pickups.json > grafana/dashboards/live_pickups.json`. Grafana reloads it within seconds.

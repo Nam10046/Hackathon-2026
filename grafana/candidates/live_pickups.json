@@ -224,6 +224,22 @@
       "id": 105
     },
     {
+      "type": "text",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 24,
+        "h": 3
+      },
+      "options": {
+        "mode": "markdown",
+        "content": "**Read the totals with care:** KPIs and charts may mix demo seed and ESP32 pickups. ESP32 weights come from a simulated load cell and are not verified against a real one."
+      },
+      "id": 106
+    },
+    {
       "type": "stat",
       "title": "Pickups",
       "datasource": {
@@ -233,7 +249,7 @@
       "description": "Completed in this time range. 0 means none were recorded.",
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 11,
         "w": 3,
         "h": 3
       },
@@ -287,7 +303,7 @@
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 106
+      "id": 107
     },
     {
       "type": "stat",
@@ -299,7 +315,7 @@
       "description": "Neither too early nor too late",
       "gridPos": {
         "x": 3,
-        "y": 8,
+        "y": 11,
         "w": 3,
         "h": 3
       },
@@ -353,7 +369,7 @@
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 107
+      "id": 108
     },
     {
       "type": "stat",
@@ -365,7 +381,7 @@
       "description": "Emptied well below the on-call level",
       "gridPos": {
         "x": 6,
-        "y": 8,
+        "y": 11,
         "w": 4,
         "h": 3
       },
@@ -423,7 +439,7 @@
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 108
+      "id": 109
     },
     {
       "type": "stat",
@@ -435,7 +451,7 @@
       "description": "Full for 2+ site hours before the truck came",
       "gridPos": {
         "x": 10,
-        "y": 8,
+        "y": 11,
         "w": 4,
         "h": 3
       },
@@ -493,7 +509,7 @@
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 109
+      "id": 110
     },
     {
       "type": "stat",
@@ -505,7 +521,7 @@
       "description": "Higher means fewer trucks for the same waste. No value means there was nothing to average.",
       "gridPos": {
         "x": 14,
-        "y": 8,
+        "y": 11,
         "w": 5,
         "h": 3
       },
@@ -519,7 +535,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT coalesce(v, -1) AS v FROM (SELECT round(avg(load_before_pct)) AS v FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)) q"
+          "rawSql": "SELECT coalesce(v, -999999) AS v FROM (SELECT round(avg(load_before_pct)) AS v FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)) q"
         }
       ],
       "fieldConfig": {
@@ -555,7 +571,7 @@
             {
               "type": "value",
               "options": {
-                "-1": {
+                "-999999": {
                   "text": "No value",
                   "color": "text",
                   "index": 0
@@ -579,7 +595,7 @@
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 110
+      "id": 111
     },
     {
       "type": "stat",
@@ -591,7 +607,7 @@
       "description": "Fees paid for empty space. Estimate: placeholder lift fee × the empty part of the container",
       "gridPos": {
         "x": 19,
-        "y": 8,
+        "y": 11,
         "w": 5,
         "h": 3
       },
@@ -605,7 +621,7 @@
           "editorMode": "code",
           "rawQuery": true,
           "format": "table",
-          "rawSql": "SELECT coalesce(v, -1) AS v FROM (SELECT round(sum(fee_eur * greatest(0, 1 - load_before_pct / 100))) AS v FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)) q"
+          "rawSql": "SELECT coalesce(v, -999999) AS v FROM (SELECT round(sum(fee_eur * greatest(0, 1 - load_before_pct / 100))) AS v FROM pickups WHERE status = 'done' AND $__timeFilter(done_at)) q"
         }
       ],
       "fieldConfig": {
@@ -637,7 +653,7 @@
             {
               "type": "value",
               "options": {
-                "-1": {
+                "-999999": {
                   "text": "No value",
                   "color": "text",
                   "index": 0
@@ -661,7 +677,7 @@
         "textMode": "value",
         "justifyMode": "center"
       },
-      "id": 111
+      "id": 112
     },
     {
       "type": "text",
@@ -669,7 +685,7 @@
       "transparent": false,
       "gridPos": {
         "x": 0,
-        "y": 11,
+        "y": 14,
         "w": 14,
         "h": 6
       },
@@ -677,7 +693,7 @@
         "mode": "markdown",
         "content": "- **Too late:** full (98 % or more) for 2 site hours or longer before the lift. Overflow risk.\n- **Too early:** emptied more than 20 points below that compactor's on-call level. A paid lift for a part-full container.\n- **On time:** neither of the above."
       },
-      "id": 112
+      "id": 113
     },
     {
       "type": "text",
@@ -685,7 +701,7 @@
       "transparent": false,
       "gridPos": {
         "x": 14,
-        "y": 11,
+        "y": 14,
         "w": 10,
         "h": 6
       },
@@ -693,7 +709,7 @@
         "mode": "markdown",
         "content": "**On-call level:** the fill that orders a truck. 80 % for C1 and C2, 85 % for C3.\n\n**Speed:** Site time runs at real speed (DEMO_TIME_SCALE=1)."
       },
-      "id": 113
+      "id": 114
     },
     {
       "type": "barchart",
@@ -705,7 +721,7 @@
       "description": "How the pickups of each compactor were judged. A compactor with mostly orange gets trucks too soon.",
       "gridPos": {
         "x": 0,
-        "y": 17,
+        "y": 20,
         "w": 10,
         "h": 9
       },
@@ -783,7 +799,7 @@
         },
         "xTickLabelRotation": -25
       },
-      "id": 114
+      "id": 115
     },
     {
       "type": "barchart",
@@ -795,7 +811,7 @@
       "description": "Fill level at pickup when the system booked the truck, compared with the old fixed schedule. Trucks are simulated.",
       "gridPos": {
         "x": 10,
-        "y": 17,
+        "y": 20,
         "w": 7,
         "h": 9
       },
@@ -826,7 +842,7 @@
         "overrides": []
       },
       "options": {},
-      "id": 115
+      "id": 116
     },
     {
       "type": "piechart",
@@ -838,7 +854,7 @@
       "description": "The same pickups as the numbers above, as shares of the total.",
       "gridPos": {
         "x": 17,
-        "y": 17,
+        "y": 20,
         "w": 7,
         "h": 9
       },
@@ -956,7 +972,7 @@
           "showLegend": true
         }
       },
-      "id": 116
+      "id": 117
     },
     {
       "type": "table",
@@ -968,7 +984,7 @@
       "description": "Newest first. Source says where each pickup came from. A dash means the value was not recorded. Weights are simulated, net is an estimate with placeholder prices, and invoices are simulated.",
       "gridPos": {
         "x": 0,
-        "y": 26,
+        "y": 29,
         "w": 24,
         "h": 11
       },
@@ -1259,7 +1275,7 @@
         "showHeader": true,
         "cellHeight": "sm"
       },
-      "id": 117,
+      "id": 118,
       "transformations": [
         {
           "id": "organize",
@@ -1293,7 +1309,7 @@
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 37,
+        "y": 40,
         "w": 24,
         "h": 2
       },
@@ -1301,7 +1317,7 @@
         "mode": "markdown",
         "content": "The lift model's second opinion, trained on the Europress history, is on the *Site now* page."
       },
-      "id": 118
+      "id": 119
     }
   ],
   "templating": {

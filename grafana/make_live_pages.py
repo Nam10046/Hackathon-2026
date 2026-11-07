@@ -198,11 +198,16 @@ FROM (SELECT count(*) AS n, count(*) FILTER (WHERE r.edge_quality = 'simulated')
           desc="Demo seed rows were never produced by a board. ESP32 pickups run through real edge processing, but on a simulated load cell. No weight here is a real measurement.")
 pg.y += 3
 
+pg.text("**Read the totals with care:** KPIs and charts may mix demo seed and ESP32 pickups. "
+        "ESP32 weights come from a simulated load cell and are not verified against a real one.", h=3)
+
 # --- KPIs: coloured numbers on a calm background. Green = fine, orange = worth a look, red = a problem.
 # A failed query has no value, and Grafana then uses the first threshold step. So that step is the "unavailable" colour and the
 # real scale starts at 0. Otherwise a broken database looks like a calm green tile.
 UNAVAILABLE = {"color": "#F2495C", "value": None}
-NO_VALUE = -1      # sentinel only for display: avg() and sum() of nothing give NULL, which Grafana cannot tell from a failed query
+# Display-only marker: avg() and sum() of nothing give NULL, which Grafana cannot tell from a failed query. It must never look
+# like data: load and fees are never negative, and -999999 cannot pass for a real percentage or amount if it ever shows.
+NO_VALUE = -999999
 def steps(*rest):
     return [UNAVAILABLE, *[{"color": c, "value": v} for c, v in rest]]
 pg.stats([
