@@ -15,8 +15,9 @@
 | **Node-RED** | Sends messages to the backend, handles alerts, **test buttons** | http://localhost:1880 | none |
 | **Backend** | Checks data: anomalies, fill forecast, value € | http://localhost:8000/docs | none |
 | **PostgreSQL** | Saves everything | `localhost:5432` | compactor / compactor, db `compactor` |
+| **Portal** | Customer sign-in and admin approvals | http://localhost:8000/portal | see `docs/MULTI_TENANT.md` |
 | **Adminer** | Look inside the database in the browser | http://localhost:8080 | System *PostgreSQL*, server `postgres`, user/password `compactor`, db `compactor` |
-| **Grafana** | Dashboard | http://localhost:3000 | none (admin/admin to edit) |
+| **Grafana** | Dashboard | http://localhost:3000 | `admin` / `GRAFANA_PASS` from `.env` |
 
 ## Start / stop
 
@@ -28,6 +29,15 @@ docker compose logs -f backend   # watch one part's messages (Ctrl+C to stop wat
 docker compose down              # stop (data is kept)
 docker compose down -v           # stop AND delete all data (fresh start)
 ```
+
+## Customer accounts
+Customers sign in and see only their own compactors: [`docs/MULTI_TENANT.md`](docs/MULTI_TENANT.md).
+```powershell
+python scripts/init_env.py        # once: strong passwords in .env
+docker compose up -d --build
+docker compose exec backend python -m app.seed_demo   # optional demo customers
+```
+Portal: http://localhost:8000/portal. Grafana now needs a login, and most API reads need a session.
 
 ## 📦 Hackathon submission
 Everything the judges need is in [`submission/`](submission/README.md): weighing concept, software demo notes,

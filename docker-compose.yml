@@ -7,6 +7,8 @@
 #
 # Ports listen only on this laptop (BIND_ADDR=127.0.0.1), except MQTT,
 # which the ESP32 must reach over Wi-Fi.
+# BIND_ADDR = what customers use (portal, Grafana). ADMIN_BIND = database and tools, keep on 127.0.0.1.
+# Customers need strong settings: run python scripts/init_env.py once. See docs/MULTI_TENANT.md
 
 name: ${STACK_NAME:-compactor}
 
@@ -35,7 +37,7 @@ services:
       - POSTGRES_DB=${DB_NAME:-compactor}
       - TZ=${TIMEZONE:-Europe/Helsinki}
     ports:
-      - "${BIND_ADDR:-127.0.0.1}:5432:5432"
+      - "${ADMIN_BIND:-127.0.0.1}:5432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
@@ -58,6 +60,15 @@ services:
       - DEMO_TIME_SCALE=${DEMO_TIME_SCALE:-1}        # 60 = fast demo: 1 real minute = 1 site hour (same as TIME_SCALE in firmware)
       - READING_INTERVAL_H=${READING_INTERVAL_H:-1}  # how often a sensor reports; 0.003 (~10 s) for the ESP32
       - SITE_ID=${SITE_ID:-S1}                       # the edge node listens for trucks on site/<SITE_ID>/cmd
+      - PLATFORM_ADMIN_EMAIL=${PLATFORM_ADMIN_EMAIL:-admin@compactor.local}
+      - PLATFORM_ADMIN_PASSWORD=${PLATFORM_ADMIN_PASSWORD:-}
+      - GRAFANA_URL=http://grafana:3000              # the backend sets up each customer's org here
+      - GRAFANA_ADMIN_USER=admin
+      - GRAFANA_ADMIN_PASSWORD=${GRAFANA_PASS:-admin}
+      - PUBLIC_GRAFANA_URL=${PUBLIC_GRAFANA_URL:-http://localhost:3000}
+      - COOKIE_SECURE=${COOKIE_SECURE:-false}        # true when served over HTTPS
+      - DEMO_CUSTOMER1_PASSWORD=${DEMO_CUSTOMER1_PASSWORD:-}
+      - DEMO_CUSTOMER2_PASSWORD=${DEMO_CUSTOMER2_PASSWORD:-}
       - TZ=${TIMEZONE:-Europe/Helsinki}
     ports:
       - "${BIND_ADDR:-127.0.0.1}:8000:8000"
@@ -77,11 +88,12 @@ services:
   nodered:
     image: nodered/node-red:4.0
     ports:
-      - "${BIND_ADDR:-127.0.0.1}:1880:1880"
+      - "${ADMIN_BIND:-127.0.0.1}:1880:1880"
     volumes:
       - ./nodered:/data
     environment:
       - TZ=${TIMEZONE:-Europe/Helsinki}
+      - INGEST_API_KEY=${INGEST_API_KEY:-}    # sent to the backend with every reading
     depends_on:
       mosquitto:
         condition: service_healthy
@@ -95,8 +107,13 @@ services:
       - TZ=${TIMEZONE:-Europe/Helsinki}
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASS:-admin}
-      - GF_AUTH_ANONYMOUS_ENABLED=true        # judges can view without login
-      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_AUTH_ANONYMOUS_ENABLED=false       # org 1 has every customer's data, so nobody views it without login
+      - GF_USERS_ALLOW_SIGN_UP=false          # accounts come only from the backend, after approval
+      - GF_USERS_ALLOW_ORG_CREATE=false
+      - GF_USERS_VIEWERS_CAN_EDIT=false
+      - GF_PUBLIC_DASHBOARDS_ENABLED=false
+      - GF_SNAPSHOTS_ENABLED=false            # a snapshot is a link that works without login
+      - GF_SNAPSHOTS_EXTERNAL_ENABLED=false
       - GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/etc/grafana/dashboards/compactor.json
       - DB_HOST=${DB_HOST:-postgres}
       - DB_PORT=${DB_PORT:-5432}
@@ -142,7 +159,7 @@ services:
   adminer:
     image: adminer:latest
     ports:
-      - "${BIND_ADDR:-127.0.0.1}:8080:8080"
+      - "${ADMIN_BIND:-127.0.0.1}:8080:8080"
     environment:
       - ADMINER_DEFAULT_SERVER=postgres
     depends_on:

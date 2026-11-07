@@ -23,6 +23,8 @@ ESP32 sensor → MQTT (Mosquitto) → Node-RED → FastAPI backend → PostgreSQ
 - **Dashboard:** Grafana, `grafana/dashboards/compactor.json`, reads PostgreSQL directly (read-only).
 - **Run all:** `docker compose up -d --build`. Ports: Grafana 3000, Node-RED 1880, API 8000, Adminer 8080, Postgres 5432, MQTT 1883. Settings in `.env` (see `.env.example`).
 
+- **Customers:** `app/auth.py`, `app/tenants.py`, `app/provision.py`, `docs/MULTI_TENANT.md`. Customer SQL uses only `tenant_api.*`.
+
 ## Rules for generated code
 1. Follow `CONTRACT.md` exactly — JSON fields, MQTT topic, endpoints, table columns.
 2. Only touch files for the current task. Don't reformat other people's files.

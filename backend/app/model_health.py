@@ -16,7 +16,7 @@ from sqlalchemy import func, insert, select
 
 from app.ai import ml
 from app.db import alert_feedback, alerts, get_engine
-from app.security import require_key
+from app.auth import key_or_admin, require_admin
 
 router = APIRouter()
 MIN_LIFTS = 20          # fewer lifts than this -> too early to judge
@@ -29,7 +29,7 @@ class FeedbackIn(BaseModel):
     note: Optional[str] = None
 
 
-@router.post("/api/alerts/{alert_id}/feedback", dependencies=[Depends(require_key)])
+@router.post("/api/alerts/{alert_id}/feedback", dependencies=[Depends(key_or_admin)])
 def give_feedback(alert_id: int, body: FeedbackIn):
     with get_engine().begin() as conn:
         if conn.execute(select(alerts.c.id).where(alerts.c.id == alert_id)).first() is None:
@@ -39,7 +39,7 @@ def give_feedback(alert_id: int, body: FeedbackIn):
     return {"alert_id": alert_id, "verdict": body.verdict}
 
 
-@router.get("/api/models/performance")
+@router.get("/api/models/performance", dependencies=[Depends(require_admin)])
 def performance(days: int = 30):
     since = datetime.now(timezone.utc) - timedelta(days=days)
     # expected alert rate per alert type, from the models the live path uses (feed esp32 first)

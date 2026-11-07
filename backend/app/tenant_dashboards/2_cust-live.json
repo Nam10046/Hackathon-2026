@@ -1,0 +1,232 @@
+{
+ "uid": "cust-live",
+ "title": "2 · Live monitoring",
+ "tags": [
+  "customer"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": false,
+ "refresh": "30s",
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "panels": [
+  {
+   "type": "text",
+   "transparent": true,
+   "title": "",
+   "options": {
+    "mode": "markdown",
+    "content": "### Live weight and fill level\nUpdates by itself every 30 seconds."
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 3
+   },
+   "id": 1
+  },
+  {
+   "type": "gauge",
+   "title": "Fill level now",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT c.name AS metric, s.load_pct AS value\nFROM tenant_api.compactor_status s JOIN tenant_api.compactors c ON c.id = s.compactor_id WHERE s.compactor_id IN ($device) ORDER BY c.id"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "min": 0,
+     "max": 100,
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 70
+       },
+       {
+        "color": "red",
+        "value": 90
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "/^value$/",
+     "values": true
+    },
+    "showThresholdLabels": false
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 3,
+    "w": 24,
+    "h": 7
+   },
+   "id": 2
+  },
+  {
+   "type": "timeseries",
+   "title": "Weight",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "time_series",
+     "rawSql": "SELECT ts AS \"time\", compactor_id AS metric, weight_kg AS value\nFROM tenant_api.readings WHERE $__timeFilter(ts) AND compactor_id IN ($device) ORDER BY 1"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "suffix: kg",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8,
+      "showPoints": "never",
+      "drawStyle": "line",
+      "spanNulls": true
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 10,
+    "w": 24,
+    "h": 9
+   },
+   "id": 3
+  },
+  {
+   "type": "table",
+   "title": "Latest readings",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT ts AS \"Time\", compactor_id AS \"Compactor\", weight_kg AS \"kg\", fill_pct AS \"Fill %\", edge_quality AS \"Quality\"\nFROM tenant_api.readings WHERE compactor_id IN ($device) ORDER BY ts DESC LIMIT 20"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "noValue": "–"
+    },
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 19,
+    "w": 24,
+    "h": 8
+   },
+   "id": 4
+  }
+ ],
+ "templating": {
+  "list": [
+   {
+    "name": "device",
+    "label": "Compactor",
+    "type": "query",
+    "datasource": {
+     "type": "grafana-postgresql-datasource",
+     "uid": "tenant-pg"
+    },
+    "query": "SELECT name AS __text, id AS __value FROM tenant_api.compactors ORDER BY id",
+    "definition": "SELECT name AS __text, id AS __value FROM tenant_api.compactors ORDER BY id",
+    "refresh": 1,
+    "multi": true,
+    "includeAll": true,
+    "current": {
+     "text": [
+      "All"
+     ],
+     "value": [
+      "$__all"
+     ]
+    },
+    "sort": 1
+   }
+  ]
+ },
+ "annotations": {
+  "list": []
+ },
+ "links": [
+  {
+   "type": "dashboards",
+   "tags": [
+    "customer"
+   ],
+   "asDropdown": false,
+   "title": "Pages",
+   "keepTime": true,
+   "includeVars": false,
+   "targetBlank": false,
+   "icon": "external link"
+  }
+ ]
+}

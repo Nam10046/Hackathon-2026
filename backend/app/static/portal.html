@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Smart Compactor Portal</title>
+<style>
+:root{--bg:#f4f6f5;--card:#fff;--ink:#17231f;--muted:#5d6b66;--line:#dbe2df;--brand:#0f6b4f;--brand-ink:#fff;--bad:#b3261e;--ok:#0f6b4f}
+@media (prefers-color-scheme:dark){:root{--bg:#111716;--card:#1a2221;--ink:#e8efec;--muted:#9aa8a3;--line:#2c3734;--brand:#3fbf94;--brand-ink:#08130f;--bad:#f2857d;--ok:#3fbf94}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:920px;margin:0 auto;padding:32px 16px 64px}h1{font-size:26px;margin:0 0 4px}h2{font-size:18px;margin:0 0 12px}
+.lead{color:var(--muted);margin:0 0 24px}.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:20px;margin-bottom:16px}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:16px}.two .card{margin:0}
+label{display:block;font-size:14px;font-weight:600;margin:12px 0 4px}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink);font:inherit}
+input[type=checkbox]{width:auto;margin-right:6px}
+button,.btn{display:inline-block;margin-top:14px;padding:9px 16px;border:0;border-radius:7px;background:var(--brand);color:var(--brand-ink);font:inherit;font-weight:600;cursor:pointer;text-decoration:none}
+button.ghost{background:transparent;color:var(--ink);border:1px solid var(--line)}button.danger{background:transparent;color:var(--bad);border:1px solid var(--bad)}
+.msg{min-height:22px;margin:10px 0 0;font-size:14px}.msg.bad{color:var(--bad)}.msg.ok{color:var(--ok)}
+.muted{color:var(--muted);font-size:14px}.row{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+.item{border-top:1px solid var(--line);padding:14px 0}.item:first-of-type{border-top:0}.chips{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:4px}
+.chips label{font-weight:400;margin:0}code{font-size:14px}[hidden]{display:none!important}
+</style>
+</head>
+<body><main>
+<h1>Smart Compactor</h1>
+<p class="lead">Know what your waste weighs and is worth before the truck leaves.</p>
+
+<section id="out" class="two" hidden>
+  <div class="card"><h2>Sign in</h2>
+    <form id="login"><label for="le">E-mail</label><input id="le" type="email" autocomplete="username" required>
+    <label for="lp">Password</label><input id="lp" type="password" autocomplete="current-password" required>
+    <button>Sign in</button><p class="msg" id="lm" role="status"></p></form></div>
+  <div class="card"><h2>Request an account</h2>
+    <form id="reg"><label for="rc">Company</label><input id="rc" minlength="2" maxlength="120" required>
+    <label for="re">Work e-mail</label><input id="re" type="email" autocomplete="username" required>
+    <label for="rp">Password (12 characters or more)</label><input id="rp" type="password" minlength="12" maxlength="128" autocomplete="new-password" required>
+    <button>Send request</button><p class="msg" id="rm" role="status"></p>
+    <p class="muted">An administrator connects your account to your company and devices.</p></form></div>
+</section>
+
+<section id="in" hidden>
+  <div class="card"><div class="row"><div><h2 id="who"></h2><div class="muted" id="sub"></div></div>
+    <div><a class="btn" id="open" target="_blank" rel="noopener">Open dashboards</a> <button class="ghost" id="out-btn">Sign out</button></div></div>
+    <p class="muted" id="hint"></p></div>
+  <div id="admin" hidden>
+    <div class="card"><h2>Waiting for approval</h2><div id="pending"></div><p class="msg" id="am" role="status"></p></div>
+    <div class="card"><h2>Customers</h2><div id="tenants"></div></div>
+    <div class="card"><h2>Add a device</h2>
+      <form id="dev" class="two"><div><label for="di">Device id</label><input id="di" pattern="[A-Za-z0-9_\-]{1,32}" required></div>
+      <div><label for="dn">Name</label><input id="dn" required></div>
+      <div><label for="dm">Material</label><select id="dm"><option>cardboard</option><option>plastic</option><option>mixed</option></select></div>
+      <div><label for="dc">Capacity kg</label><input id="dc" type="number" min="1" value="2000" required></div>
+      <div><label for="dv">Volume m³</label><input id="dv" type="number" min="1" value="8" required></div>
+      <div><button>Add device</button></div></form><p class="msg" id="dmsg" role="status"></p></div>
+  </div>
+</section>
+</main>
+<script>
+const $ = id => document.getElementById(id);
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function say(el, text, good) { el.textContent = text; el.className = "msg " + (good ? "ok" : "bad"); }
+async function api(path, method = "GET", body) {
+  const r = await fetch(path, { method, headers: body ? { "Content-Type": "application/json" } : {}, body: body ? JSON.stringify(body) : undefined });
+  const data = await r.json().catch(() => ({}));
+  if (!r.ok) throw Object.assign(new Error(typeof data.detail === "string" ? data.detail : "Please check the form and try again"), { status: r.status });
+  return data;
+}
+$("login").onsubmit = async e => { e.preventDefault();
+  try { const d = await api("/api/auth/login", "POST", { email: $("le").value, password: $("lp").value });
+    $("lp").value = ""; sessionStorage.setItem("grafana_ready", d.grafana_ready); await show();
+  } catch (err) { say($("lm"), err.message); } };
+$("reg").onsubmit = async e => { e.preventDefault();
+  try { const d = await api("/api/auth/register", "POST", { company: $("rc").value, email: $("re").value, password: $("rp").value });
+    e.target.reset(); say($("rm"), d.message, true);
+  } catch (err) { say($("rm"), err.message); } };
+$("out-btn").onclick = async () => { await api("/api/auth/logout", "POST"); location.reload(); };
+$("dev").onsubmit = async e => { e.preventDefault();
+  try { await api("/api/admin/devices", "POST", { id: $("di").value, name: $("dn").value, material: $("dm").value,
+      capacity_kg: +$("dc").value, volume_m3: +$("dv").value });
+    e.target.reset(); say($("dmsg"), "Device added", true); await loadAdmin();
+  } catch (err) { say($("dmsg"), err.message); } };
+
+let free = [], customers = [];
+const devBoxes = (name) => free.length ? free.map(d =>
+  `<label><input type="checkbox" name="${name}" value="${esc(d.id)}">${esc(d.id)} · ${esc(d.name)}</label>`).join("")
+  : `<span class="muted">No free devices</span>`;
+async function loadAdmin() {
+  const [pending, tenants, devices] = await Promise.all([api("/api/admin/registrations"), api("/api/admin/tenants"), api("/api/admin/devices")]);
+  free = devices.filter(d => d.tenant_id === null); customers = tenants;
+  $("pending").innerHTML = pending.length ? pending.map(u => `<div class="item" data-id="${+u.id}">
+    <strong>${esc(u.email)}</strong> <span class="muted">says they are from: ${esc(u.company_requested)}</span>
+    <label>Customer</label><select class="tenant"><option value="">New customer…</option>
+      ${customers.map(t => `<option value="${+t.id}">${esc(t.name)}</option>`).join("")}</select>
+    <label>New customer name</label><input class="newname" value="${esc(u.company_requested)}">
+    <label>Devices to hand over</label><div class="chips">${devBoxes("d" + +u.id)}</div>
+    <button class="go">Approve</button> <button class="danger no">Reject</button></div>`).join("")
+    : `<p class="muted">Nobody is waiting.</p>`;
+  document.querySelectorAll("#pending .item").forEach(box => {
+    const id = box.dataset.id;
+    box.querySelector(".go").onclick = async () => {
+      const existing = box.querySelector(".tenant").value;
+      const body = { device_ids: [...box.querySelectorAll("input[type=checkbox]:checked")].map(c => c.value) };
+      if (existing) body.tenant_id = +existing; else body.new_tenant_name = box.querySelector(".newname").value;
+      try { await api(`/api/admin/registrations/${id}/approve`, "POST", body); say($("am"), "Approved", true); await loadAdmin(); }
+      catch (err) { say($("am"), err.message); } };
+    box.querySelector(".no").onclick = async () => {
+      try { await api(`/api/admin/registrations/${id}/reject`, "POST"); say($("am"), "Rejected", true); await loadAdmin(); }
+      catch (err) { say($("am"), err.message); } };
+  });
+  $("tenants").innerHTML = customers.length ? customers.map(t => `<div class="item" data-id="${+t.id}"><div class="row">
+    <div><strong>${esc(t.name)}</strong> <span class="muted">${esc(t.status)} · ${+t.users} user(s) · devices: ${esc(t.devices.join(", ") || "none")}</span></div>
+    <button class="ghost toggle" data-to="${t.status === "active" ? "suspended" : "active"}">${t.status === "active" ? "Suspend" : "Reactivate"}</button></div>
+    <div class="chips">${devBoxes("t" + +t.id)}</div>${free.length ? `<button class="ghost add">Hand over selected</button>` : ""}</div>`).join("")
+    : `<p class="muted">No customers yet.</p>`;
+  document.querySelectorAll("#tenants .item").forEach(box => {
+    const id = box.dataset.id;
+    box.querySelector(".toggle").onclick = async ev => { await api(`/api/admin/tenants/${id}/status`, "POST", { status: ev.target.dataset.to }); await loadAdmin(); };
+    const add = box.querySelector(".add");
+    if (add) add.onclick = async () => {
+      for (const c of box.querySelectorAll("input[type=checkbox]:checked"))
+        await api(`/api/admin/tenants/${id}/devices`, "POST", { compactor_id: c.value });
+      await loadAdmin(); };
+  });
+}
+async function show() {
+  let me;
+  try { me = await api("/api/auth/me"); } catch { $("out").hidden = false; $("in").hidden = true; return; }
+  $("out").hidden = true; $("in").hidden = false;
+  $("who").textContent = me.tenant || "Platform administrator";
+  $("sub").textContent = me.email + (me.devices ? ` · ${me.devices.length} device(s): ${me.devices.join(", ")}` : " · all customers");
+  $("open").href = me.grafana_url;
+  $("hint").textContent = me.role === "admin" ? "Grafana uses the separate Grafana admin account."
+    : sessionStorage.getItem("grafana_ready") === "false" ? "Your dashboards are not ready yet. Sign in here again in a moment, or contact your administrator."
+    : "Sign in to the dashboards with the same e-mail and password.";
+  if (me.role === "admin") { $("admin").hidden = false; await loadAdmin(); }
+}
+show();
+</script>
+</body></html>

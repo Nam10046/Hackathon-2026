@@ -4,6 +4,7 @@ Uses PostgreSQL in Docker (DATABASE_URL) and SQLite for quick local runs/tests.
 Table layout must match CONTRACT.md section 3.
 """
 import os
+from pathlib import Path
 
 from sqlalchemy import (
     Boolean, Column, DateTime, Float, ForeignKey, Integer, MetaData, String, Table,
@@ -125,6 +126,51 @@ alert_feedback = Table(
     Column("decided_at", DateTime(timezone=True), nullable=False),
 )
 
+# --- Multi-tenancy (additive). The rules are in docs/MULTI_TENANT.md ---
+tenants = Table(
+    "tenants", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("slug", String, nullable=False, unique=True),
+    Column("name", String, nullable=False, unique=True),
+    Column("status", String, nullable=False, default="active"),   # active | suspended
+    Column("db_role", String, unique=True),                       # Postgres role of its datasource; random, shows no name
+    Column("grafana_org_id", Integer),
+    Column("created_at", DateTime(timezone=True)),
+)
+
+users = Table(
+    "users", metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("email", String, nullable=False, unique=True),
+    Column("password_hash", String, nullable=False),
+    Column("role", String, nullable=False, default="customer"),   # admin | customer
+    Column("status", String, nullable=False, default="pending"),  # pending | active | rejected | disabled
+    Column("tenant_id", Integer, ForeignKey("tenants.id"), index=True),   # set only by an admin
+    Column("company_requested", String),                          # what the user typed: proves nothing
+    Column("grafana_user_id", Integer),
+    Column("failed_logins", Integer, nullable=False, default=0),
+    Column("locked_until", DateTime(timezone=True)),
+    Column("created_at", DateTime(timezone=True)),
+    Column("decided_by", String),
+    Column("decided_at", DateTime(timezone=True)),
+)
+
+# who owns a device. compactor_id is the primary key, so a device can never have two owners
+tenant_devices = Table(
+    "tenant_devices", metadata,
+    Column("compactor_id", String, ForeignKey("compactors.id"), primary_key=True),
+    Column("tenant_id", Integer, ForeignKey("tenants.id"), nullable=False, index=True),
+    Column("assigned_at", DateTime(timezone=True)),
+    Column("assigned_by", String),
+)
+
+auth_sessions = Table(
+    "auth_sessions", metadata,
+    Column("token_hash", String, primary_key=True),               # SHA-256: a database leak gives no usable tokens
+    Column("user_id", Integer, ForeignKey("users.id"), nullable=False, index=True),
+    Column("expires_at", DateTime(timezone=True), nullable=False),
+)
+
 # PLACEHOLDER numbers — replace with real prices/densities from Europress or recyclers
 SEED_MATERIALS = [
     {"name": "cardboard", "price_eur_per_kg": 0.08, "density_min": 150, "density_max": 450, "co2_factor": 0.9},
@@ -185,3 +231,15 @@ def init_db():
         missing = [c for c in SEED_COMPACTORS if c["id"] not in have_ids]
         if missing:   # also adds compactors that were added to the seed later
             conn.execute(insert(compactors), missing)
+    if engine.dialect.name == "postgresql":   # tenant views use Postgres roles; SQLite (tests) has none
+        sql = (Path(__file__).parent / "migrations" / "0001_tenant_api.up.sql").read_text(encoding="utf-8")
+        raw = engine.raw_connection()   # the driver's own execute() takes a whole script
+        try:
+            raw.driver_connection.execute(sql)
+            raw.commit()
+        except Exception as e:
+            # e.g. a cloud database that refuses CREATE ROLE. Ingestion must keep running; creating a customer will fail.
+            raw.rollback()
+            print(f"tenant views NOT installed, customers cannot be created: {e}", flush=True)
+        finally:
+            raw.close()

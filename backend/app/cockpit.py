@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import inspect, insert, text
 
 from app.db import action_decisions, get_engine
-from app.security import require_key
+from app.auth import key_or_admin, require_admin
 
 router = APIRouter()
 PAGE = Path(__file__).parent / "static" / "cockpit.html"
@@ -47,7 +47,7 @@ def _status(row: dict) -> str:
     return "PENDING" if d in (None, "REVERT") else ("APPROVED" if d == "APPROVE" else "REJECTED")
 
 
-@router.get("/api/cockpit/actions")
+@router.get("/api/cockpit/actions", dependencies=[Depends(require_admin)])
 def list_actions(status: str | None = None, limit: int = 300):
     if not _ready():
         return []
@@ -62,7 +62,7 @@ def list_actions(status: str | None = None, limit: int = 300):
     return rows[:limit]
 
 
-@router.get("/api/cockpit/actions/{action_id}/evidence")
+@router.get("/api/cockpit/actions/{action_id}/evidence", dependencies=[Depends(require_admin)])
 def evidence(action_id: str, limit: int = 25):
     """Trace a recommendation back to the source rows: findings for the same device, newest first."""
     if not _ready():
@@ -84,7 +84,7 @@ def evidence(action_id: str, limit: int = 25):
     return {"action": dict(act), "findings": [dict(f) for f in flags], "decision_history": [dict(h) for h in history]}
 
 
-@router.post("/api/cockpit/actions/{action_id}/decision", dependencies=[Depends(require_key)])
+@router.post("/api/cockpit/actions/{action_id}/decision", dependencies=[Depends(key_or_admin)])
 def decide(action_id: str, body: DecisionIn):
     if not _ready():
         raise HTTPException(404, "Cockpit not built yet — run analytics/build_cockpit.py")

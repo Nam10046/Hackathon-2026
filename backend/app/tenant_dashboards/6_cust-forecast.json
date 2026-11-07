@@ -1,0 +1,168 @@
+{
+ "uid": "cust-forecast",
+ "title": "6 · Fill forecast",
+ "tags": [
+  "customer"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": false,
+ "refresh": "30s",
+ "time": {
+  "from": "now-3d",
+  "to": "now"
+ },
+ "panels": [
+  {
+   "type": "text",
+   "transparent": true,
+   "title": "",
+   "options": {
+    "mode": "markdown",
+    "content": "### When will each compactor be full?\nThe forecast follows the filling speed since the last emptying."
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 3
+   },
+   "id": 1
+  },
+  {
+   "type": "table",
+   "title": "Forecast",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT c.name AS \"Compactor\", s.load_pct AS \"Full %\", c.on_call_threshold_pct AS \"Truck ordered at %\",\n  s.hours_to_full AS \"Full in h\", now() + s.hours_to_full * interval '1 hour' AS \"Expected full\"\nFROM tenant_api.compactors c JOIN tenant_api.compactor_status s ON s.compactor_id = c.id WHERE c.id IN ($device) ORDER BY s.hours_to_full NULLS LAST"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "noValue": "–"
+    },
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 3,
+    "w": 24,
+    "h": 7
+   },
+   "id": 2
+  },
+  {
+   "type": "timeseries",
+   "title": "Fill level",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "time_series",
+     "rawSql": "SELECT r.ts AS \"time\", r.compactor_id AS metric, round(greatest(r.weight_kg / c.capacity_kg * 100, coalesce(r.fill_pct, 0))::numeric, 1) AS value\nFROM tenant_api.readings r JOIN tenant_api.compactors c ON c.id = r.compactor_id WHERE $__timeFilter(r.ts) AND r.compactor_id IN ($device) ORDER BY 1"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percent",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 8,
+      "showPoints": "never",
+      "drawStyle": "line",
+      "spanNulls": true
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 10,
+    "w": 24,
+    "h": 10
+   },
+   "id": 3
+  }
+ ],
+ "templating": {
+  "list": [
+   {
+    "name": "device",
+    "label": "Compactor",
+    "type": "query",
+    "datasource": {
+     "type": "grafana-postgresql-datasource",
+     "uid": "tenant-pg"
+    },
+    "query": "SELECT name AS __text, id AS __value FROM tenant_api.compactors ORDER BY id",
+    "definition": "SELECT name AS __text, id AS __value FROM tenant_api.compactors ORDER BY id",
+    "refresh": 1,
+    "multi": true,
+    "includeAll": true,
+    "current": {
+     "text": [
+      "All"
+     ],
+     "value": [
+      "$__all"
+     ]
+    },
+    "sort": 1
+   }
+  ]
+ },
+ "annotations": {
+  "list": []
+ },
+ "links": [
+  {
+   "type": "dashboards",
+   "tags": [
+    "customer"
+   ],
+   "asDropdown": false,
+   "title": "Pages",
+   "keepTime": true,
+   "includeVars": false,
+   "targetBlank": false,
+   "icon": "external link"
+  }
+ ]
+}

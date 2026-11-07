@@ -1,0 +1,412 @@
+{
+ "uid": "cust-co2",
+ "title": "4 · CO₂ impact",
+ "tags": [
+  "customer"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "editable": false,
+ "refresh": "30s",
+ "time": {
+  "from": "now-30d",
+  "to": "now"
+ },
+ "panels": [
+  {
+   "type": "text",
+   "transparent": true,
+   "title": "",
+   "options": {
+    "mode": "markdown",
+    "content": "### Your recycling impact\nCO₂ figures are estimates: collected kg × a factor per material."
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 3
+   },
+   "id": 1
+  },
+  {
+   "type": "stat",
+   "title": "CO₂ saved",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT sum(co2_kg) FROM tenant_api.pickups WHERE status = 'done' AND $__timeFilter(done_at) AND compactor_id IN ($device)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "suffix: kg",
+     "noValue": "–",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "green",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 3,
+    "w": 6,
+    "h": 4
+   },
+   "id": 2
+  },
+  {
+   "type": "stat",
+   "title": "Waste collected",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT sum(kg_collected) FROM tenant_api.pickups WHERE status = 'done' AND $__timeFilter(done_at) AND compactor_id IN ($device)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "suffix: kg",
+     "noValue": "–",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center"
+   },
+   "gridPos": {
+    "x": 6,
+    "y": 3,
+    "w": 6,
+    "h": 4
+   },
+   "id": 3
+  },
+  {
+   "type": "stat",
+   "title": "Lifts",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT count(*) FROM tenant_api.pickups WHERE status = 'done' AND $__timeFilter(done_at) AND compactor_id IN ($device)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "none",
+     "noValue": "–",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center"
+   },
+   "gridPos": {
+    "x": 12,
+    "y": 3,
+    "w": 6,
+    "h": 4
+   },
+   "id": 4
+  },
+  {
+   "type": "stat",
+   "title": "kg per lift",
+   "description": "Fuller lifts mean fewer truck trips",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT avg(kg_collected) FROM tenant_api.pickups WHERE status = 'done' AND $__timeFilter(done_at) AND compactor_id IN ($device)"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "suffix: kg",
+     "noValue": "–",
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "blue",
+        "value": null
+       }
+      ]
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center"
+   },
+   "gridPos": {
+    "x": 18,
+    "y": 3,
+    "w": 6,
+    "h": 4
+   },
+   "id": 5
+  },
+  {
+   "type": "timeseries",
+   "title": "CO₂ saved per day",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "time_series",
+     "rawSql": "SELECT date_trunc('day', done_at) AS \"time\", compactor_id AS metric, sum(co2_kg) AS value FROM tenant_api.pickups WHERE status = 'done' AND $__timeFilter(done_at) AND compactor_id IN ($device) GROUP BY 1, 2 ORDER BY 1"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "unit": "suffix: kg",
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 60,
+      "showPoints": "never",
+      "drawStyle": "bars",
+      "spanNulls": true
+     }
+    },
+    "overrides": []
+   },
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom"
+    },
+    "tooltip": {
+     "mode": "multi"
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 7,
+    "w": 24,
+    "h": 9
+   },
+   "id": 6
+  },
+  {
+   "type": "table",
+   "title": "By material",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT c.material AS \"Material\", sum(p.kg_collected) AS \"kg collected\", sum(p.co2_kg) AS \"CO₂ saved kg\", m.co2_factor AS \"Factor\"\nFROM tenant_api.pickups p JOIN tenant_api.compactors c ON c.id = p.compactor_id JOIN tenant_api.materials m ON m.name = c.material\nWHERE p.status = 'done' AND $__timeFilter(p.done_at) AND p.compactor_id IN ($device) GROUP BY 1, 4 ORDER BY 3 DESC"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "noValue": "–"
+    },
+    "overrides": []
+   },
+   "options": {
+    "showHeader": true,
+    "cellHeight": "sm"
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 16,
+    "w": 24,
+    "h": 6
+   },
+   "id": 7
+  }
+ ],
+ "templating": {
+  "list": [
+   {
+    "name": "device",
+    "label": "Compactor",
+    "type": "query",
+    "datasource": {
+     "type": "grafana-postgresql-datasource",
+     "uid": "tenant-pg"
+    },
+    "query": "SELECT name AS __text, id AS __value FROM tenant_api.compactors ORDER BY id",
+    "definition": "SELECT name AS __text, id AS __value FROM tenant_api.compactors ORDER BY id",
+    "refresh": 1,
+    "multi": true,
+    "includeAll": true,
+    "current": {
+     "text": [
+      "All"
+     ],
+     "value": [
+      "$__all"
+     ]
+    },
+    "sort": 1
+   }
+  ]
+ },
+ "annotations": {
+  "list": []
+ },
+ "links": [
+  {
+   "type": "dashboards",
+   "tags": [
+    "customer"
+   ],
+   "asDropdown": false,
+   "title": "Pages",
+   "keepTime": true,
+   "includeVars": false,
+   "targetBlank": false,
+   "icon": "external link"
+  }
+ ]
+}

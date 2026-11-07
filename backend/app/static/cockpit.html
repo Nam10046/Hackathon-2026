@@ -69,6 +69,7 @@ function setFilter(f) { filter = f; renderFilters(); render(); }
 
 async function load() {
   const r = await fetch(API + "/actions");
+  if (r.status === 401 || r.status === 403) { location.href = "/portal"; return; }   // admins only: sign in first
   rows = await r.json();
   render();
 }

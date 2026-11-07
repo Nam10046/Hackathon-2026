@@ -54,6 +54,20 @@ Node-RED forwards the same JSON to the backend.
 | GET | `/models/performance?days=30` | Live check per lift model: alerts per lift vs. the validation rate (drift), live precision from feedback |
 | POST | `/alerts/{id}/feedback` | `{"verdict": "CORRECT"\|"FALSE_ALARM", "decided_by", "note"}` — was this alert right? (API key) |
 
+**Reads need a session:** `/compactors*`, `/alerts` and `/pickups` need a signed-in user and return only that customer's devices.
+Another customer's device answers 404. `/cockpit/*` reads and `/models/performance` are admin-only. `/health`, `/materials` and `/models` stay open.
+
+| Method | Path | What it does |
+|---|---|---|
+| POST | `/auth/register` | `{"email","password","company"}` -> 202, pending account with no tenant |
+| POST | `/auth/login` | `{"email","password"}` -> `{"token","role","grafana_ready"}` + HttpOnly cookie. Scripts send `Authorization: Bearer <token>` |
+| POST | `/auth/logout` · GET `/auth/me` | End the session · who am I, which devices |
+| GET | `/admin/registrations`, `/admin/tenants`, `/admin/devices` | Admin only |
+| POST | `/admin/registrations/{id}/approve` | `{"tenant_id"}` or `{"new_tenant_name"}`, plus `"device_ids"` |
+| POST | `/admin/registrations/{id}/reject`, `/admin/tenants`, `/admin/devices` | Admin only |
+| POST / DELETE | `/admin/tenants/{id}/devices[/{compactor_id}]` | Hand over or take back a device |
+| POST | `/admin/tenants/{id}/status` | `{"status":"active"\|"suspended"}` |
+
 **Writes need a key:** if the server has `INGEST_API_KEY` set (always on Rahti), `POST` requests must send
 header `X-API-Key: <key>`. Reading (GET) is open. On the laptop the key is empty = open.
 
@@ -102,7 +116,15 @@ Each compactor can carry the SMART setting `on_call_threshold_pct` (fill % that 
 | `alerts` | `id`, `compactor_id`, `ts`, `type`, `severity`, `message` |
 | `compactor_status` | one row per compactor = the status object above |
 
+| `tenants` | `id`, `slug`, `name`, `status`, `db_role`, `grafana_org_id`, `created_at` |
+| `users` | `id`, `email`, `password_hash`, `role`, `status`, `tenant_id`, `company_requested`, `grafana_user_id`, `failed_logins`, `locked_until`, `created_at`, `decided_by`, `decided_at` |
+| `tenant_devices` | `compactor_id` PK, `tenant_id`, `assigned_at`, `assigned_by` |
+| `auth_sessions` | `token_hash` PK, `user_id`, `expires_at` |
+
 Only the backend **writes**. Grafana and others **read**.
+
+Customer Grafana orgs read schema `tenant_api` (views `compactors`, `compactor_status`, `readings`, `alerts`, `pickups`, `materials`,
+`my_devices`), never the tables above. A new column on a base table does not reach customers until the view is recreated.
 
 ## 4. ML model folder
 
@@ -115,3 +137,4 @@ label (`1` normal, `-1` unusual) + score.
 |---|---|---|
 | 2026-11-06 | Compactor contract v1 (MQTT reading, API, tables) | — |
 | 2026-11-06 | ML model folder + `/models` endpoints, `ml_anomaly` alert | — |
+| 2026-11-07 | Login, tenants, `/auth` + `/admin` endpoints, reads scoped per customer, `tenant_api` views | — |
