@@ -352,11 +352,11 @@
         "x": 0,
         "y": 9,
         "w": 24,
-        "h": 18
+        "h": 21
       },
       "options": {
         "mode": "html",
-        "content": "<iframe src=\"http://localhost:8000/invoices\" title=\"Invoices — enter, compare, decide\" style=\"width:100%;height:540px;border:0;display:block\"></iframe>"
+        "content": "<iframe src=\"http://localhost:8000/invoices\" title=\"Invoices — enter, compare, decide\" style=\"width:100%;height:630px;border:0;display:block\"></iframe>"
       },
       "id": 7
     },
@@ -370,7 +370,7 @@
       },
       "gridPos": {
         "x": 0,
-        "y": 27,
+        "y": 30,
         "w": 24,
         "h": 9
       },

@@ -251,13 +251,13 @@ invoices_pg = page("cockpit-actions", "4 Invoices",
     P("Approved", "stat", f"SELECT count(*) AS v FROM invoices i {INV_LATEST} WHERE {IW} AND d.decision = 'APPROVE'", 12, 3, 4, 4, field=NUM, options=STAT),
     P("Rejected", "stat", f"SELECT count(*) AS v FROM invoices i {INV_LATEST} WHERE {IW} AND d.decision = 'REJECT'", 16, 3, 4, 4, field=NUM, options=STAT),
     P("On hold", "stat", f"SELECT count(*) AS v FROM invoices i {INV_LATEST} WHERE {IW} AND d.decision = 'HOLD'", 20, 3, 4, 4, field=NUM, options=STAT),
-    embed("Invoices — enter, compare, decide", "/invoices", 7, 18, 540),
+    embed("Invoices — enter, compare, decide", "/invoices", 7, 21, 630),
     P("All invoices", "table",
       f"SELECT {STATUS_SQL} AS \"Status\", i.invoice_id AS \"Invoice\", i.customer_name AS \"Customer\", i.operator_name AS \"Waste company\", "
       "i.period_from AS \"From\", i.period_to AS \"To\", i.total_eur AS \"Billed €\", i.overcharged_eur AS \"Charged too much €\", "
       "i.unverified_eur AS \"Needs proof €\", i.lines_ok || ' / ' || i.lines_total AS \"Lines ok\", i.summary AS \"Check\", "
       f"d.decided_by AS \"Decided by\" FROM invoices i {INV_LATEST} WHERE {IW} ORDER BY i.entered_at DESC",
-      0, 25, 24, 9, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Billed €", "currencyEUR"),
+      0, 28, 24, 9, field={"defaults": {"custom": {"filterable": True}}, "overrides": [o_unit("Billed €", "currencyEUR"),
           o_unit("Charged too much €", "currencyEUR"), o_unit("Needs proof €", "currencyEUR"), o_width("Status", 90), o_map("Status", STATUS_COLOURS)]},
       options=TABLE),
 ], [V_CUST, V_OP])

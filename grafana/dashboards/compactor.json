@@ -375,11 +375,11 @@
         "x": 0,
         "y": 8,
         "w": 24,
-        "h": 6
+        "h": 8
       },
       "options": {
         "mode": "html",
-        "content": "<iframe src=\"http://localhost:8000/book\" title=\"Book a truck\" style=\"width:100%;height:165px;border:0;display:block\"></iframe>"
+        "content": "<iframe src=\"http://localhost:8000/book\" title=\"Book a truck\" style=\"width:100%;height:230px;border:0;display:block\"></iframe>"
       },
       "id": 108
     },
@@ -393,7 +393,7 @@
       "description": "",
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 16,
         "w": 8,
         "h": 9
       },
@@ -460,7 +460,7 @@
       "description": "",
       "gridPos": {
         "x": 8,
-        "y": 14,
+        "y": 16,
         "w": 16,
         "h": 9
       },
@@ -523,7 +523,7 @@
       "description": "'scheduled' = the old fixed route will still come at a set load, without looking at the sensor",
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 25,
         "w": 10,
         "h": 8
       },
@@ -603,7 +603,7 @@
       "description": "",
       "gridPos": {
         "x": 10,
-        "y": 23,
+        "y": 25,
         "w": 14,
         "h": 8
       },
@@ -670,7 +670,7 @@
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 31,
+        "y": 33,
         "w": 24,
         "h": 3
       },

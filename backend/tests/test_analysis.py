@@ -171,7 +171,10 @@ def test_book_works_with_only_a_grafana_login(world, monkeypatch):
         c.cookies.set("grafana_session", cookie)
         assert c.get("/api/pickups/board").status_code == status, cookie
         assert c.post("/api/pickups/book", json={"compactor_id": "C1"}).status_code == status, cookie
-    c.cookies.clear()
-    c.cookies.set("grafana_session", "admin-session")
-    assert c.get("/api/analysis/summary").status_code == 401           # only the booking panel accepts the Grafana login
+    # the other pages embedded in Grafana (prices, invoices) take the Grafana admin login too; a customer's does not
+    for cookie, status in (("admin-session", 200), ("customer-session", 401)):
+        c.cookies.clear()
+        c.cookies.set("grafana_session", cookie)
+        assert c.get("/api/analysis/summary").status_code == status, cookie
+        assert c.put("/api/materials/cardboard", json={"lift_fee_eur": 45, "price_eur_per_t": 80}).status_code == status, cookie
     c.cookies.clear()

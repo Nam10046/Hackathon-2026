@@ -9,22 +9,22 @@
   :root { --bg: #181b1f; --card: #22252b; --line: #2f333a; --text: #d8d9da; --muted: #8e9196;
           --green: #73bf69; --orange: #ff9830; --red: #f2495c; --blue: #5794f2; }
   * { box-sizing: border-box; }
-  body { margin: 0; padding: 8px; background: var(--bg); color: var(--text); font: 13px/1.4 Inter, "Helvetica Neue", Arial, sans-serif; }
+  body { margin: 0; padding: 8px; background: var(--bg); color: var(--text); font: 15px/1.5 "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif; }
   .tabs { display: flex; gap: 4px; margin-bottom: 8px; }
   .tabs button { border: 1px solid var(--line); color: var(--muted); }
   .tabs button.on { border-color: var(--blue); color: var(--blue); }
-  select, input, textarea { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 4px 6px; }
+  select, input, textarea { font: inherit; color: var(--text); background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font-size: 15px; }
   input[type=number] { text-align: right; }
-  button { font: inherit; font-weight: 600; padding: 5px 11px; border-radius: 4px; cursor: pointer; background: transparent; }
+  button { font: inherit; font-size: 15px; font-weight: 600; padding: 7px 13px; border-radius: 4px; cursor: pointer; background: transparent; }
   .blue { border: 1px solid var(--blue); color: var(--blue); } .ok { border: 1px solid var(--green); color: var(--green); }
   .no { border: 1px solid var(--red); color: var(--red); } .hold { border: 1px solid var(--orange); color: var(--orange); }
   .plain { border: 1px solid var(--line); color: var(--muted); }
   .card { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: 10px 12px; }
   .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 8px; }
-  .grid label { display: flex; flex-direction: column; gap: 3px; color: var(--muted); font-size: 12px; }
+  .grid label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 14px; }
   .scroll { overflow-x: auto; }
   table { width: 100%; border-collapse: collapse; }
-  th, td { text-align: left; padding: 3px 5px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; }
   th { color: var(--muted); font-weight: 500; white-space: nowrap; }
   td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   td input, td select { width: 100%; min-width: 70px; }
@@ -34,10 +34,10 @@
   .wrap { display: grid; grid-template-columns: minmax(240px, 2fr) minmax(320px, 5fr); gap: 8px; height: calc(100vh - 52px); }
   @media (max-width: 760px) { .wrap { grid-template-columns: 1fr; height: auto; } }
   .list { overflow: auto; padding: 0; } .detail { overflow: auto; }
-  .item { padding: 7px 10px; border-bottom: 1px solid var(--line); cursor: pointer; } .item:hover, .item.on { background: #2a2e35; }
-  .tag { font-size: 11px; font-weight: 600; padding: 1px 6px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; }
+  .item { padding: 10px 12px; border-bottom: 1px solid var(--line); cursor: pointer; } .item:hover, .item.on { background: #2a2e35; }
+  .tag { font-size: 13px; font-weight: 600; padding: 1px 6px; border-radius: 3px; border: 1px solid currentColor; white-space: nowrap; }
   .actions { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: 8px; }
-  .msg { font-size: 12px; min-height: 16px; margin-top: 6px; }
+  .msg { font-size: 14px; min-height: 20px; margin-top: 8px; }
   [hidden] { display: none !important; }
 </style>
 </head>

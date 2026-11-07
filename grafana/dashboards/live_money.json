@@ -53,11 +53,11 @@
         "x": 0,
         "y": 4,
         "w": 24,
-        "h": 6
+        "h": 9
       },
       "options": {
         "mode": "html",
-        "content": "<iframe src=\"http://localhost:8000/prices\" title=\"Your prices\" style=\"width:100%;height:165px;border:0;display:block\"></iframe>"
+        "content": "<iframe src=\"http://localhost:8000/prices\" title=\"Your prices\" style=\"width:100%;height:265px;border:0;display:block\"></iframe>"
       },
       "id": 103
     },
@@ -71,7 +71,7 @@
       "description": "Measured by the board, not by the truck",
       "gridPos": {
         "x": 0,
-        "y": 10,
+        "y": 13,
         "w": 4,
         "h": 4
       },
@@ -133,7 +133,7 @@
       "description": "Cost per lift × number of lifts",
       "gridPos": {
         "x": 4,
-        "y": 10,
+        "y": 13,
         "w": 4,
         "h": 4
       },
@@ -195,7 +195,7 @@
       "description": "kg × your price per tonne: + earned / − paid",
       "gridPos": {
         "x": 8,
-        "y": 10,
+        "y": 13,
         "w": 4,
         "h": 4
       },
@@ -257,7 +257,7 @@
       "description": "Lift costs − material value",
       "gridPos": {
         "x": 12,
-        "y": 10,
+        "y": 13,
         "w": 4,
         "h": 4
       },
@@ -323,7 +323,7 @@
       "description": "Total cost per tonne collected",
       "gridPos": {
         "x": 16,
-        "y": 10,
+        "y": 13,
         "w": 4,
         "h": 4
       },
@@ -385,7 +385,7 @@
       "description": "Recycled material × CO₂ factor",
       "gridPos": {
         "x": 20,
-        "y": 10,
+        "y": 13,
         "w": 4,
         "h": 4
       },
@@ -447,7 +447,7 @@
       "description": "",
       "gridPos": {
         "x": 0,
-        "y": 14,
+        "y": 17,
         "w": 10,
         "h": 9
       },
@@ -489,7 +489,7 @@
       "description": "",
       "gridPos": {
         "x": 10,
-        "y": 14,
+        "y": 17,
         "w": 14,
         "h": 9
       },
@@ -577,7 +577,7 @@
       "description": "",
       "gridPos": {
         "x": 0,
-        "y": 23,
+        "y": 26,
         "w": 24,
         "h": 9
       },
@@ -607,7 +607,7 @@
       "transparent": true,
       "gridPos": {
         "x": 0,
-        "y": 32,
+        "y": 35,
         "w": 24,
         "h": 2
       },

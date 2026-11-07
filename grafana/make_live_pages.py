@@ -127,10 +127,10 @@ pg.stats([
      "percent", [{"color": "red", "value": None}, {"color": "orange", "value": 60}, {"color": "green", "value": 85}], "Share of all lifts emptied at 60 % or more and not left full for 2+ site h"),
 ])
 pg._add({"type": "text", "title": "Book a truck — the system only warns at the on-call level, a person decides",
-         "gridPos": {"x": 0, "y": pg.y, "w": 24, "h": 6},
+         "gridPos": {"x": 0, "y": pg.y, "w": 24, "h": 8},
          "options": {"mode": "html", "content": f'<iframe src="{API_URL}/book" title="Book a truck" '
-                                                f'style="width:100%;height:165px;border:0;display:block"></iframe>'}}, 24, 6)
-pg.y += 6
+                                                f'style="width:100%;height:230px;border:0;display:block"></iframe>'}}, 24, 8)
+pg.y += 8
 p = pg.panel("bargauge", "Load now", 0, pg.y, 8, 9,
              f"SELECT c.id || ' ' || c.material AS \"Compactor\", s.load_pct AS \"Load\" FROM compactors c "
              f"LEFT JOIN compactor_status s ON s.compactor_id = c.id ORDER BY c.id")
@@ -225,10 +225,10 @@ PRICED = ("FROM pickups p JOIN compactors c ON c.id = p.compactor_id JOIN materi
 pg = Page("live-money", "Live 3 · Money & CO₂", "### A quick estimate of what the collections cost — with your prices",
           time_from="now-6h", refresh="10s")
 pg._add({"type": "text", "title": "Your prices — cost per lift and price per tonne, then Save",
-         "gridPos": {"x": 0, "y": pg.y, "w": 24, "h": 6},
+         "gridPos": {"x": 0, "y": pg.y, "w": 24, "h": 9},
          "options": {"mode": "html", "content": f'<iframe src="{API_URL}/prices" title="Your prices" '
-                                                f'style="width:100%;height:165px;border:0;display:block"></iframe>'}}, 24, 6)
-pg.y += 6
+                                                f'style="width:100%;height:265px;border:0;display:block"></iframe>'}}, 24, 9)
+pg.y += 9
 pg.stats([
     ("Collected", f"SELECT round(sum(p.kg_collected)) {PRICED}", "masskg", None, "Measured by the board, not by the truck"),
     ("Lift costs €", f"SELECT round(sum({LIFT})) {PRICED}", "currencyEUR", None, "Cost per lift × number of lifts"),

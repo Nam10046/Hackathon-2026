@@ -27,7 +27,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlalchemy import insert, select, text
 
 from app import invoice_check
-from app.access import Viewer, who_is_asking
+from app.access import Viewer, portal_or_grafana as who_is_asking   # Portal login, or the Grafana login (admin org)
 from app.db import DEMO_CUSTOMER, compactors, get_engine, invoice_decisions, invoice_lines, invoices
 
 router = APIRouter()

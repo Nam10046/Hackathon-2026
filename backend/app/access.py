@@ -60,7 +60,8 @@ def grafana_admin(request: Request) -> Viewer | None:
 
 
 def portal_or_grafana(request: Request, authorization: str | None = Header(default=None)) -> Viewer:
-    """For the Book truck panel inside Grafana: the Portal login, or else the Grafana login (admin org)."""
+    """For the pages embedded in Grafana (Book truck, Your prices, Invoices) and the Analysis API they use:
+    the Portal login, or else the Grafana login in the admin org (= the admin, who sees every customer in Grafana anyway)."""
     try:
         return who_is_asking(current_user(request, authorization))
     except HTTPException as e:
@@ -82,3 +83,10 @@ def who_is_asking(user: dict = Depends(current_user)) -> Viewer:
     # a customer without a tenant gets a name nobody has and no devices: sees nothing
     return Viewer("customer", customer=name or f"(no customer: user {user.get('id')})",
                   devices=allowed_devices(user), email=user.get("email"))
+
+
+def admin_portal_or_grafana(v: Viewer = Depends(portal_or_grafana)) -> Viewer:
+    """Admin only (e.g. prices, which apply to every customer): Portal admin or Grafana admin-org login."""
+    if not v.is_admin:
+        raise HTTPException(403, "Admins only")
+    return v
