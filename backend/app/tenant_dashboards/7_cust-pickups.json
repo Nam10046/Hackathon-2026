@@ -20,19 +20,74 @@
    "title": "",
    "options": {
     "mode": "markdown",
-    "content": "### Pickup schedule and history\nTrucks are booked automatically, and every lift is judged."
+    "content": "### Pickup schedule and history\nThe booking and judging logic is real. Trucks and operator invoices are simulated.\n\n**Real** = recorded by the system · **Estimated** = calculated with placeholder prices or factors · **Simulated** = not from physical hardware or a real operator"
    },
    "gridPos": {
     "x": 0,
     "y": 0,
     "w": 24,
-    "h": 3
+    "h": 4
    },
    "id": 1
   },
   {
    "type": "stat",
-   "title": "Trucks booked now",
+   "title": "Where the weights on this page come from",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT CASE\n  WHEN count(*) = 0 THEN 'No readings yet'\n  WHEN bool_and(coalesce(edge_quality, '') = 'simulated') THEN 'SIMULATED: made-up demo history, no device connected'\n  WHEN bool_or(seq IS NOT NULL) THEN 'SIMULATED load cell: real ESP32 edge processing, no physical sensor yet'\n  ELSE 'SOURCE NOT VERIFIED: readings without a device counter' END AS \"Source\"\nFROM (SELECT edge_quality, seq FROM tenant_api.readings ORDER BY ts DESC LIMIT 100) r"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#8A5A00"
+     },
+     "noValue": "No readings yet"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "/.*/",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "text": {
+     "valueSize": 20
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 24,
+    "h": 3
+   },
+   "id": 2
+  },
+  {
+   "type": "stat",
+   "title": "Open pickups (simulated trucks)",
    "description": "",
    "datasource": {
     "type": "grafana-postgresql-datasource",
@@ -85,11 +140,11 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 3,
+    "y": 7,
     "w": 6,
     "h": 4
    },
-   "id": 2
+   "id": 3
   },
   {
    "type": "stat",
@@ -146,11 +201,11 @@
    },
    "gridPos": {
     "x": 6,
-    "y": 3,
+    "y": 7,
     "w": 6,
     "h": 4
    },
-   "id": 3
+   "id": 4
   },
   {
    "type": "stat",
@@ -211,11 +266,11 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 3,
+    "y": 7,
     "w": 6,
     "h": 4
    },
-   "id": 4
+   "id": 5
   },
   {
    "type": "stat",
@@ -276,11 +331,11 @@
    },
    "gridPos": {
     "x": 18,
-    "y": 3,
+    "y": 7,
     "w": 6,
     "h": 4
    },
-   "id": 5
+   "id": 6
   },
   {
    "type": "table",
@@ -315,11 +370,11 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 7,
+    "y": 11,
     "w": 24,
     "h": 6
    },
-   "id": 6
+   "id": 7
   },
   {
    "type": "table",
@@ -339,7 +394,7 @@
      "editorMode": "code",
      "rawQuery": true,
      "format": "table",
-     "rawSql": "SELECT done_at AS \"Emptied\", compactor_id AS \"Compactor\", verdict AS \"Verdict\", load_before_pct AS \"Full %\", kg_collected AS \"kg\",\n  net_eur AS \"Net €\", co2_kg AS \"CO₂ kg\", invoice_check AS \"Invoice\", verdict_reason AS \"Why\" FROM tenant_api.pickups WHERE status = 'done' AND $__timeFilter(done_at) AND compactor_id IN ($device) ORDER BY done_at DESC LIMIT 200"
+     "rawSql": "SELECT done_at AS \"Emptied\", compactor_id AS \"Compactor\", verdict AS \"Verdict\", load_before_pct AS \"Full %\", kg_collected AS \"kg\",\n  net_eur AS \"Net € (estimate)\", co2_kg AS \"CO₂ kg (estimate)\", invoice_check AS \"Simulated invoice\", verdict_reason AS \"Why\" FROM tenant_api.pickups WHERE status = 'done' AND $__timeFilter(done_at) AND compactor_id IN ($device) ORDER BY done_at DESC LIMIT 200"
     }
    ],
    "fieldConfig": {
@@ -391,11 +446,11 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 13,
+    "y": 17,
     "w": 24,
     "h": 11
    },
-   "id": 7
+   "id": 8
   }
  ],
  "templating": {

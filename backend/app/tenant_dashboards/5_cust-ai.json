@@ -20,80 +20,19 @@
    "title": "",
    "options": {
     "mode": "markdown",
-    "content": "### What the AI and the safety rules found\nRules catch broken sensors and wrong material. AI models judge each lift."
+    "content": "### What the AI and the safety rules found\nThe Origin column shows what produced each finding.\n\n**Real** = recorded by the system · **Estimated** = calculated with placeholder prices or factors · **Simulated** = not from physical hardware or a real operator"
    },
    "gridPos": {
     "x": 0,
     "y": 0,
     "w": 24,
-    "h": 3
+    "h": 4
    },
    "id": 1
   },
   {
    "type": "stat",
-   "title": "AI findings",
-   "description": "From the trained models",
-   "datasource": {
-    "type": "grafana-postgresql-datasource",
-    "uid": "tenant-pg"
-   },
-   "targets": [
-    {
-     "refId": "A",
-     "datasource": {
-      "type": "grafana-postgresql-datasource",
-      "uid": "tenant-pg"
-     },
-     "editorMode": "code",
-     "rawQuery": true,
-     "format": "table",
-     "rawSql": "SELECT count(*) FROM tenant_api.alerts WHERE $__timeFilter(ts) AND compactor_id IN ($device) AND type LIKE 'ml\\_%'"
-    }
-   ],
-   "fieldConfig": {
-    "defaults": {
-     "unit": "none",
-     "noValue": "–",
-     "color": {
-      "mode": "thresholds"
-     },
-     "thresholds": {
-      "mode": "absolute",
-      "steps": [
-       {
-        "color": "blue",
-        "value": null
-       }
-      ]
-     }
-    },
-    "overrides": []
-   },
-   "options": {
-    "reduceOptions": {
-     "calcs": [
-      "lastNotNull"
-     ],
-     "fields": "",
-     "values": false
-    },
-    "colorMode": "background",
-    "graphMode": "none",
-    "textMode": "value",
-    "justifyMode": "center"
-   },
-   "gridPos": {
-    "x": 0,
-    "y": 3,
-    "w": 6,
-    "h": 4
-   },
-   "id": 2
-  },
-  {
-   "type": "stat",
-   "title": "Lifts too early",
+   "title": "Where the weights on this page come from",
    "description": "",
    "datasource": {
     "type": "grafana-postgresql-datasource",
@@ -109,7 +48,62 @@
      "editorMode": "code",
      "rawQuery": true,
      "format": "table",
-     "rawSql": "SELECT count(*) FROM tenant_api.alerts WHERE $__timeFilter(ts) AND compactor_id IN ($device) AND type = 'ml_premature_unjustified'"
+     "rawSql": "SELECT CASE\n  WHEN count(*) = 0 THEN 'No readings yet'\n  WHEN bool_and(coalesce(edge_quality, '') = 'simulated') THEN 'SIMULATED: made-up demo history, no device connected'\n  WHEN bool_or(seq IS NOT NULL) THEN 'SIMULATED load cell: real ESP32 edge processing, no physical sensor yet'\n  ELSE 'SOURCE NOT VERIFIED: readings without a device counter' END AS \"Source\"\nFROM (SELECT edge_quality, seq FROM tenant_api.readings ORDER BY ts DESC LIMIT 100) r"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#8A5A00"
+     },
+     "noValue": "No readings yet"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "/.*/",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "text": {
+     "valueSize": 20
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 24,
+    "h": 3
+   },
+   "id": 2
+  },
+  {
+   "type": "stat",
+   "title": "AI model findings",
+   "description": "Output of the trained models, on simulated weights",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT count(*) FROM tenant_api.alerts WHERE $__timeFilter(ts) AND compactor_id IN ($device) AND type LIKE 'ml\\_%' AND NOT message LIKE 'Simulated demo:%'"
     }
    ],
    "fieldConfig": {
@@ -145,17 +139,17 @@
     "justifyMode": "center"
    },
    "gridPos": {
-    "x": 6,
-    "y": 3,
-    "w": 6,
+    "x": 0,
+    "y": 7,
+    "w": 8,
     "h": 4
    },
    "id": 3
   },
   {
    "type": "stat",
-   "title": "Lifts too late",
-   "description": "",
+   "title": "Rule findings",
+   "description": "Fixed safety rules: sensor faults, density",
    "datasource": {
     "type": "grafana-postgresql-datasource",
     "uid": "tenant-pg"
@@ -170,7 +164,7 @@
      "editorMode": "code",
      "rawQuery": true,
      "format": "table",
-     "rawSql": "SELECT count(*) FROM tenant_api.alerts WHERE $__timeFilter(ts) AND compactor_id IN ($device) AND type = 'ml_delayed_collection'"
+     "rawSql": "SELECT count(*) FROM tenant_api.alerts WHERE $__timeFilter(ts) AND compactor_id IN ($device) AND severity <> 'info' AND NOT type LIKE 'ml\\_%' AND NOT message LIKE 'Simulated demo:%'"
     }
    ],
    "fieldConfig": {
@@ -206,17 +200,17 @@
     "justifyMode": "center"
    },
    "gridPos": {
-    "x": 12,
-    "y": 3,
-    "w": 6,
+    "x": 8,
+    "y": 7,
+    "w": 8,
     "h": 4
    },
    "id": 4
   },
   {
    "type": "stat",
-   "title": "Wrong material",
-   "description": "Density outside the normal range",
+   "title": "Simulated examples",
+   "description": "Written by the demo seed. No model or rule produced these.",
    "datasource": {
     "type": "grafana-postgresql-datasource",
     "uid": "tenant-pg"
@@ -231,7 +225,7 @@
      "editorMode": "code",
      "rawQuery": true,
      "format": "table",
-     "rawSql": "SELECT count(*) FROM tenant_api.alerts WHERE $__timeFilter(ts) AND compactor_id IN ($device) AND type = 'contamination'"
+     "rawSql": "SELECT count(*) FROM tenant_api.alerts WHERE $__timeFilter(ts) AND compactor_id IN ($device) AND message LIKE 'Simulated demo:%'"
     }
    ],
    "fieldConfig": {
@@ -245,7 +239,7 @@
       "mode": "absolute",
       "steps": [
        {
-        "color": "blue",
+        "color": "#8A5A00",
         "value": null
        }
       ]
@@ -267,9 +261,9 @@
     "justifyMode": "center"
    },
    "gridPos": {
-    "x": 18,
-    "y": 3,
-    "w": 6,
+    "x": 16,
+    "y": 7,
+    "w": 8,
     "h": 4
    },
    "id": 5
@@ -292,7 +286,7 @@
      "editorMode": "code",
      "rawQuery": true,
      "format": "time_series",
-     "rawSql": "SELECT date_trunc('day', ts) AS \"time\", type AS metric, count(*) AS value FROM tenant_api.alerts WHERE $__timeFilter(ts) AND compactor_id IN ($device) AND severity <> 'info' GROUP BY 1, 2 ORDER BY 1"
+     "rawSql": "SELECT date_trunc('day', ts) AS \"time\", CASE WHEN message LIKE 'Simulated demo:%' THEN 'Simulated' WHEN type LIKE 'ml\\_%' THEN 'AI model' ELSE 'Rule' END AS metric, count(*) AS value FROM tenant_api.alerts WHERE $__timeFilter(ts) AND compactor_id IN ($device) AND severity <> 'info' GROUP BY 1, 2 ORDER BY 1"
     }
    ],
    "fieldConfig": {
@@ -319,7 +313,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 7,
+    "y": 11,
     "w": 24,
     "h": 9
    },
@@ -343,7 +337,7 @@
      "editorMode": "code",
      "rawQuery": true,
      "format": "table",
-     "rawSql": "SELECT ts AS \"Time\", compactor_id AS \"Compactor\", severity AS \"Severity\", type AS \"Type\", message AS \"What happened\"\nFROM tenant_api.alerts WHERE $__timeFilter(ts) AND compactor_id IN ($device) AND severity <> 'info' ORDER BY ts DESC LIMIT 100"
+     "rawSql": "SELECT ts AS \"Time\", compactor_id AS \"Compactor\", severity AS \"Severity\", CASE WHEN message LIKE 'Simulated demo:%' THEN 'Simulated' WHEN type LIKE 'ml\\_%' THEN 'AI model' ELSE 'Rule' END AS \"Origin\", type AS \"Type\", message AS \"What happened\"\nFROM tenant_api.alerts WHERE $__timeFilter(ts) AND compactor_id IN ($device) AND severity <> 'info' ORDER BY ts DESC LIMIT 100"
     }
    ],
    "fieldConfig": {
@@ -395,7 +389,7 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 16,
+    "y": 20,
     "w": 24,
     "h": 10
    },

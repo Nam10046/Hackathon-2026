@@ -20,15 +20,70 @@
    "title": "",
    "options": {
     "mode": "markdown",
-    "content": "### Your compactors at a glance\nOnly devices that belong to your company are shown."
+    "content": "### Your compactors at a glance\nOnly devices that belong to your company are shown.\n\n**Real** = recorded by the system · **Estimated** = calculated with placeholder prices or factors · **Simulated** = not from physical hardware or a real operator"
    },
    "gridPos": {
     "x": 0,
     "y": 0,
     "w": 24,
-    "h": 3
+    "h": 4
    },
    "id": 1
+  },
+  {
+   "type": "stat",
+   "title": "Where the weights on this page come from",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT CASE\n  WHEN count(*) = 0 THEN 'No readings yet'\n  WHEN bool_and(coalesce(edge_quality, '') = 'simulated') THEN 'SIMULATED: made-up demo history, no device connected'\n  WHEN bool_or(seq IS NOT NULL) THEN 'SIMULATED load cell: real ESP32 edge processing, no physical sensor yet'\n  ELSE 'SOURCE NOT VERIFIED: readings without a device counter' END AS \"Source\"\nFROM (SELECT edge_quality, seq FROM tenant_api.readings ORDER BY ts DESC LIMIT 100) r"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#8A5A00"
+     },
+     "noValue": "No readings yet"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "/.*/",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "text": {
+     "valueSize": 20
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 24,
+    "h": 3
+   },
+   "id": 2
   },
   {
    "type": "stat",
@@ -85,15 +140,15 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 3,
+    "y": 7,
     "w": 4,
     "h": 4
    },
-   "id": 2
+   "id": 3
   },
   {
    "type": "stat",
-   "title": "Weight in containers now",
+   "title": "Weight now (simulated)",
    "description": "",
    "datasource": {
     "type": "grafana-postgresql-datasource",
@@ -146,16 +201,16 @@
    },
    "gridPos": {
     "x": 4,
-    "y": 3,
+    "y": 7,
     "w": 4,
     "h": 4
    },
-   "id": 3
+   "id": 4
   },
   {
    "type": "stat",
-   "title": "Material value now",
-   "description": "Positive = you earn, negative = you pay",
+   "title": "Material value (estimate)",
+   "description": "Weight × placeholder price. Positive = you earn, negative = you pay",
    "datasource": {
     "type": "grafana-postgresql-datasource",
     "uid": "tenant-pg"
@@ -207,16 +262,16 @@
    },
    "gridPos": {
     "x": 8,
-    "y": 3,
+    "y": 7,
     "w": 4,
     "h": 4
    },
-   "id": 4
+   "id": 5
   },
   {
    "type": "stat",
-   "title": "CO₂ saved in period",
-   "description": "Estimate from collected kg and material factor",
+   "title": "CO₂ saved (estimate)",
+   "description": "Collected kg × placeholder material factor",
    "datasource": {
     "type": "grafana-postgresql-datasource",
     "uid": "tenant-pg"
@@ -268,11 +323,11 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 3,
+    "y": 7,
     "w": 4,
     "h": 4
    },
-   "id": 5
+   "id": 6
   },
   {
    "type": "stat",
@@ -337,16 +392,16 @@
    },
    "gridPos": {
     "x": 16,
-    "y": 3,
+    "y": 7,
     "w": 4,
     "h": 4
    },
-   "id": 6
+   "id": 7
   },
   {
    "type": "stat",
-   "title": "Next one full in",
-   "description": "AI fill forecast",
+   "title": "Next full in (estimate)",
+   "description": "Straight-line forecast from the filling speed, in site time",
    "datasource": {
     "type": "grafana-postgresql-datasource",
     "uid": "tenant-pg"
@@ -406,11 +461,11 @@
    },
    "gridPos": {
     "x": 20,
-    "y": 3,
+    "y": 7,
     "w": 4,
     "h": 4
    },
-   "id": 7
+   "id": 8
   },
   {
    "type": "table",
@@ -430,7 +485,7 @@
      "editorMode": "code",
      "rawQuery": true,
      "format": "table",
-     "rawSql": "SELECT c.name AS \"Compactor\", c.material AS \"Material\", s.load_pct AS \"Full %\", s.weight_kg AS \"kg\",\n  s.value_eur AS \"Value €\", s.hours_to_full AS \"Full in h\", s.last_ts AS \"Last reading\"\nFROM tenant_api.compactors c LEFT JOIN tenant_api.compactor_status s ON s.compactor_id = c.id ORDER BY c.id"
+     "rawSql": "SELECT c.name AS \"Compactor\", c.material AS \"Material\", s.load_pct AS \"Full %\", s.weight_kg AS \"kg\",\n  s.value_eur AS \"Value € (estimate)\", s.hours_to_full AS \"Full in h (estimate)\", s.last_ts AS \"Last reading\"\nFROM tenant_api.compactors c LEFT JOIN tenant_api.compactor_status s ON s.compactor_id = c.id ORDER BY c.id"
     }
    ],
    "fieldConfig": {
@@ -445,11 +500,11 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 7,
+    "y": 11,
     "w": 24,
     "h": 7
    },
-   "id": 8
+   "id": 9
   },
   {
    "type": "table",
@@ -469,7 +524,7 @@
      "editorMode": "code",
      "rawQuery": true,
      "format": "table",
-     "rawSql": "SELECT ts AS \"Time\", compactor_id AS \"Compactor\", severity AS \"Severity\", message AS \"What happened\"\nFROM tenant_api.alerts WHERE severity <> 'info' ORDER BY ts DESC LIMIT 8"
+     "rawSql": "SELECT ts AS \"Time\", compactor_id AS \"Compactor\", severity AS \"Severity\", CASE WHEN message LIKE 'Simulated demo:%' THEN 'Simulated' WHEN type LIKE 'ml\\_%' THEN 'AI model' ELSE 'Rule' END AS \"Origin\", message AS \"What happened\"\nFROM tenant_api.alerts WHERE severity <> 'info' ORDER BY ts DESC LIMIT 8"
     }
    ],
    "fieldConfig": {
@@ -521,11 +576,11 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 14,
+    "y": 18,
     "w": 24,
     "h": 8
    },
-   "id": 9
+   "id": 10
   }
  ],
  "templating": {

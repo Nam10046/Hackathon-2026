@@ -20,19 +20,19 @@
    "title": "",
    "options": {
     "mode": "markdown",
-    "content": "### When will each compactor be full?\nThe forecast follows the filling speed since the last emptying."
+    "content": "### When will each compactor be full?\nAn estimate from the filling speed since the last emptying, in site time: in fast demo mode 1 real minute is 1 site hour.\n\n**Real** = recorded by the system · **Estimated** = calculated with placeholder prices or factors · **Simulated** = not from physical hardware or a real operator"
    },
    "gridPos": {
     "x": 0,
     "y": 0,
     "w": 24,
-    "h": 3
+    "h": 4
    },
    "id": 1
   },
   {
-   "type": "table",
-   "title": "Forecast",
+   "type": "stat",
+   "title": "Where the weights on this page come from",
    "description": "",
    "datasource": {
     "type": "grafana-postgresql-datasource",
@@ -48,7 +48,62 @@
      "editorMode": "code",
      "rawQuery": true,
      "format": "table",
-     "rawSql": "SELECT c.name AS \"Compactor\", s.load_pct AS \"Full %\", c.on_call_threshold_pct AS \"Truck ordered at %\",\n  s.hours_to_full AS \"Full in h\", now() + s.hours_to_full * interval '1 hour' AS \"Expected full\"\nFROM tenant_api.compactors c JOIN tenant_api.compactor_status s ON s.compactor_id = c.id WHERE c.id IN ($device) ORDER BY s.hours_to_full NULLS LAST"
+     "rawSql": "SELECT CASE\n  WHEN count(*) = 0 THEN 'No readings yet'\n  WHEN bool_and(coalesce(edge_quality, '') = 'simulated') THEN 'SIMULATED: made-up demo history, no device connected'\n  WHEN bool_or(seq IS NOT NULL) THEN 'SIMULATED load cell: real ESP32 edge processing, no physical sensor yet'\n  ELSE 'SOURCE NOT VERIFIED: readings without a device counter' END AS \"Source\"\nFROM (SELECT edge_quality, seq FROM tenant_api.readings ORDER BY ts DESC LIMIT 100) r"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#8A5A00"
+     },
+     "noValue": "No readings yet"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "/.*/",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "text": {
+     "valueSize": 20
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 24,
+    "h": 3
+   },
+   "id": 2
+  },
+  {
+   "type": "table",
+   "title": "Forecast (estimate)",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT c.name AS \"Compactor\", s.load_pct AS \"Full %\", c.on_call_threshold_pct AS \"Truck ordered at %\",\n  s.hours_to_full AS \"Full in site hours (estimate)\"\nFROM tenant_api.compactors c JOIN tenant_api.compactor_status s ON s.compactor_id = c.id WHERE c.id IN ($device) ORDER BY s.hours_to_full NULLS LAST"
     }
    ],
    "fieldConfig": {
@@ -63,15 +118,15 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 3,
+    "y": 7,
     "w": 24,
     "h": 7
    },
-   "id": 2
+   "id": 3
   },
   {
    "type": "timeseries",
-   "title": "Fill level",
+   "title": "Fill level (simulated)",
    "description": "",
    "datasource": {
     "type": "grafana-postgresql-datasource",
@@ -114,11 +169,11 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 10,
+    "y": 14,
     "w": 24,
     "h": 10
    },
-   "id": 3
+   "id": 4
   }
  ],
  "templating": {

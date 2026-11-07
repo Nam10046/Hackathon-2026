@@ -20,19 +20,74 @@
    "title": "",
    "options": {
     "mode": "markdown",
-    "content": "### Live weight and fill level\nUpdates by itself every 30 seconds."
+    "content": "### Weight and fill level\nUpdates by itself every 30 seconds.\n\n**Real** = recorded by the system · **Estimated** = calculated with placeholder prices or factors · **Simulated** = not from physical hardware or a real operator"
    },
    "gridPos": {
     "x": 0,
     "y": 0,
     "w": 24,
-    "h": 3
+    "h": 4
    },
    "id": 1
   },
   {
+   "type": "stat",
+   "title": "Where the weights on this page come from",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT CASE\n  WHEN count(*) = 0 THEN 'No readings yet'\n  WHEN bool_and(coalesce(edge_quality, '') = 'simulated') THEN 'SIMULATED: made-up demo history, no device connected'\n  WHEN bool_or(seq IS NOT NULL) THEN 'SIMULATED load cell: real ESP32 edge processing, no physical sensor yet'\n  ELSE 'SOURCE NOT VERIFIED: readings without a device counter' END AS \"Source\"\nFROM (SELECT edge_quality, seq FROM tenant_api.readings ORDER BY ts DESC LIMIT 100) r"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#8A5A00"
+     },
+     "noValue": "No readings yet"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "/.*/",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "text": {
+     "valueSize": 20
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 24,
+    "h": 3
+   },
+   "id": 2
+  },
+  {
    "type": "gauge",
-   "title": "Fill level now",
+   "title": "Fill level now (simulated)",
    "description": "",
    "datasource": {
     "type": "grafana-postgresql-datasource",
@@ -88,15 +143,15 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 3,
+    "y": 7,
     "w": 24,
     "h": 7
    },
-   "id": 2
+   "id": 3
   },
   {
    "type": "timeseries",
-   "title": "Weight",
+   "title": "Weight (simulated)",
    "description": "",
    "datasource": {
     "type": "grafana-postgresql-datasource",
@@ -139,11 +194,11 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 10,
+    "y": 14,
     "w": 24,
     "h": 9
    },
-   "id": 3
+   "id": 4
   },
   {
    "type": "table",
@@ -178,11 +233,11 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 19,
+    "y": 23,
     "w": 24,
     "h": 8
    },
-   "id": 4
+   "id": 5
   }
  ],
  "templating": {

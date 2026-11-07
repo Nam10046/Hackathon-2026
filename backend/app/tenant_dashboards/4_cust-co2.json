@@ -20,19 +20,74 @@
    "title": "",
    "options": {
     "mode": "markdown",
-    "content": "### Your recycling impact\nCO₂ figures are estimates: collected kg × a factor per material."
+    "content": "### Your recycling impact\nCO₂ figures are estimates: collected kg × a placeholder factor per material.\n\n**Real** = recorded by the system · **Estimated** = calculated with placeholder prices or factors · **Simulated** = not from physical hardware or a real operator"
    },
    "gridPos": {
     "x": 0,
     "y": 0,
     "w": 24,
-    "h": 3
+    "h": 4
    },
    "id": 1
   },
   {
    "type": "stat",
-   "title": "CO₂ saved",
+   "title": "Where the weights on this page come from",
+   "description": "",
+   "datasource": {
+    "type": "grafana-postgresql-datasource",
+    "uid": "tenant-pg"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "datasource": {
+      "type": "grafana-postgresql-datasource",
+      "uid": "tenant-pg"
+     },
+     "editorMode": "code",
+     "rawQuery": true,
+     "format": "table",
+     "rawSql": "SELECT CASE\n  WHEN count(*) = 0 THEN 'No readings yet'\n  WHEN bool_and(coalesce(edge_quality, '') = 'simulated') THEN 'SIMULATED: made-up demo history, no device connected'\n  WHEN bool_or(seq IS NOT NULL) THEN 'SIMULATED load cell: real ESP32 edge processing, no physical sensor yet'\n  ELSE 'SOURCE NOT VERIFIED: readings without a device counter' END AS \"Source\"\nFROM (SELECT edge_quality, seq FROM tenant_api.readings ORDER BY ts DESC LIMIT 100) r"
+    }
+   ],
+   "fieldConfig": {
+    "defaults": {
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "#8A5A00"
+     },
+     "noValue": "No readings yet"
+    },
+    "overrides": []
+   },
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "/.*/",
+     "values": false
+    },
+    "colorMode": "background",
+    "graphMode": "none",
+    "textMode": "value",
+    "justifyMode": "center",
+    "text": {
+     "valueSize": 20
+    }
+   },
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 24,
+    "h": 3
+   },
+   "id": 2
+  },
+  {
+   "type": "stat",
+   "title": "CO₂ saved (estimate)",
    "description": "",
    "datasource": {
     "type": "grafana-postgresql-datasource",
@@ -85,15 +140,15 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 3,
+    "y": 7,
     "w": 6,
     "h": 4
    },
-   "id": 2
+   "id": 3
   },
   {
    "type": "stat",
-   "title": "Waste collected",
+   "title": "Waste collected (simulated)",
    "description": "",
    "datasource": {
     "type": "grafana-postgresql-datasource",
@@ -146,11 +201,11 @@
    },
    "gridPos": {
     "x": 6,
-    "y": 3,
+    "y": 7,
     "w": 6,
     "h": 4
    },
-   "id": 3
+   "id": 4
   },
   {
    "type": "stat",
@@ -207,11 +262,11 @@
    },
    "gridPos": {
     "x": 12,
-    "y": 3,
+    "y": 7,
     "w": 6,
     "h": 4
    },
-   "id": 4
+   "id": 5
   },
   {
    "type": "stat",
@@ -268,15 +323,15 @@
    },
    "gridPos": {
     "x": 18,
-    "y": 3,
+    "y": 7,
     "w": 6,
     "h": 4
    },
-   "id": 5
+   "id": 6
   },
   {
    "type": "timeseries",
-   "title": "CO₂ saved per day",
+   "title": "CO₂ saved per day (estimate)",
    "description": "",
    "datasource": {
     "type": "grafana-postgresql-datasource",
@@ -319,11 +374,11 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 7,
+    "y": 11,
     "w": 24,
     "h": 9
    },
-   "id": 6
+   "id": 7
   },
   {
    "type": "table",
@@ -343,7 +398,7 @@
      "editorMode": "code",
      "rawQuery": true,
      "format": "table",
-     "rawSql": "SELECT c.material AS \"Material\", sum(p.kg_collected) AS \"kg collected\", sum(p.co2_kg) AS \"CO₂ saved kg\", m.co2_factor AS \"Factor\"\nFROM tenant_api.pickups p JOIN tenant_api.compactors c ON c.id = p.compactor_id JOIN tenant_api.materials m ON m.name = c.material\nWHERE p.status = 'done' AND $__timeFilter(p.done_at) AND p.compactor_id IN ($device) GROUP BY 1, 4 ORDER BY 3 DESC"
+     "rawSql": "SELECT c.material AS \"Material\", sum(p.kg_collected) AS \"kg collected\", sum(p.co2_kg) AS \"CO₂ saved kg (estimate)\", m.co2_factor AS \"Placeholder factor\"\nFROM tenant_api.pickups p JOIN tenant_api.compactors c ON c.id = p.compactor_id JOIN tenant_api.materials m ON m.name = c.material\nWHERE p.status = 'done' AND $__timeFilter(p.done_at) AND p.compactor_id IN ($device) GROUP BY 1, 4 ORDER BY 3 DESC"
     }
    ],
    "fieldConfig": {
@@ -358,11 +413,11 @@
    },
    "gridPos": {
     "x": 0,
-    "y": 16,
+    "y": 20,
     "w": 24,
     "h": 6
    },
-   "id": 7
+   "id": 8
   }
  ],
  "templating": {

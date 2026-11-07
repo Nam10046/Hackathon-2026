@@ -1,4 +1,6 @@
-"""Two demo customers with their own devices and made-up history. Opt-in, safe to run again, deletes nothing:
+"""Two demo customers with their own devices and made-up history. Opt-in, safe to run again, deletes nothing.
+Everything it writes is marked as simulated, so dashboards can say so: readings have edge_quality='simulated', alerts
+start with "Simulated demo:". No AI model or rule produced these alerts.
     docker compose exec backend python -m app.seed_demo
 Uses separate devices (A-1xx, B-2xx), so the ESP32's C1-C3 data is never mixed with made-up numbers.
 Passwords: DEMO_CUSTOMER1_PASSWORD / DEMO_CUSTOMER2_PASSWORD, otherwise random and printed once."""
@@ -7,7 +9,7 @@ import random
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import insert, select
+from sqlalchemy import insert, select, update
 
 from app import auth, provision
 from app.ai import value
@@ -23,6 +25,16 @@ CUSTOMERS = [
 ]
 FEE = {"cardboard": 45.0, "plastic": 45.0, "mixed": 85.0}
 DAYS = 14
+SIM = "Simulated demo: "
+
+
+def mark_simulated(conn):
+    """Earlier seeds wrote no marker. Labels the rows of the demo devices; deletes and renames nothing else."""
+    ids = [d["id"] for c in CUSTOMERS for d in c["devices"]]
+    conn.execute(update(readings).where(readings.c.compactor_id.in_(ids), readings.c.seq.is_(None)).values(edge_quality="simulated"))
+    old = select(alerts.c.id, alerts.c.message).where(alerts.c.compactor_id.in_(ids), alerts.c.message.not_like(SIM + "%"))
+    for row in conn.execute(old).all():
+        conn.execute(update(alerts).where(alerts.c.id == row.id).values(message=SIM + row.message))
 
 
 def fill_history(conn, dev, mat):
@@ -48,19 +60,20 @@ def fill_history(conn, dev, mat):
                               invoice_fee_eur=fee, invoice_net_eur=round(inv_kg * mat["price_eur_per_kg"] - fee, 2),
                               invoice_check="WEIGHT_MISMATCH" if bad_invoice else "OK",
                               claim_eur=round(abs(kg - inv_kg) * abs(mat["price_eur_per_kg"]), 2) if bad_invoice else 0.0))
-            found.append(dict(compactor_id=dev["id"], ts=t, type="emptied", severity="info", message=f"Emptied at {load:.0f}%"))
+            found.append(dict(compactor_id=dev["id"], ts=t, type="emptied", severity="info", message=f"{SIM}Emptied at {load:.0f}%"))
             if verdict == "TOO_EARLY":
                 found.append(dict(compactor_id=dev["id"], ts=t, type="ml_premature_unjustified", severity="warning",
-                                  message=f"AI: this lift looks too early ({load:.0f}% full)"))
+                                  message=f"{SIM}example of an AI finding, lift too early ({load:.0f}% full)"))
             elif verdict == "TOO_LATE":
                 found.append(dict(compactor_id=dev["id"], ts=t, type="ml_delayed_collection", severity="warning",
-                                  message=f"AI: this lift came too late ({load:.0f}% full)"))
+                                  message=f"{SIM}example of an AI finding, lift too late ({load:.0f}% full)"))
             load = rng.uniform(0, 3)
         if rng.random() < 0.012:
             found.append(dict(compactor_id=dev["id"], ts=t, type="contamination", severity="warning",
-                              message=f"Density above normal for {dev['material']}: possible wrong material"))
+                              message=f"{SIM}example of a rule finding, density above normal for {dev['material']}"))
         kg = load / 100 * dev["capacity_kg"]
-        rows.append(dict(compactor_id=dev["id"], ts=t, weight_kg=round(kg, 1), fill_pct=round(min(load, 100), 1)))
+        rows.append(dict(compactor_id=dev["id"], ts=t, weight_kg=round(kg, 1), fill_pct=round(min(load, 100), 1),
+                         edge_quality="simulated"))
         t += timedelta(hours=1)
     conn.execute(insert(readings), rows)
     conn.execute(insert(alerts), found)
@@ -78,6 +91,8 @@ def fill_history(conn, dev, mat):
 def main():
     init_db()
     engine = get_engine()
+    with engine.begin() as conn:
+        mark_simulated(conn)
     for c in CUSTOMERS:
         with engine.begin() as conn:
             for dev in c["devices"]:
@@ -92,6 +107,8 @@ def main():
             print(f"customer '{c['name']}' created")
         for dev in c["devices"]:
             provision.assign_device(tid, dev["id"], "seed_demo")
+        with engine.connect() as conn:
+            provision.push_dashboards(conn.execute(select(tenants.c.grafana_org_id).where(tenants.c.id == tid)).scalar())
         with engine.connect() as conn:
             known = conn.execute(select(users.c.id).where(users.c.email == c["email"])).first()
         if known is None:
