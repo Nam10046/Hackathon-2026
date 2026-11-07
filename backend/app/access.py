@@ -1,38 +1,36 @@
-"""Who is asking? Admin sees all customers, a customer user sees only their own data (Analysis API).
+"""Who is asking? Taken ONLY from the login session (app/auth.py), never from headers the client sends.
 
-PLACEHOLDER until the user platform (teammate) is merged. That platform logs the user in, then calls this API
-server-to-server with:
-    X-User-Role: admin | customer
-    X-Customer:  <customer_name>          (required for role "customer")
-and, when ADMIN_API_KEY is set on the server, admins also send X-API-Key: <ADMIN_API_KEY>.
-Never let a browser set these headers directly: the platform must check the login first.
-No headers at all = admin, but only while ADMIN_API_KEY is empty (laptop / Grafana demo)."""
-import os
-from dataclasses import dataclass
+Admin sees every customer. A customer sees exactly the compactors an admin assigned to their tenant (tenant_devices)
+and the invoices entered for that tenant. Headers like X-User-Role / X-Customer are ignored on purpose: anyone can
+send them."""
+from dataclasses import dataclass, field
 
-from fastapi import Header, HTTPException
+from fastapi import Depends
+from sqlalchemy import select
+
+from app.auth import allowed_devices, current_user
+from app.db import get_engine, tenants
 
 
 @dataclass
 class Viewer:
-    role: str                    # "admin" or "customer"
-    customer: str | None = None  # set for customers
+    role: str                                   # "admin" or "customer"
+    customer: str | None = None                 # the tenant's name, for customers
+    devices: set[str] | None = field(default=None)   # compactors this viewer may see; None = all (admin)
+    email: str | None = None
 
     @property
     def is_admin(self) -> bool:
         return self.role == "admin"
 
 
-def who_is_asking(x_user_role: str | None = Header(default=None), x_customer: str | None = Header(default=None),
-                  x_api_key: str | None = Header(default=None)) -> Viewer:
-    role = (x_user_role or "admin").lower()
-    if role == "customer":
-        if not x_customer:
-            raise HTTPException(400, "X-Customer is required for role 'customer'")
-        return Viewer("customer", x_customer)
-    if role != "admin":
-        raise HTTPException(400, "X-User-Role must be 'admin' or 'customer'")
-    key = os.getenv("ADMIN_API_KEY", "")
-    if key and x_api_key != key:
-        raise HTTPException(401, "Admin access needs X-API-Key")
-    return Viewer("admin")
+def who_is_asking(user: dict = Depends(current_user)) -> Viewer:
+    if user["role"] == "admin":
+        return Viewer("admin", email=user.get("email"))
+    name = None
+    if user.get("tenant_id") is not None:
+        with get_engine().connect() as conn:
+            name = conn.execute(select(tenants.c.name).where(tenants.c.id == user["tenant_id"])).scalar()
+    # a customer without a tenant gets a name nobody has and no devices: sees nothing
+    return Viewer("customer", customer=name or f"(no customer: user {user.get('id')})",
+                  devices=allowed_devices(user), email=user.get("email"))

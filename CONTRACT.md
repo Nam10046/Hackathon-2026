@@ -58,6 +58,20 @@ Node-RED forwards the same JSON to the backend.
 | POST | `/pickups/book` | `{"compactor_id": "C1"}` — a **person** books a truck (API key). 409 if one is already booked. Page with buttons: `GET /book` (not under `/api`) |
 | POST | `/alerts/{id}/feedback` | `{"verdict": "CORRECT"\|"FALSE_ALARM", "decided_by", "note"}` — was this alert right? (API key) |
 
+**Reads need a session:** `/compactors*`, `/alerts` and `/pickups` need a signed-in user and return only that customer's devices.
+Another customer's device answers 404. `/cockpit/*` reads, `/cockpit/actions/{id}/decision` and `/models/performance` are admin-only. A decision needs a signed-in admin, the API key is not accepted, and `decided_by` is that admin's e-mail, whatever the request says. `/health`, `/materials` and `/models` stay open.
+
+| Method | Path | What it does |
+|---|---|---|
+| POST | `/auth/register` | `{"email","password","company"}` -> 202, pending account with no tenant |
+| POST | `/auth/login` | `{"email","password"}` -> `{"token","role","grafana_ready"}` + HttpOnly cookie. Scripts send `Authorization: Bearer <token>` |
+| POST | `/auth/logout` · GET `/auth/me` | End the session · who am I, which devices |
+| GET | `/admin/registrations`, `/admin/tenants`, `/admin/devices` | Admin only |
+| POST | `/admin/registrations/{id}/approve` | `{"tenant_id"}` or `{"new_tenant_name"}`, plus `"device_ids"` |
+| POST | `/admin/registrations/{id}/reject`, `/admin/tenants`, `/admin/devices` | Admin only |
+| POST / DELETE | `/admin/tenants/{id}/devices[/{compactor_id}]` | Hand over or take back a device |
+| POST | `/admin/tenants/{id}/status` | `{"status":"active"\|"suspended"}` |
+
 **Writes need a key:** if the server has `INGEST_API_KEY` set (always on Rahti), `POST` requests must send
 header `X-API-Key: <key>`. Reading (GET) is open. On the laptop the key is empty = open.
 
@@ -138,7 +152,15 @@ The invoice gets `suggestion` APPROVE \| CHECK; a person decides.
 Live money (Money & CO₂ page, `pickups.costs`) is a quick estimate: total cost = cost per lift − kg × price per tonne.
 Invoices typed in on the Analysis page are checked line by line against the measured lifts and tonnes (see the Analysis API above).
 
+| `tenants` | `id`, `slug`, `name`, `status`, `db_role`, `grafana_org_id`, `created_at` |
+| `users` | `id`, `email`, `password_hash`, `role`, `status`, `tenant_id`, `company_requested`, `grafana_user_id`, `failed_logins`, `locked_until`, `created_at`, `decided_by`, `decided_at` |
+| `tenant_devices` | `compactor_id` PK, `tenant_id`, `assigned_at`, `assigned_by` |
+| `auth_sessions` | `token_hash` PK, `user_id`, `expires_at` |
+
 Only the backend **writes**. Grafana and others **read**.
+
+Customer Grafana orgs read schema `tenant_api` (views `compactors`, `compactor_status`, `readings`, `alerts`, `pickups`, `materials`,
+`my_devices`), never the tables above. A new column on a base table does not reach customers until the view is recreated.
 
 ## 4. ML model folder
 
@@ -154,3 +176,4 @@ label (`1` normal, `-1` unusual) + score.
 | 2026-11-07 | Analysis on live data: the ESP32 site is a customer (`compactors.customer_name`, `operator_name`); invoices typed in and checked against the measurement (`invoices`, `invoice_lines`, `/analysis/*`, customer-scoped); invoice decisions | — |
 | 2026-11-07 | Live prices: `PUT /materials/{name}` (cost per lift, price per tonne), `materials.lift_fee_eur`; material plastic → biowaste | — |
 | 2026-11-07 | Manual truck booking: `/pickups/board`, `/pickups/book`, `pickup_needed` alert (no automatic booking) | — |
+| 2026-11-07 | Login, tenants, `/auth` + `/admin` endpoints, reads scoped per customer, `tenant_api` views | — |

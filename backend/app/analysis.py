@@ -2,7 +2,8 @@
 problems it found, invoices the customer types in, the check of each invoice against the measurement, and decisions.
 (The Europress dataset is only used to TRAIN the models; it is not shown here.)
 
-Admin sees every customer; a customer user sees ONLY their own rows (see app/access.py).
+Everything needs a login (app/auth.py). Admin sees every customer; a customer sees ONLY the compactors assigned to
+their tenant and that tenant's invoices (app/access.py). Writes are protected by the login session, not by a key.
   GET  /api/analysis/summary                       lifts, kg, verdicts, issues, estimated cost, invoices to check, € overcharged
   GET  /api/analysis/customers | /operators        names this viewer may see
   GET  /api/analysis/problems?limit=100            issues, newest first: lifts too early / too late (one per lift) and
@@ -28,7 +29,6 @@ from sqlalchemy import insert, select, text
 from app import invoice_check
 from app.access import Viewer, who_is_asking
 from app.db import DEMO_CUSTOMER, compactors, get_engine, invoice_decisions, invoice_lines, invoices
-from app.security import require_key
 
 router = APIRouter()
 PAGE = Path(__file__).parent / "static" / "invoices.html"
@@ -106,8 +106,19 @@ class InvoiceDecisionIn(BaseModel):
 
 
 def _scope(v: Viewer, col: str):
-    """SQL filter + parameters for what this viewer may see."""
-    return ("1 = 1", {}) if v.is_admin else (f"{col} = :customer", {"customer": v.customer})
+    """SQL filter + parameters for what this viewer may see (admin: everything).
+    Invoices (i.customer_name) belong to the customer's tenant; compactor data (c.customer_name / customer_name on the
+    compactors table) is limited to the devices an admin assigned to that tenant (tenant_devices)."""
+    if v.is_admin:
+        return "1 = 1", {}
+    if col.startswith("i."):
+        return f"{col} = :customer", {"customer": v.customer}
+    id_col = "c.id" if col.startswith("c.") else "id"
+    devices = sorted(v.devices or [])
+    if not devices:
+        return "1 = 0", {}
+    names = [f"dev{i}" for i in range(len(devices))]
+    return f"{id_col} IN ({', '.join(':' + n for n in names)})", dict(zip(names, devices))
 
 
 def _rows(sql, params=None):
@@ -192,7 +203,7 @@ def draft(operator: str, period_from: date, period_to: date, customer: str | Non
         return invoice_check.draft_from_measurement(conn, _customer_for(v, customer), operator, period_from, period_to)
 
 
-@router.post("/api/analysis/invoices", dependencies=[Depends(require_key)])
+@router.post("/api/analysis/invoices")
 def enter_invoice(body: InvoiceIn, v: Viewer = Depends(who_is_asking)):
     cust = _customer_for(v, body.customer_name)
     with get_engine().begin() as conn:
@@ -228,14 +239,14 @@ def invoice(invoice_id: str, v: Viewer = Depends(who_is_asking)):
     return inv
 
 
-@router.post("/api/analysis/invoices/{invoice_id}/check", dependencies=[Depends(require_key)])
+@router.post("/api/analysis/invoices/{invoice_id}/check")
 def recheck(invoice_id: str, v: Viewer = Depends(who_is_asking)):
     _one_invoice(invoice_id, v)
     with get_engine().begin() as conn:
         return invoice_check.check(conn, invoice_id)
 
 
-@router.post("/api/analysis/invoices/{invoice_id}/decision", dependencies=[Depends(require_key)])
+@router.post("/api/analysis/invoices/{invoice_id}/decision")
 def decide(invoice_id: str, body: InvoiceDecisionIn, v: Viewer = Depends(who_is_asking)):
     _one_invoice(invoice_id, v)                       # 404 if it is not this viewer's invoice
     row = {"invoice_id": invoice_id, "decision": body.decision, "decided_by": body.decided_by.strip(), "role": v.role,

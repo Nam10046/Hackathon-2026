@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import inspect, insert, text
 
 from app.db import action_decisions, get_engine
-from app.security import require_key
+from app.auth import enforced, require_admin
 
 router = APIRouter()
 PAGE = Path(__file__).parent / "static" / "cockpit.html"
@@ -38,7 +38,7 @@ def _has_col(col: str, table: str = "cp_actions") -> bool:
 
 class DecisionIn(BaseModel):
     decision: Literal["APPROVE", "REJECT", "REVERT"]
-    decided_by: str = Field(min_length=1, max_length=80)
+    decided_by: str | None = Field(default=None, max_length=80)   # ignored when login is on: the account decides
     note: str | None = Field(default=None, max_length=500)
 
 
@@ -47,7 +47,7 @@ def _status(row: dict) -> str:
     return "PENDING" if d in (None, "REVERT") else ("APPROVED" if d == "APPROVE" else "REJECTED")
 
 
-@router.get("/api/cockpit/actions")
+@router.get("/api/cockpit/actions", dependencies=[Depends(require_admin)])
 def list_actions(status: str | None = None, limit: int = 300):
     if not _ready():
         return []
@@ -62,7 +62,7 @@ def list_actions(status: str | None = None, limit: int = 300):
     return rows[:limit]
 
 
-@router.get("/api/cockpit/actions/{action_id}/evidence")
+@router.get("/api/cockpit/actions/{action_id}/evidence", dependencies=[Depends(require_admin)])
 def evidence(action_id: str, limit: int = 25):
     """Trace a recommendation back to the source rows: findings for the same device, newest first."""
     if not _ready():
@@ -84,17 +84,19 @@ def evidence(action_id: str, limit: int = 25):
     return {"action": dict(act), "findings": [dict(f) for f in flags], "decision_history": [dict(h) for h in history]}
 
 
-@router.post("/api/cockpit/actions/{action_id}/decision", dependencies=[Depends(require_key)])
-def decide(action_id: str, body: DecisionIn):
+@router.post("/api/cockpit/actions/{action_id}/decision")
+def decide(action_id: str, body: DecisionIn, admin: dict = Depends(require_admin)):
+    """Only a signed-in admin, and the log names that account, so a decision cannot be made in someone else's name."""
+    who = admin["email"] if enforced() else (body.decided_by or admin["email"])
     if not _ready():
         raise HTTPException(404, "Cockpit not built yet — run analytics/build_cockpit.py")
     with get_engine().begin() as conn:
         if conn.execute(text("SELECT 1 FROM cp_actions WHERE action_id = :a"), {"a": action_id}).first() is None:
             raise HTTPException(404, f"Unknown action '{action_id}'")
         conn.execute(insert(action_decisions).values(
-            action_id=action_id, decision=body.decision, decided_by=body.decided_by, note=body.note,
+            action_id=action_id, decision=body.decision, decided_by=who, note=body.note,
             decided_at=datetime.now(timezone.utc)))
-    return {"action_id": action_id, "decision": body.decision, "status": _status({"decision": body.decision})}
+    return {"action_id": action_id, "decision": body.decision, "decided_by": who, "status": _status({"decision": body.decision})}
 
 
 @router.get("/cockpit", response_class=HTMLResponse, include_in_schema=False)

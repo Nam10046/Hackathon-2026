@@ -63,6 +63,7 @@ async function refresh() {
   if (busy) return;
   try {
     const r = await fetch("/api/pickups/board");
+    if (r.status === 401) throw new Error("Sign in first at http://localhost:8000/portal (then reload this page)");
     if (!r.ok) throw new Error(r.status);
     grid.innerHTML = (await r.json()).map(card).join("");
     if (msg.dataset.offline || !msg.classList.contains("err")) { msg.className = "msg"; msg.textContent = "Only a person books a truck. Updates every 5 s."; }

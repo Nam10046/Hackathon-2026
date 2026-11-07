@@ -36,6 +36,35 @@
     "y": 120,
     "wires": [
       [
+        "add_api_key"
+      ]
+    ]
+  },
+  {
+    "id": "add_api_key",
+    "type": "change",
+    "z": "tab_ingest",
+    "name": "add X-API-Key",
+    "rules": [
+      {
+        "t": "set",
+        "p": "headers",
+        "pt": "msg",
+        "to": "{}",
+        "tot": "json"
+      },
+      {
+        "t": "set",
+        "p": "headers[\"X-API-Key\"]",
+        "pt": "msg",
+        "to": "INGEST_API_KEY",
+        "tot": "env"
+      }
+    ],
+    "x": 290,
+    "y": 80,
+    "wires": [
+      [
         "http_post_reading"
       ]
     ]

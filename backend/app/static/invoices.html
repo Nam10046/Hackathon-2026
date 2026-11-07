@@ -171,6 +171,7 @@ async function loadList() {
   if ($("customer").value) q.set("customer", $("customer").value);
   const r = await fetch("/api/analysis/invoices?" + q);
   const rows = await r.json().catch(() => []);
+  if (r.status === 401) { $("list").innerHTML = `<div class="item err">Sign in first at http://localhost:8000/portal (then reload this page)</div>`; return; }
   if (!r.ok) { $("list").innerHTML = `<div class="item err">${esc(detail(rows, r.status))}</div>`; return; }
   $("count").textContent = `${rows.length} invoice(s)`;
   $("list").innerHTML = rows.map((i) => `<div class="item${i.invoice_id === current ? " on" : ""}" data-id="${esc(i.invoice_id)}">
