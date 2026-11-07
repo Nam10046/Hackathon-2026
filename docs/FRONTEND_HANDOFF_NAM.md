@@ -1,6 +1,6 @@
 # Frontend handoff for Nam
 
-Branch: `feature/ux-upgrade`. It contains `feature/multi-tenant-auth`, which contains `feature/compactor-framework`.
+Branch: `feature/live-pickups-ux`, based on `feature/compactor-framework` at `3cfdb30`. **Read `README_NAM.md` first:** it does not contain your commit `f4f653b` yet.
 Portal and Cockpit were redesigned without firmware. Everything marked "Requires Nam" below still needs your board or the Europress dataset.
 
 ## A. Architecture
@@ -58,7 +58,7 @@ Status is always written in words too, never colour alone.
 Windows PowerShell, from the repository root:
 ```powershell
 git fetch origin
-git switch feature/ux-upgrade
+git switch feature/live-pickups-ux
 python scripts/init_env.py          # adds missing secrets to .env, keeps your values, prints none
 docker compose up -d --build
 docker compose exec backend python -m app.seed_demo    # optional demo customers
